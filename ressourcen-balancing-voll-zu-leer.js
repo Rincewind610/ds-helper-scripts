@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 0.4.0
+Version: 0.5.0
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -11,8 +11,8 @@ Liest alle Dörfer aus der Produktionsübersicht
 einschließlich Ressourcen, Lagerkapazität und
 verfügbarer Händler ein.
 
-Die eigentliche Balancing-Funktion folgt in
-einer späteren Version.
+Die Dörfer werden nach ihrem prozentualen
+Lagerfüllstand absteigend sortiert.
 =======================================
 */
 
@@ -70,6 +70,14 @@ einer späteren Version.
 
         try {
             state.villages = await loadAllVillages();
+
+            state.villages.sort((villageA, villageB) => {
+    if (villageB.fill !== villageA.fill) {
+        return villageB.fill - villageA.fill;
+    }
+
+    return villageB.totalResources - villageA.totalResources;
+});
 
             updateSummary(state.villages);
             renderVillageTable(state.villages);
