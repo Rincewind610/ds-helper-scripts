@@ -32,6 +32,9 @@ Lagerfüllstand absteigend sortiert.
 
     // Transportberechnung erfolgt nach Lagerfüllstand
     sortMode: 'fill'
+    
+    // 
+    merchantCapacity: 1500,
 
 };
 
@@ -174,7 +177,7 @@ function calculateTransportForPair(pair) {
     const receiver = pair.receiver;
 
     const merchantCapacity =
-        sender.merchants * 1000;
+        sender.merchants * CONFIG.merchantCapacity
 
     const resourceNames = [
         'wood',
@@ -372,7 +375,7 @@ function calculateTransportForPair(pair) {
         total: transferredTotal,
 
         merchants: Math.ceil(
-            transferredTotal / 1000
+            transferredTotal / CONFIG.merchantCapacity
         ),
 
         senderFillBefore: sender.fill,
