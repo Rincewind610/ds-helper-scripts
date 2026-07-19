@@ -102,7 +102,7 @@ async function readVillages() {
         .filter(transport => transport.total > 0);
 
         updateSummary(state.villages);
-        renderVillageTable(state.villages);
+        renderTransportTable(state.transports);
 
         setStatus(
             `${state.villages.length} Dörfer eingelesen und ` +
@@ -754,27 +754,28 @@ function calculateTransportForPair(pair) {
 
                     <div class="dshelper-table-wrapper">
                         <table class="dshelper-table">
-                            <thead>
-                                <tr>
-                                    <th>Nr.</th>
-                                    <th>Dorf</th>
-                                    <th>Holz</th>
-                                    <th>Lehm</th>
-                                    <th>Eisen</th>
-                                    <th>Gesamt</th>
-                                    <th>Lager</th>
-                                    <th>Händler</th>
-                                    <th>Füllstand</th>
-                                </tr>
-                            </thead>
+<thead>
+    <tr>
+        <th>Nr.</th>
+        <th>Von</th>
+        <th>Nach</th>
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
+        <th>Gesamt</th>
+        <th>Händler</th>
+        <th>Absender</th>
+        <th>Empfänger</th>
+    </tr>
+</thead>
 
-                            <tbody id="dshelper-village-table">
-                                <tr>
-                                    <td colspan="9">
-                                        Noch keine Dörfer eingelesen.
-                                    </td>
-                                </tr>
-                            </tbody>
+<tbody id="dshelper-village-table">
+    <tr>
+        <td colspan="10">
+            Transporte werden berechnet …
+        </td>
+    </tr>
+</tbody>
                         </table>
                     </div>
                 </div>
@@ -883,6 +884,107 @@ function calculateTransportForPair(pair) {
             .join('');
     }
 
+    /**
+ * Zeigt alle berechneten Transporte an.
+ */
+function renderTransportTable(transports) {
+    const tableBody =
+        document.getElementById(
+            'dshelper-village-table'
+        );
+
+    if (!tableBody) {
+        return;
+    }
+
+    if (transports.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="10">
+                    Keine Transporte berechnet.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    tableBody.innerHTML = transports
+        .map((transport, index) => {
+            return `
+                <tr>
+                    <td>
+                        ${index + 1}
+                    </td>
+
+                    <td class="dshelper-village">
+                        <a
+                            href="${game_data.link_base_pure}info_village&id=${transport.sender.id}"
+                            target="_blank"
+                        >
+                            ${escapeHtml(transport.sender.coord)}
+                        </a>
+
+                        <small>
+                            ${escapeHtml(transport.sender.name)}
+                        </small>
+                    </td>
+
+                    <td class="dshelper-village">
+                        <a
+                            href="${game_data.link_base_pure}info_village&id=${transport.receiver.id}"
+                            target="_blank"
+                        >
+                            ${escapeHtml(transport.receiver.coord)}
+                        </a>
+
+                        <small>
+                            ${escapeHtml(transport.receiver.name)}
+                        </small>
+                    </td>
+
+                    <td>
+                        ${formatNumber(transport.wood)}
+                    </td>
+
+                    <td>
+                        ${formatNumber(transport.stone)}
+                    </td>
+
+                    <td>
+                        ${formatNumber(transport.iron)}
+                    </td>
+
+                    <td>
+                        <strong>
+                            ${formatNumber(transport.total)}
+                        </strong>
+                    </td>
+
+                    <td>
+                        ${formatNumber(transport.merchants)}
+                    </td>
+
+                    <td>
+                        ${formatPercent(transport.senderFillBefore)}
+                        →
+                        <strong>
+                            ${formatPercent(transport.senderFillAfter)}
+                        </strong>
+                    </td>
+
+                    <td>
+                        ${formatPercent(transport.receiverFillBefore)}
+                        →
+                        <strong>
+                            ${formatPercent(transport.receiverFillAfter)}
+                        </strong>
+                    </td>
+                </tr>
+            `;
+        })
+        .join('');
+}
     /**
      * Aktualisiert die Zusammenfassung.
      */
