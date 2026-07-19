@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 0.5.0
+Version: 0.5.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -97,6 +97,10 @@ async function readVillages() {
             state.villages
         );
 
+        state.transports = state.pairs
+        .map(calculateTransportForPair)
+        .filter(transport => transport.total > 0);
+
         updateSummary(state.villages);
         renderVillageTable(state.villages);
 
@@ -107,9 +111,9 @@ async function readVillages() {
         );
 
         console.log(
-            'Berechnete Paarungen:',
-            state.pairs
-        );
+        'Berechnete Transporte:',
+        state.transports
+);
     } catch (error) {
         console.error(error);
 
@@ -158,6 +162,232 @@ function createVillagePairs(villages) {
     }
 
     return pairs;
+}
+/**
+ * Berechnet den maximal möglichen Transport für ein Dorfpaar.
+ *
+ * Die Ressourcen werden bevorzugt in die beim Empfänger
+ * am niedrigsten gefüllten Rohstofflager geschickt.
+ */
+function calculateTransportForPair(pair) {
+    const sender = pair.sender;
+    const receiver = pair.receiver;
+
+    const merchantCapacity =
+        sender.merchants * 1000;
+
+    const resourceNames = [
+        'wood',
+        'stone',
+        'iron'
+    ];
+
+    const currentReceiverResources = {
+        wood: receiver.resources.wood,
+        stone: receiver.resources.stone,
+        iron: receiver.resources.iron
+    };
+
+    const maximumTransfer = {
+        wood: Math.max(
+            0,
+            Math.min(
+                sender.resources.wood,
+                receiver.storage -
+                    receiver.resources.wood
+            )
+        ),
+
+        stone: Math.max(
+            0,
+            Math.min(
+                sender.resources.stone,
+                receiver.storage -
+                    receiver.resources.stone
+            )
+        ),
+
+        iron: Math.max(
+            0,
+            Math.min(
+                sender.resources.iron,
+                receiver.storage -
+                    receiver.resources.iron
+            )
+        )
+    };
+
+    const totalPossible =
+        maximumTransfer.wood +
+        maximumTransfer.stone +
+        maximumTransfer.iron;
+
+    const requestedTotal = Math.min(
+        merchantCapacity,
+        totalPossible
+    );
+
+    if (requestedTotal <= 0) {
+        return {
+            sender,
+            receiver,
+            wood: 0,
+            stone: 0,
+            iron: 0,
+            total: 0,
+            merchants: 0
+        };
+    }
+
+    /*
+     * Ermittelt per Binärsuche den höchsten gemeinsamen
+     * Zielbestand, der mit der vorhandenen Händlerkapazität
+     * erreicht werden kann.
+     */
+    let lowerTarget = Math.min(
+        currentReceiverResources.wood,
+        currentReceiverResources.stone,
+        currentReceiverResources.iron
+    );
+
+    let upperTarget = receiver.storage;
+
+    while (lowerTarget < upperTarget) {
+        const target = Math.ceil(
+            (lowerTarget + upperTarget) / 2
+        );
+
+        const requiredResources =
+            resourceNames.reduce(
+                (sum, resourceName) => {
+                    const required = Math.max(
+                        0,
+                        target -
+                            currentReceiverResources[
+                                resourceName
+                            ]
+                    );
+
+                    return sum + Math.min(
+                        required,
+                        maximumTransfer[
+                            resourceName
+                        ]
+                    );
+                },
+                0
+            );
+
+        if (requiredResources <= requestedTotal) {
+            lowerTarget = target;
+        } else {
+            upperTarget = target - 1;
+        }
+    }
+
+    const transfer = {
+        wood: 0,
+        stone: 0,
+        iron: 0
+    };
+
+    resourceNames.forEach(resourceName => {
+        transfer[resourceName] = Math.min(
+            Math.max(
+                0,
+                lowerTarget -
+                    currentReceiverResources[
+                        resourceName
+                    ]
+            ),
+            maximumTransfer[resourceName]
+        );
+    });
+
+    let transferredTotal =
+        transfer.wood +
+        transfer.stone +
+        transfer.iron;
+
+    let remaining =
+        requestedTotal - transferredTotal;
+
+    /*
+     * Durch Rundungen können noch wenige Ressourcen übrig sein.
+     * Diese gehen erneut an den jeweils niedrigsten Bestand.
+     */
+    while (remaining > 0) {
+        const possibleResources =
+            resourceNames
+                .filter(resourceName => {
+                    return (
+                        transfer[resourceName] <
+                        maximumTransfer[resourceName]
+                    );
+                })
+                .sort((resourceA, resourceB) => {
+                    const finalA =
+                        currentReceiverResources[
+                            resourceA
+                        ] +
+                        transfer[resourceA];
+
+                    const finalB =
+                        currentReceiverResources[
+                            resourceB
+                        ] +
+                        transfer[resourceB];
+
+                    return finalA - finalB;
+                });
+
+        if (possibleResources.length === 0) {
+            break;
+        }
+
+        const resourceName =
+            possibleResources[0];
+
+        transfer[resourceName]++;
+        remaining--;
+        transferredTotal++;
+    }
+
+    const senderAfterTotal =
+        sender.totalResources -
+        transferredTotal;
+
+    const receiverAfterTotal =
+        receiver.totalResources +
+        transferredTotal;
+
+    return {
+        sender,
+        receiver,
+
+        wood: transfer.wood,
+        stone: transfer.stone,
+        iron: transfer.iron,
+
+        total: transferredTotal,
+
+        merchants: Math.ceil(
+            transferredTotal / 1000
+        ),
+
+        senderFillBefore: sender.fill,
+        receiverFillBefore: receiver.fill,
+
+        senderFillAfter:
+            senderAfterTotal /
+            (sender.storage * 3) *
+            100,
+
+        receiverFillAfter:
+            receiverAfterTotal /
+            (receiver.storage * 3) *
+            100
+    };
 }
 
     /**
