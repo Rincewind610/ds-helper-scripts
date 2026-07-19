@@ -26,16 +26,9 @@ Lagerfüllstand absteigend sortiert.
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
     const CONFIG = {
-
-    // maximale Wartezeit zwischen zwei Requests
     requestDelay: 200,
-
-    // Transportberechnung erfolgt nach Lagerfüllstand
-    sortMode: 'fill'
-    
-    // 
-    merchantCapacity: 1500,
-
+    sortMode: 'fill',
+    merchantCapacity: 1500
 };
 
     const state = {
