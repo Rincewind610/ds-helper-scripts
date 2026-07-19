@@ -21,14 +21,25 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '0.4.0';
+    const VERSION = '0.5.1';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
+    const CONFIG = {
+
+    // maximale Wartezeit zwischen zwei Requests
+    requestDelay: 200,
+
+    // Transportberechnung erfolgt nach Lagerfüllstand
+    sortMode: 'fill'
+
+};
 
     const state = {
-        villages: []
-    };
+    villages: [],
+    pairs: [],
+    transports: []
+};
 
     const urlParams = new URLSearchParams(window.location.search);
 
@@ -59,54 +70,95 @@ Lagerfüllstand absteigend sortiert.
     /**
      * Liest alle Dörfer erneut ein.
      */
-    async function readVillages() {
-        disableReloadButton(true);
+async function readVillages() {
+    disableReloadButton(true);
 
-        setStatus(
-            'Produktionsübersicht wird eingelesen …'
+    setStatus(
+        'Produktionsübersicht wird eingelesen …'
+    );
+
+    clearVillageTable();
+
+    try {
+        state.villages = await loadAllVillages();
+
+        state.villages.sort((villageA, villageB) => {
+            if (villageB.fill !== villageA.fill) {
+                return villageB.fill - villageA.fill;
+            }
+
+            return (
+                villageB.totalResources -
+                villageA.totalResources
+            );
+        });
+
+        state.pairs = createVillagePairs(
+            state.villages
         );
 
-        clearVillageTable();
+        updateSummary(state.villages);
+        renderVillageTable(state.villages);
 
-        try {
-            state.villages = await loadAllVillages();
+        setStatus(
+            `${state.villages.length} Dörfer eingelesen und ` +
+            `${state.pairs.length} Paarungen berechnet.`,
+            'success'
+        );
 
-            state.villages.sort((villageA, villageB) => {
-    if (villageB.fill !== villageA.fill) {
-        return villageB.fill - villageA.fill;
+        console.log(
+            'Berechnete Paarungen:',
+            state.pairs
+        );
+    } catch (error) {
+        console.error(error);
+
+        setStatus(
+            `Fehler: ${error.message}`,
+            'error'
+        );
+
+        UI.ErrorMessage(
+            'Die Produktionsübersicht konnte nicht vollständig eingelesen werden.',
+            6000
+        );
+    } finally {
+        disableReloadButton(false);
+    }
+}
+
+/**
+ * Paart das vollste Dorf mit dem leersten Dorf,
+ * das zweitvollste mit dem zweitleersten usw.
+ */
+function createVillagePairs(villages) {
+    const pairs = [];
+    const pairCount = Math.floor(
+        villages.length / 2
+    );
+
+    for (
+        let index = 0;
+        index < pairCount;
+        index++
+    ) {
+        const sender = villages[index];
+
+        const receiver =
+            villages[
+                villages.length - 1 - index
+            ];
+
+        pairs.push({
+            sender,
+            receiver,
+            fillDifference:
+                sender.fill - receiver.fill
+        });
     }
 
-    return villageB.totalResources - villageA.totalResources;
-});
-
-            updateSummary(state.villages);
-            renderVillageTable(state.villages);
-
-            setStatus(
-                `${state.villages.length} Dörfer wurden erfolgreich eingelesen.`,
-                'success'
-            );
-
-            console.log(
-                `${SCRIPT_TITLE} ${VERSION}`,
-                state.villages
-            );
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                `Fehler: ${error.message}`,
-                'error'
-            );
-
-            UI.ErrorMessage(
-                'Die Produktionsübersicht konnte nicht vollständig eingelesen werden.',
-                6000
-            );
-        } finally {
-            disableReloadButton(false);
-        }
-    }
+    return pairs;
+}
 
     /**
      * Lädt alle Seiten der Produktionsübersicht.
@@ -152,7 +204,7 @@ Lagerfüllstand absteigend sortiert.
             });
 
             if (pageIndex < pageUrls.length - 1) {
-                await wait(200);
+                await wait(CONFIG.requestDelay);
             }
         }
 
