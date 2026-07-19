@@ -766,12 +766,13 @@ function calculateTransportForPair(pair) {
         <th>Händler</th>
         <th>Absender</th>
         <th>Empfänger</th>
+        <th>Aktion</th>
     </tr>
 </thead>
 
 <tbody id="dshelper-village-table">
     <tr>
-        <td colspan="10">
+        <td colspan="11">
             Transporte werden berechnet …
         </td>
     </tr>
@@ -887,6 +888,9 @@ function calculateTransportForPair(pair) {
     /**
  * Zeigt alle berechneten Transporte an.
  */
+/**
+ * Zeigt alle berechneten Transporte an.
+ */
 function renderTransportTable(transports) {
     const tableBody =
         document.getElementById(
@@ -900,7 +904,7 @@ function renderTransportTable(transports) {
     if (transports.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="10">
+                <td colspan="11">
                     Keine Transporte berechnet.
                 </td>
             </tr>
@@ -913,17 +917,12 @@ function renderTransportTable(transports) {
         .map((transport, index) => {
             return `
                 <tr>
-                    <td>
-                        ${index + 1}
-                    </td>
+                    <td>${index + 1}</td>
 
                     <td class="dshelper-village">
-                        <a
-                            href="${game_data.link_base_pure}info_village&id=${transport.sender.id}"
-                            target="_blank"
-                        >
+                        <strong>
                             ${escapeHtml(transport.sender.coord)}
-                        </a>
+                        </strong>
 
                         <small>
                             ${escapeHtml(transport.sender.name)}
@@ -931,12 +930,9 @@ function renderTransportTable(transports) {
                     </td>
 
                     <td class="dshelper-village">
-                        <a
-                            href="${game_data.link_base_pure}info_village&id=${transport.receiver.id}"
-                            target="_blank"
-                        >
+                        <strong>
                             ${escapeHtml(transport.receiver.coord)}
-                        </a>
+                        </strong>
 
                         <small>
                             ${escapeHtml(transport.receiver.name)}
@@ -966,24 +962,199 @@ function renderTransportTable(transports) {
                     </td>
 
                     <td>
-                        ${formatPercent(transport.senderFillBefore)}
+                        ${formatPercent(
+                            transport.senderFillBefore
+                        )}
                         →
                         <strong>
-                            ${formatPercent(transport.senderFillAfter)}
+                            ${formatPercent(
+                                transport.senderFillAfter
+                            )}
                         </strong>
                     </td>
 
                     <td>
-                        ${formatPercent(transport.receiverFillBefore)}
+                        ${formatPercent(
+                            transport.receiverFillBefore
+                        )}
                         →
                         <strong>
-                            ${formatPercent(transport.receiverFillAfter)}
+                            ${formatPercent(
+                                transport.receiverFillAfter
+                            )}
                         </strong>
+                    </td>
+
+                    <td>
+                        <button
+                            type="button"
+                            class="btn dshelper-open-transport"
+                            data-transport-index="${index}"
+                        >
+                            Öffnen
+                        </button>
                     </td>
                 </tr>
             `;
         })
         .join('');
+
+    tableBody
+        .querySelectorAll(
+            '.dshelper-open-transport'
+        )
+        .forEach(button => {
+            button.addEventListener(
+                'click',
+                function () {
+                    const transportIndex = Number(
+                        this.dataset.transportIndex
+                    );
+
+                    const transport =
+                        transports[transportIndex];
+
+                    openTransportInMarket(transport);
+                }
+            );
+        });
+}
+    /**
+ * Öffnet den Marktplatz des Absenderdorfs und
+ * trägt Ziel sowie Ressourcen ein.
+ *
+ * Der Transport wird nicht automatisch abgeschickt.
+ */
+function openTransportInMarket(transport) {
+    const marketUrl =
+        `${window.location.origin}/game.php` +
+        `?village=${transport.sender.id}` +
+        `&screen=market&mode=send`;
+
+    const marketWindow =
+        window.open(marketUrl, '_blank');
+
+    if (!marketWindow) {
+        UI.ErrorMessage(
+            'Das Marktplatzfenster wurde vom Browser blockiert.',
+            5000
+        );
+
+        return;
+    }
+
+    const coordParts =
+        transport.receiver.coord.split('|');
+
+    const targetX = coordParts[0];
+    const targetY = coordParts[1];
+
+    let attempts = 0;
+
+    const fillInterval = window.setInterval(
+        function () {
+            attempts++;
+
+            try {
+                const marketDocument =
+                    marketWindow.document;
+
+                const woodInput =
+                    marketDocument.querySelector(
+                        'input[name="wood"]'
+                    );
+
+                const stoneInput =
+                    marketDocument.querySelector(
+                        'input[name="stone"]'
+                    );
+
+                const ironInput =
+                    marketDocument.querySelector(
+                        'input[name="iron"]'
+                    );
+
+                const xInput =
+                    marketDocument.querySelector(
+                        'input[name="x"]'
+                    );
+
+                const yInput =
+                    marketDocument.querySelector(
+                        'input[name="y"]'
+                    );
+
+                if (
+                    !woodInput ||
+                    !stoneInput ||
+                    !ironInput ||
+                    !xInput ||
+                    !yInput
+                ) {
+                    if (attempts >= 40) {
+                        window.clearInterval(
+                            fillInterval
+                        );
+                    }
+
+                    return;
+                }
+
+                woodInput.value =
+                    transport.wood;
+
+                stoneInput.value =
+                    transport.stone;
+
+                ironInput.value =
+                    transport.iron;
+
+                xInput.value =
+                    targetX;
+
+                yInput.value =
+                    targetY;
+
+                [
+                    woodInput,
+                    stoneInput,
+                    ironInput,
+                    xInput,
+                    yInput
+                ].forEach(input => {
+                    input.dispatchEvent(
+                        new Event('input', {
+                            bubbles: true
+                        })
+                    );
+
+                    input.dispatchEvent(
+                        new Event('change', {
+                            bubbles: true
+                        })
+                    );
+                });
+
+                xInput.focus();
+
+                window.clearInterval(
+                    fillInterval
+                );
+            } catch (error) {
+                if (attempts >= 40) {
+                    window.clearInterval(
+                        fillInterval
+                    );
+
+                    console.error(
+                        'Marktplatz konnte nicht ausgefüllt werden:',
+                        error
+                    );
+                }
+            }
+        },
+        250
+    );
 }
     /**
      * Aktualisiert die Zusammenfassung.
