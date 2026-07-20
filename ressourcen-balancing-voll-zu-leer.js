@@ -639,9 +639,13 @@ function calculateTransportForPair(pair) {
             wood + stone + iron;
 
         const fill =
-            totalResources /
-            (storage * 3) *
-            100;
+    Math.max(
+        wood,
+        stone,
+        iron
+    ) /
+    storage *
+    100;
 
         return {
             id: String(id),
