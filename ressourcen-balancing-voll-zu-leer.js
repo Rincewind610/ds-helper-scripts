@@ -37,6 +37,7 @@ Lagerfüllstand absteigend sortiert.
     transports: [],
 
     batchSize: 50,
+    openDelay: 250,
     nextTransportIndex: 0,
     openedTransports: new Set()
 };
@@ -761,6 +762,17 @@ function calculateTransportForPair(pair) {
                         max="200"
                         value="${state.batchSize}"
                     >
+                    <label for="dshelper-open-delay">
+                    Verzögerung (ms)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="dshelper-open-delay"
+                        min="250"
+                        step="50"
+                        value="${state.openDelay}"
+                    >
 
                     <button
                         type="button"
@@ -853,6 +865,19 @@ function calculateTransportForPair(pair) {
             }
         }
     );
+    $('#dshelper-open-delay').on(
+    'change input',
+    function () {
+        const value = Number(this.value);
+
+        if (
+            Number.isFinite(value) &&
+            value >= 250
+        ) {
+            state.openDelay = Math.floor(value);
+        }
+    }
+);
 
     if ($.fn.draggable) {
         $(`#${WINDOW_ID}`).draggable({
@@ -1063,7 +1088,7 @@ async function openNextTransportBatch() {
         );
 
         if (index < endIndex - 1) {
-            await wait(250);
+            await wait(state.openDelay);
         }
     }
 
