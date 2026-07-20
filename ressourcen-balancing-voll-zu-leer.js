@@ -36,8 +36,16 @@ Lagerfüllstand absteigend sortiert.
     pairs: [],
     transports: [],
 
-    batchSize: 50,
-    openDelay: 250,
+    batchSize: loadSavedNumber(
+        'dshelperBatchSize',
+        50
+    ),
+
+    openDelay: loadSavedNumber(
+        'dshelperOpenDelay',
+        250
+    ),
+
     nextTransportIndex: 0,
     openedTransports: new Set()
 };
@@ -861,7 +869,13 @@ function calculateTransportForPair(pair) {
                 value >= 1
             ) {
                 state.batchSize = Math.floor(value);
-                updateBatchControls();
+
+localStorage.setItem(
+    'dshelperBatchSize',
+    state.batchSize
+);
+
+updateBatchControls();
             }
         }
     );
@@ -875,6 +889,11 @@ function calculateTransportForPair(pair) {
             value >= 250
         ) {
             state.openDelay = Math.floor(value);
+
+localStorage.setItem(
+    'dshelperOpenDelay',
+    state.openDelay
+);
         }
     }
 );
@@ -1353,6 +1372,21 @@ function openTransportInMarket(transport) {
     /**
      * Wandelt eine Spielzahl in eine JavaScript-Zahl um.
      */
+    /**
+ * Lädt eine gespeicherte Zahl aus dem localStorage.
+ */
+function loadSavedNumber(key, fallbackValue) {
+    const savedValue = Number(
+        localStorage.getItem(key)
+    );
+
+    return (
+        Number.isFinite(savedValue) &&
+        savedValue > 0
+    )
+        ? savedValue
+        : fallbackValue;
+}
     function parseGameNumber(value) {
         if (
             value === null ||
