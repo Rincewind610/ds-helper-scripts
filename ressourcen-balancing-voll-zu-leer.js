@@ -1010,10 +1010,17 @@ function renderTransportTable(transports) {
 /**
  * Öffnet den nächsten Stapel vorbereiteter Transporte.
  */
-function openNextTransportBatch() {
+/**
+ * Öffnet den nächsten Stapel vorbereiteter Transporte
+ * mit 250 Millisekunden Abstand pro Tab.
+ */
+async function openNextTransportBatch() {
     if (state.transports.length === 0) {
         return;
     }
+
+    const button =
+        $(`#${WINDOW_ID} .dshelper-open-batch`);
 
     const startIndex =
         state.nextTransportIndex;
@@ -1022,6 +1029,10 @@ function openNextTransportBatch() {
         startIndex + state.batchSize,
         state.transports.length
     );
+
+    button
+        .prop('disabled', true)
+        .text('Transporte werden geöffnet …');
 
     for (
         let index = startIndex;
@@ -1033,13 +1044,28 @@ function openNextTransportBatch() {
         );
 
         state.openedTransports.add(index);
+        state.nextTransportIndex = index + 1;
+
+        const tableRow =
+            document.querySelector(
+                `[data-transport-index="${index}"]`
+            );
+
+        if (tableRow) {
+            tableRow.classList.add(
+                'dshelper-transport-opened'
+            );
+        }
+
+        $('#dshelper-batch-progress').text(
+            `${state.openedTransports.size} / ` +
+            `${state.transports.length} geöffnet`
+        );
+
+        if (index < endIndex - 1) {
+            await wait(250);
+        }
     }
-
-    state.nextTransportIndex = endIndex;
-
-    renderTransportTable(
-        state.transports
-    );
 
     updateBatchControls();
 }
