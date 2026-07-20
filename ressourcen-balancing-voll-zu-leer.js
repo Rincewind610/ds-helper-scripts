@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 0.5.1
+Version: 0.6
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -21,7 +21,7 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '0.5.1';
+    const VERSION = '0.6';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
@@ -34,7 +34,11 @@ Lagerfüllstand absteigend sortiert.
     const state = {
     villages: [],
     pairs: [],
-    transports: []
+    transports: [],
+
+    batchSize: 50,
+    nextTransportIndex: 0,
+    openedTransports: new Set()
 };
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -99,6 +103,7 @@ async function readVillages() {
 
         updateSummary(state.villages);
         renderTransportTable(state.transports);
+        updateBatchControls();
 
         setStatus(
             `${state.villages.length} Dörfer eingelesen und ` +
@@ -686,207 +691,180 @@ function calculateTransportForPair(pair) {
      * Erstellt das Hauptfenster.
      */
     function createInterface() {
-        $(`#${WINDOW_ID}`).remove();
-        $(`#${STYLE_ID}`).remove();
+    $(`#${WINDOW_ID}`).remove();
+    $(`#${STYLE_ID}`).remove();
 
-        injectStyles();
+    injectStyles();
 
-        $('body').append(`
-            <div id="${WINDOW_ID}">
-                <div class="dshelper-header">
-                    <span>
-                        ${SCRIPT_NAME} – ${SCRIPT_TITLE}
+    $('body').append(`
+        <div id="${WINDOW_ID}">
+            <div class="dshelper-header">
+                <span>
+                    ${SCRIPT_NAME} – ${SCRIPT_TITLE}
+                </span>
+
+                <button
+                    type="button"
+                    class="dshelper-close"
+                    title="Fenster schließen"
+                >
+                    ✖
+                </button>
+            </div>
+
+            <div class="dshelper-content">
+                <div class="dshelper-toolbar">
+                    <button
+                        type="button"
+                        class="btn dshelper-reload"
+                    >
+                        Dörfer neu einlesen
+                    </button>
+
+                    <span class="dshelper-version">
+                        Version ${VERSION}
                     </span>
+                </div>
+
+                <div class="dshelper-summary">
+                    <div>
+                        <span>Dörfer</span>
+                        <strong id="dshelper-village-count">
+                            –
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Ressourcen gesamt</span>
+                        <strong id="dshelper-resource-total">
+                            –
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Freie Händler</span>
+                        <strong id="dshelper-merchant-total">
+                            –
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="dshelper-batch-manager">
+                    <label for="dshelper-batch-size">
+                        Transporte pro Durchgang
+                    </label>
+
+                    <input
+                        type="number"
+                        id="dshelper-batch-size"
+                        min="1"
+                        max="200"
+                        value="${state.batchSize}"
+                    >
 
                     <button
                         type="button"
-                        class="dshelper-close"
-                        title="Fenster schließen"
+                        class="btn dshelper-open-batch"
+                        disabled
                     >
-                        ✖
+                        Nächste Transporte öffnen
                     </button>
+
+                    <button
+                        type="button"
+                        class="btn dshelper-reset-batch"
+                    >
+                        Fortschritt zurücksetzen
+                    </button>
+
+                    <strong id="dshelper-batch-progress">
+                        0 / 0 geöffnet
+                    </strong>
                 </div>
 
-                <div class="dshelper-content">
-                    <div class="dshelper-toolbar">
-                        <button
-                            type="button"
-                            class="btn dshelper-reload"
-                        >
-                            Dörfer neu einlesen
-                        </button>
+                <div class="dshelper-status">
+                    Bereit.
+                </div>
 
-                        <span class="dshelper-version">
-                            Version ${VERSION}
-                        </span>
-                    </div>
+                <div class="dshelper-table-wrapper">
+                    <table class="dshelper-table">
+                        <thead>
+                            <tr>
+                                <th>Nr.</th>
+                                <th>Von</th>
+                                <th>Nach</th>
+                                <th>Holz</th>
+                                <th>Lehm</th>
+                                <th>Eisen</th>
+                                <th>Gesamt</th>
+                                <th>Händler</th>
+                                <th>Absender</th>
+                                <th>Empfänger</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
 
-                    <div class="dshelper-summary">
-                        <div>
-                            <span>Dörfer</span>
-                            <strong id="dshelper-village-count">
-                                –
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>Ressourcen gesamt</span>
-                            <strong id="dshelper-resource-total">
-                                –
-                            </strong>
-                        </div>
-
-                        <div>
-                            <span>Freie Händler</span>
-                            <strong id="dshelper-merchant-total">
-                                –
-                            </strong>
-                        </div>
-                    </div>
-
-                    <div class="dshelper-status">
-                        Bereit.
-                    </div>
-
-                    <div class="dshelper-table-wrapper">
-                        <table class="dshelper-table">
-<thead>
-    <tr>
-        <th>Nr.</th>
-        <th>Von</th>
-        <th>Nach</th>
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
-        <th>Gesamt</th>
-        <th>Händler</th>
-        <th>Absender</th>
-        <th>Empfänger</th>
-        <th>Aktion</th>
-    </tr>
-</thead>
-
-<tbody id="dshelper-village-table">
-    <tr>
-        <td colspan="11">
-            Transporte werden berechnet …
-        </td>
-    </tr>
-</tbody>
-                        </table>
-                    </div>
+                        <tbody id="dshelper-village-table">
+                            <tr>
+                                <td colspan="11">
+                                    Transporte werden berechnet …
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        `);
+        </div>
+    `);
 
-        $(`#${WINDOW_ID} .dshelper-close`).on(
-            'click',
-            function () {
-                $(`#${WINDOW_ID}`).remove();
+    $(`#${WINDOW_ID} .dshelper-close`).on(
+        'click',
+        function () {
+            $(`#${WINDOW_ID}`).remove();
+        }
+    );
+
+    $(`#${WINDOW_ID} .dshelper-reload`).on(
+        'click',
+        readVillages
+    );
+
+    $(`#${WINDOW_ID} .dshelper-open-batch`).on(
+        'click',
+        openNextTransportBatch
+    );
+
+    $(`#${WINDOW_ID} .dshelper-reset-batch`).on(
+        'click',
+        resetBatchProgress
+    );
+
+    $('#dshelper-batch-size').on(
+        'change input',
+        function () {
+            const value = Number(this.value);
+
+            if (
+                Number.isFinite(value) &&
+                value >= 1
+            ) {
+                state.batchSize = Math.floor(value);
+                updateBatchControls();
             }
-        );
-
-        $(`#${WINDOW_ID} .dshelper-reload`).on(
-            'click',
-            readVillages
-        );
-
-        if ($.fn.draggable) {
-            $(`#${WINDOW_ID}`).draggable({
-                handle: '.dshelper-header'
-            });
         }
+    );
+
+    if ($.fn.draggable) {
+        $(`#${WINDOW_ID}`).draggable({
+            handle: '.dshelper-header'
+        });
     }
-
-    /**
-     * Zeigt die eingelesenen Dörfer in der Tabelle.
-     */
-    function renderVillageTable(villages) {
-        const tableBody =
-            document.getElementById(
-                'dshelper-village-table'
-            );
-
-        if (!tableBody) {
-            return;
-        }
-
-        if (villages.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="9">
-                        Keine Dörfer gefunden.
-                    </td>
-                </tr>
-            `;
-
-            return;
-        }
-
-        tableBody.innerHTML = villages
-            .map((village, index) => {
-                return `
-                    <tr>
-                        <td>${index + 1}</td>
-
-                        <td class="dshelper-village">
-                            <a
-                                href="${game_data.link_base_pure}info_village&id=${village.id}"
-                                target="_blank"
-                            >
-                                ${escapeHtml(village.coord)}
-                            </a>
-
-                            <small title="${escapeHtml(village.fullLabel)}">
-                                ${escapeHtml(village.name)}
-                            </small>
-                        </td>
-
-                        <td>
-                            ${formatNumber(village.resources.wood)}
-                        </td>
-
-                        <td>
-                            ${formatNumber(village.resources.stone)}
-                        </td>
-
-                        <td>
-                            ${formatNumber(village.resources.iron)}
-                        </td>
-
-                        <td>
-                            ${formatNumber(village.totalResources)}
-                        </td>
-
-                        <td>
-                            ${formatNumber(village.storage)}
-                        </td>
-
-                        <td>
-                            <strong>
-                                ${formatNumber(village.merchants)}
-                            </strong>
-                            /
-                            ${formatNumber(village.merchantsTotal)}
-                        </td>
-
-                        <td>
-                            <strong>
-                                ${formatPercent(village.fill)}
-                            </strong>
-                        </td>
-                    </tr>
-                `;
-            })
-            .join('');
-    }
+}
 
     /**
  * Zeigt alle berechneten Transporte an.
  */
-/**
- * Zeigt alle berechneten Transporte an.
- */
+
 function renderTransportTable(transports) {
     const tableBody =
         document.getElementById(
@@ -912,7 +890,14 @@ function renderTransportTable(transports) {
     tableBody.innerHTML = transports
         .map((transport, index) => {
             return `
-                <tr>
+                <tr
+                    data-transport-index="${index}"
+                    class="${
+                    state.openedTransports.has(index)
+                        ? 'dshelper-transport-opened'
+                        : ''
+    }"
+>
                     <td>${index + 1}</td>
 
                     <td class="dshelper-village">
@@ -1014,6 +999,7 @@ function renderTransportTable(transports) {
                 }
             );
         });
+        updateBatchControls();
 }
     /**
  * Öffnet den Marktplatz des Absenderdorfs und
@@ -1021,6 +1007,105 @@ function renderTransportTable(transports) {
  *
  * Der Transport wird nicht automatisch abgeschickt.
  */
+/**
+ * Öffnet den nächsten Stapel vorbereiteter Transporte.
+ */
+function openNextTransportBatch() {
+    if (state.transports.length === 0) {
+        return;
+    }
+
+    const startIndex =
+        state.nextTransportIndex;
+
+    const endIndex = Math.min(
+        startIndex + state.batchSize,
+        state.transports.length
+    );
+
+    for (
+        let index = startIndex;
+        index < endIndex;
+        index++
+    ) {
+        openTransportInMarket(
+            state.transports[index]
+        );
+
+        state.openedTransports.add(index);
+    }
+
+    state.nextTransportIndex = endIndex;
+
+    renderTransportTable(
+        state.transports
+    );
+
+    updateBatchControls();
+}
+
+/**
+ * Setzt den Stapel-Fortschritt zurück.
+ */
+function resetBatchProgress() {
+    state.nextTransportIndex = 0;
+    state.openedTransports.clear();
+
+    renderTransportTable(
+        state.transports
+    );
+
+    updateBatchControls();
+}
+
+/**
+ * Aktualisiert Button, Fortschritt und Stapelgröße.
+ */
+function updateBatchControls() {
+    const total =
+        state.transports.length;
+
+    const opened =
+        state.openedTransports.size;
+
+    const remaining =
+        Math.max(
+            0,
+            total - state.nextTransportIndex
+        );
+
+    const nextAmount =
+        Math.min(
+            state.batchSize,
+            remaining
+        );
+
+    const button =
+        $(`#${WINDOW_ID} .dshelper-open-batch`);
+
+    $('#dshelper-batch-progress').text(
+        `${opened} / ${total} geöffnet`
+    );
+
+    $('#dshelper-batch-size').val(
+        state.batchSize
+    );
+
+    if (remaining <= 0) {
+        button
+            .prop('disabled', true)
+            .text('Alle Transporte geöffnet');
+
+        return;
+    }
+
+    button
+        .prop('disabled', false)
+        .text(
+            `Nächste ${nextAmount} Transporte öffnen`
+        );
+}
+
 function openTransportInMarket(transport) {
     const marketUrl =
         `${window.location.origin}/game.php` +
@@ -1443,6 +1528,29 @@ function openTransportInMarket(transport) {
                     white-space: nowrap;
                     font-size: 10px;
                 }
+                #dshelper-resource-balancing .dshelper-batch-manager {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #ead5a3;
+    border: 1px solid #b99a5d;
+}
+
+#dshelper-resource-balancing .dshelper-batch-manager input {
+    width: 70px;
+    text-align: center;
+}
+
+#dshelper-resource-balancing .dshelper-batch-manager strong {
+    margin-left: auto;
+}
+
+#dshelper-resource-balancing .dshelper-transport-opened {
+    opacity: 0.45;
+    background: #ddd0aa !important;
+}
             </style>
         `);
     }
