@@ -592,14 +592,12 @@ Status: Entwicklung / Simulation
         );
 
         console.log(
-            '[DS Helper | Prägevorbereitung]',
-            {
-                version: VERSION,
-                coinVillage: COIN_VILLAGE.coord,
-                allVillages: allVillages,
-                sortedVillages: sortedVillages
-            }
-        );
+    '[DS Helper | Prägevorbereitung]',
+    {
+        version: VERSION,
+        parseErrors: allVillages.filter(v => v.parseError)
+    }
+);
     }
 
     init();
