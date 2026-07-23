@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.4
+Version: 0.3.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.4';
+    const VERSION = '0.3.5';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -261,8 +261,20 @@ Status: Entwicklung / Simulation
         const villages = [];
         const foundCoordinates = new Set();
 
-        $('tr.nowrap.row_a, tr.nowrap.row_b').each(function () {
-            const row = $(this);
+        $('#production_table > tbody > tr').each(function () {
+    const row = $(this);
+
+    const hasResources =
+        row.find('.res.wood').length > 0 &&
+        row.find('.res.stone').length > 0 &&
+        row.find('.res.iron').length > 0;
+
+    const hasMerchants =
+        row.find('a[href*="screen=market"]').length > 0;
+
+    if (!hasResources || !hasMerchants) {
+        return;
+    }
 
             const rowText = row
                 .text()
