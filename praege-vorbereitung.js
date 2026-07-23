@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.6
+Version: 0.3.7
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.6';
+    const VERSION = '0.3.7';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -279,30 +279,26 @@ Status: Entwicklung / Simulation
         $('#production_table > tbody > tr').each(function () {
     const row = $(this);
 
-    const hasResources =
-        row.find('.res.wood').length > 0 &&
-        row.find('.res.stone').length > 0 &&
-        row.find('.res.iron').length > 0;
+    const rowText = row
+        .text()
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    const hasMerchants =
-        row.find('a[href*="screen=market"]').length > 0;
+    const coordinateMatches = Array.from(
+        rowText.matchAll(
+            /\((\d{1,3})\|(\d{1,3})\)/g
+        )
+    );
 
-    if (!hasResources || !hasMerchants) {
+    /*
+     * Eine echte Dorfzeile enthält genau eine Koordinate.
+     * Zeilen mit keiner oder mehreren Koordinaten werden ignoriert.
+     */
+    if (coordinateMatches.length !== 1) {
         return;
     }
 
-            const rowText = row
-                .text()
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            const coordMatch = rowText.match(
-                /\((\d{1,3})\|(\d{1,3})\)/
-            );
-
-            if (!coordMatch) {
-                return;
-            }
+    const coordMatch = coordinateMatches[0];
 
             const x = parseInt(coordMatch[1], 10);
             const y = parseInt(coordMatch[2], 10);
