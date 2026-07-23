@@ -232,7 +232,7 @@ Status: Entwicklung / Simulation
                 }
             }
 
-            if (storage === 0) {
+if (storage === 0) {
     const possibleStorage = parseGameNumber(cellText);
 
     if (
@@ -243,10 +243,10 @@ Status: Entwicklung / Simulation
     }
 }
 
-        return {
-            wood: resources.wood,
-            clay: resources.clay,
-            iron: resources.iron,
+return {
+    wood: resources.wood,
+    clay: resources.clay,
+    iron: resources.iron,
             storage: storage,
             merchantsFree: merchantsFree,
             merchantsTotal: merchantsTotal,
