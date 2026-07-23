@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.5
+Version: 0.3.6
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.5';
+    const VERSION = '0.3.6';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -258,8 +258,23 @@ Status: Entwicklung / Simulation
 }
 
     function readVillages() {
-        const villages = [];
-        const foundCoordinates = new Set();
+        const allCoordinatesOnPage = new Set();
+    $('tr').each(function () {
+    const text = $(this)
+        .text()
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const matches = text.matchAll(
+        /\((\d{1,3})\|(\d{1,3})\)/g
+    );
+
+    for (const match of matches) {
+        allCoordinatesOnPage.add(
+            match[1] + '|' + match[2]
+        );
+    }
+});
 
         $('#production_table > tbody > tr').each(function () {
     const row = $(this);
@@ -334,7 +349,16 @@ Status: Entwicklung / Simulation
                 parseError: rowData.parseError
             });
         });
+        const missingCoordinates = Array.from(
+    allCoordinatesOnPage
+).filter(function (coord) {
+    return !foundCoordinates.has(coord);
+});
 
+console.log(
+    '[DS Helper | Fehlende Koordinaten]',
+    missingCoordinates
+);
         return villages;
     }
 
