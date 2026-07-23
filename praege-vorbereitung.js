@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.3
+Version: 0.3.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.3';
+    const VERSION = '0.3.4';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -417,11 +417,29 @@ Status: Entwicklung / Simulation
             }
         );
 
-        const parseErrors = allVillages.filter(
-            function (village) {
-                return village.parseError;
-            }
-        ).length;
+        const parseErrorVillages = allVillages.filter(
+    function (village) {
+        return village.parseError;
+    }
+);
+
+const parseErrors = parseErrorVillages.length;
+
+const parseErrorDetails = parseErrorVillages.length
+    ? parseErrorVillages
+        .map(function (village) {
+            return (
+                escapeHtml(village.name) +
+                ' – Lager: ' +
+                formatNumber(village.storage) +
+                ', Händler: ' +
+                formatNumber(village.merchantsFree) +
+                '/' +
+                formatNumber(village.merchantsTotal)
+            );
+        })
+        .join('<br>')
+    : 'Keine';
 
         const popupHtml = `
             <div id="${POPUP_ID}" style="
@@ -498,13 +516,26 @@ Status: Entwicklung / Simulation
                             <td>${sortedVillages.length}</td>
                         </tr>
 
-                        <tr>
-                            <th>Lesefehler</th>
-                            <td>${parseErrors}</td>
+<tr>
+    <th>Lesefehler</th>
+    <td>${parseErrors}</td>
 
-                            <th>Simulationsmodus</th>
-                            <td>aktiv – keine Transporte</td>
-                        </tr>
+    <th>Simulationsmodus</th>
+    <td>aktiv – keine Transporte</td>
+</tr>
+
+${
+    parseErrors > 0
+        ? `
+            <tr>
+                <th>Fehlerhafte Dörfer</th>
+                <td colspan="3" style="background:#ffd1d1;">
+                    ${parseErrorDetails}
+                </td>
+            </tr>
+        `
+        : ''
+}
                     </table>
 
                     <div style="
