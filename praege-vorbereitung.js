@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3
+Version: 0.3.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3';
+    const VERSION = '0.3.1';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -233,21 +233,15 @@ Status: Entwicklung / Simulation
             }
 
             if (storage === 0) {
-                const exactNumberMatch = cellText.match(
-                    /^\d{1,3}(?:\.\d{3})*$/
-                );
+    const possibleStorage = parseGameNumber(cellText);
 
-                if (exactNumberMatch) {
-                    const possibleStorage = parseGameNumber(
-                        exactNumberMatch[0]
-                    );
-
-                    if (possibleStorage >= 10000) {
-                        storage = possibleStorage;
-                    }
-                }
-            }
-        }
+    if (
+        /^\d[\d.]*$/.test(cellText) &&
+        possibleStorage >= 10000
+    ) {
+        storage = possibleStorage;
+    }
+}
 
         return {
             wood: resources.wood,
