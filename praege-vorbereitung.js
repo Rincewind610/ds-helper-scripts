@@ -261,7 +261,7 @@ Status: Entwicklung / Simulation
         const villages = [];
         const foundCoordinates = new Set();
 
-        $('tr').each(function () {
+        $('tr.nowrap.row_a, tr.nowrap.row_b').each(function () {
             const row = $(this);
 
             const rowText = row
