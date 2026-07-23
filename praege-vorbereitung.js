@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.3
+Version: 0.3.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.3';
+    const VERSION = '0.3.4';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -417,11 +417,18 @@ Status: Entwicklung / Simulation
             }
         );
 
-        const parseErrors = allVillages.filter(
-            function (village) {
-                return village.parseError;
-            }
-        ).length;
+        const parseErrorVillages = allVillages.filter(
+    function (village) {
+        return village.parseError;
+    }
+);
+
+const parseErrors = parseErrorVillages.length;
+
+console.log(
+    '[DS Helper | Lesefehler]',
+    parseErrorVillages
+);
 
         const popupHtml = `
             <div id="${POPUP_ID}" style="
