@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.4-debug';
+    const VERSION = '0.3.4';
 
     const COIN_VILLAGE = {
         x: 538,
