@@ -155,106 +155,107 @@ Status: Entwicklung / Simulation
         };
     }
 
-    function extractRowData(row) {
-        const cells = row.children('td');
+ function extractRowData(row) {
+    const cells = row.children('td');
 
-        let resourceCellIndex = -1;
-        let resources = null;
+    let resourceCellIndex = -1;
+    let resources = null;
 
-        cells.each(function (index) {
-            if (resources) {
-                return;
-            }
-
-            const result = extractResourcesFromCell($(this));
-
-            if (
-                result &&
-                result.wood >= 1000 &&
-                result.clay >= 1000 &&
-                result.iron >= 1000
-            ) {
-                resourceCellIndex = index;
-                resources = result;
-            }
-        });
-
-        if (!resources) {
-            return {
-                wood: 0,
-                clay: 0,
-                iron: 0,
-                storage: 0,
-                merchantsFree: 0,
-                merchantsTotal: 0,
-                parseError: true
-            };
+    cells.each(function (index) {
+        if (resources) {
+            return;
         }
 
-        let storage = 0;
-        let merchantsFree = 0;
-        let merchantsTotal = 0;
+        const result = extractResourcesFromCell($(this));
 
-        for (
-            let index = resourceCellIndex + 1;
-            index < cells.length;
-            index++
+        if (
+            result &&
+            result.wood >= 1000 &&
+            result.clay >= 1000 &&
+            result.iron >= 1000
         ) {
-            const cellText = $(cells[index])
-                .text()
-                .replace(/\s+/g, ' ')
-                .trim();
+            resourceCellIndex = index;
+            resources = result;
+        }
+    });
 
-            if (!cellText) {
-                continue;
-            }
-
-            const merchantMatch = cellText.match(
-                /(\d[\d.]*)\s*\/\s*(\d[\d.]*)/
-            );
-
-            if (merchantMatch && merchantsTotal === 0) {
-                const firstValue = parseGameNumber(
-                    merchantMatch[1]
-                );
-
-                const secondValue = parseGameNumber(
-                    merchantMatch[2]
-                );
-
-                if (
-                    secondValue <= 1000 &&
-                    firstValue <= secondValue
-                ) {
-                    merchantsFree = firstValue;
-                    merchantsTotal = secondValue;
-                    continue;
-                }
-            }
-
-if (storage === 0) {
-    const possibleStorage = parseGameNumber(cellText);
-
-    if (
-        /^\d[\d.]*$/.test(cellText) &&
-        possibleStorage >= 10000
-    ) {
-        storage = possibleStorage;
-    }
-}
-
-return {
-    wood: resources.wood,
-    clay: resources.clay,
-    iron: resources.iron,
-            storage: storage,
-            merchantsFree: merchantsFree,
-            merchantsTotal: merchantsTotal,
-            parseError:
-                storage === 0 ||
-                merchantsTotal === 0
+    if (!resources) {
+        return {
+            wood: 0,
+            clay: 0,
+            iron: 0,
+            storage: 0,
+            merchantsFree: 0,
+            merchantsTotal: 0,
+            parseError: true
         };
     }
+
+    let storage = 0;
+    let merchantsFree = 0;
+    let merchantsTotal = 0;
+
+    for (
+        let index = resourceCellIndex + 1;
+        index < cells.length;
+        index++
+    ) {
+        const cellText = $(cells[index])
+            .text()
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!cellText) {
+            continue;
+        }
+
+        const merchantMatch = cellText.match(
+            /(\d[\d.]*)\s*\/\s*(\d[\d.]*)/
+        );
+
+        if (merchantMatch && merchantsTotal === 0) {
+            const firstValue = parseGameNumber(
+                merchantMatch[1]
+            );
+
+            const secondValue = parseGameNumber(
+                merchantMatch[2]
+            );
+
+            if (
+                secondValue <= 1000 &&
+                firstValue <= secondValue
+            ) {
+                merchantsFree = firstValue;
+                merchantsTotal = secondValue;
+                continue;
+            }
+        }
+
+        if (storage === 0) {
+            const possibleStorage = parseGameNumber(cellText);
+
+            if (
+                /^\d[\d.]*$/.test(cellText) &&
+                possibleStorage >= 10000
+            ) {
+                storage = possibleStorage;
+            }
+        }
+    }
+
+    return {
+        wood: resources.wood,
+        clay: resources.clay,
+        iron: resources.iron,
+        storage: storage,
+        merchantsFree: merchantsFree,
+        merchantsTotal: merchantsTotal,
+        parseError:
+            storage === 0 ||
+            merchantsTotal === 0
+    };
+}
 
     function readVillages() {
         const villages = [];
