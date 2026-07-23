@@ -261,7 +261,7 @@ Status: Entwicklung / Simulation
         const villages = [];
         const foundCoordinates = new Set();
 
-        $('tr').each(function () {
+        $('.quickedit-vn').closest('tr').each(function () {
             const row = $(this);
 
             const rowText = row
