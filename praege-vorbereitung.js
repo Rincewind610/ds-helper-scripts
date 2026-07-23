@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.4
+Version: 0.3.4 sauber
 Kategorie: Produktion
 Autor: Rincewind610
 
