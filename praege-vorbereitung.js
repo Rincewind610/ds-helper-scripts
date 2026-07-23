@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.7
+Version: 0.3.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.7';
+    const VERSION = '0.3.3';
 
     const COIN_VILLAGE = {
         x: 538,
@@ -258,47 +258,24 @@ Status: Entwicklung / Simulation
 }
 
     function readVillages() {
-        const allCoordinatesOnPage = new Set();
-    $('tr').each(function () {
-    const text = $(this)
-        .text()
-        .replace(/\s+/g, ' ')
-        .trim();
+        const villages = [];
+        const foundCoordinates = new Set();
 
-    const matches = text.matchAll(
-        /\((\d{1,3})\|(\d{1,3})\)/g
-    );
+        $('tr').each(function () {
+            const row = $(this);
 
-    for (const match of matches) {
-        allCoordinatesOnPage.add(
-            match[1] + '|' + match[2]
-        );
-    }
-});
+            const rowText = row
+                .text()
+                .replace(/\s+/g, ' ')
+                .trim();
 
-        $('#production_table > tbody > tr').each(function () {
-    const row = $(this);
+            const coordMatch = rowText.match(
+                /\((\d{1,3})\|(\d{1,3})\)/
+            );
 
-    const rowText = row
-        .text()
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const coordinateMatches = Array.from(
-        rowText.matchAll(
-            /\((\d{1,3})\|(\d{1,3})\)/g
-        )
-    );
-
-    /*
-     * Eine echte Dorfzeile enthält genau eine Koordinate.
-     * Zeilen mit keiner oder mehreren Koordinaten werden ignoriert.
-     */
-    if (coordinateMatches.length !== 1) {
-        return;
-    }
-
-    const coordMatch = coordinateMatches[0];
+            if (!coordMatch) {
+                return;
+            }
 
             const x = parseInt(coordMatch[1], 10);
             const y = parseInt(coordMatch[2], 10);
@@ -345,16 +322,7 @@ Status: Entwicklung / Simulation
                 parseError: rowData.parseError
             });
         });
-        const missingCoordinates = Array.from(
-    allCoordinatesOnPage
-).filter(function (coord) {
-    return !foundCoordinates.has(coord);
-});
 
-console.log(
-    '[DS Helper | Fehlende Koordinaten]',
-    missingCoordinates
-);
         return villages;
     }
 
@@ -449,29 +417,11 @@ console.log(
             }
         );
 
-        const parseErrorVillages = allVillages.filter(
-    function (village) {
-        return village.parseError;
-    }
-);
-
-const parseErrors = parseErrorVillages.length;
-
-const parseErrorDetails = parseErrorVillages.length
-    ? parseErrorVillages
-        .map(function (village) {
-            return (
-                escapeHtml(village.name) +
-                ' – Lager: ' +
-                formatNumber(village.storage) +
-                ', Händler: ' +
-                formatNumber(village.merchantsFree) +
-                '/' +
-                formatNumber(village.merchantsTotal)
-            );
-        })
-        .join('<br>')
-    : 'Keine';
+        const parseErrors = allVillages.filter(
+            function (village) {
+                return village.parseError;
+            }
+        ).length;
 
         const popupHtml = `
             <div id="${POPUP_ID}" style="
@@ -548,26 +498,13 @@ const parseErrorDetails = parseErrorVillages.length
                             <td>${sortedVillages.length}</td>
                         </tr>
 
-<tr>
-    <th>Lesefehler</th>
-    <td>${parseErrors}</td>
+                        <tr>
+                            <th>Lesefehler</th>
+                            <td>${parseErrors}</td>
 
-    <th>Simulationsmodus</th>
-    <td>aktiv – keine Transporte</td>
-</tr>
-
-${
-    parseErrors > 0
-        ? `
-            <tr>
-                <th>Fehlerhafte Dörfer</th>
-                <td colspan="3" style="background:#ffd1d1;">
-                    ${parseErrorDetails}
-                </td>
-            </tr>
-        `
-        : ''
-}
+                            <th>Simulationsmodus</th>
+                            <td>aktiv – keine Transporte</td>
+                        </tr>
                     </table>
 
                     <div style="
