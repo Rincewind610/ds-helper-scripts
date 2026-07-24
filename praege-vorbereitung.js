@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.3.
+Version: 0.4.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,50 +18,57 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.3';
-    const TARGET_FILL = 0.95;
-    const DISTANCE_GROUPS = [
-    {
-        id: 1,
-        name: 'Sehr nah',
-        maxDistance: 10
-    },
-    {
-        id: 2,
-        name: 'Nah',
-        maxDistance: 20
-    },
-    {
-        id: 3,
-        name: 'Mittel',
-        maxDistance: 30
-    },
-    {
-        id: 4,
-        name: 'Weit',
-        maxDistance: 40
-    },
-    {
-        id: 5,
-        name: 'Sehr weit',
-        maxDistance: 50
-    },
-    {
-        id: 6,
-        name: 'Extrem weit',
-        maxDistance: 60
-    },
-    {
-        id: 7,
-        name: 'Außenbereich',
-        maxDistance: 70
-    },
-    {
-        id: 8,
-        name: 'Randbereich',
-        maxDistance: Infinity
-    }
-];
+    const VERSION = '0.4.4';
+        const DISTANCE_GROUPS = [
+        {
+            id: 1,
+            name: 'Sehr nah',
+            maxDistance: 10,
+            targetFill: 0.95
+        },
+        {
+            id: 2,
+            name: 'Nah',
+            maxDistance: 20,
+            targetFill: 0.85
+        },
+        {
+            id: 3,
+            name: 'Mittel',
+            maxDistance: 30,
+            targetFill: 0.75
+        },
+        {
+            id: 4,
+            name: 'Weit',
+            maxDistance: 40,
+            targetFill: 0.65
+        },
+        {
+            id: 5,
+            name: 'Sehr weit',
+            maxDistance: 50,
+            targetFill: 0.55
+        },
+        {
+            id: 6,
+            name: 'Extrem weit',
+            maxDistance: 60,
+            targetFill: 0.45
+        },
+        {
+            id: 7,
+            name: 'Außenbereich',
+            maxDistance: 70,
+            targetFill: 0.35
+        },
+        {
+            id: 8,
+            name: 'Randbereich',
+            maxDistance: Infinity,
+            targetFill: 0.25
+        }
+    ];
     const COIN_VILLAGE = {
         x: 538,
         y: 573,
@@ -372,25 +379,28 @@ Status: Entwicklung / Simulation
             if (distance <= group.maxDistance) {
                 return {
                     id: group.id,
-                    name: group.name
+                    name: group.name,
+                    targetFill: group.targetFill
                 };
             }
         }
 
         return {
-            id: 5,
-            name: 'Sehr weit'
+            id: 8,
+            name: 'Randbereich',
+            targetFill: 0.25
         };
     }
 
 
     function prepareSimulation(villages) {
         return villages.map(function (village) {
-            const targetAmount = Math.floor(
-                village.storage * TARGET_FILL
-            );
             const distanceGroup = getDistanceGroup(
                 village.distanceToCoinVillage
+            );
+
+            const targetAmount = Math.floor(
+                village.storage * distanceGroup.targetFill
             );
 
             const needWood = Math.max(
@@ -447,7 +457,7 @@ Status: Entwicklung / Simulation
                     distanceGroupName: distanceGroup.name,
 
                     role: role,
-                    targetFill: TARGET_FILL,
+                    targetFill: distanceGroup.targetFill,
                     targetAmount: targetAmount,
 
                     needWood: needWood,
@@ -513,25 +523,25 @@ Status: Entwicklung / Simulation
     }
 
     function sortVillages(villages) {
-    return villages
-        .filter(function (village) {
-            return !village.isCoinVillage;
-        })
-        .sort(function (a, b) {
+        return villages
+            .filter(function (village) {
+                return !village.isCoinVillage;
+            })
+            .sort(function (a, b) {
 
-            if (
-                a.simulation.distanceGroupId !==
-                b.simulation.distanceGroupId
-            ) {
-                return (
-                    a.simulation.distanceGroupId -
+                if (
+                    a.simulation.distanceGroupId !==
                     b.simulation.distanceGroupId
-                );
-            }
+                ) {
+                    return (
+                        a.simulation.distanceGroupId -
+                        b.simulation.distanceGroupId
+                    );
+                }
 
-            return 0;
-        });
-}
+                return 0;
+            });
+    }
 
     function escapeHtml(value) {
         return $('<div>')
@@ -624,36 +634,36 @@ Status: Entwicklung / Simulation
     }
 
     function showPopup(allVillages, sortedVillages) {
-    removeExistingPopup();
+        removeExistingPopup();
 
-    const coinVillageFound = allVillages.some(
-        function (village) {
-            return village.isCoinVillage;
-        }
-    );
+        const coinVillageFound = allVillages.some(
+            function (village) {
+                return village.isCoinVillage;
+            }
+        );
 
-    const parseErrorVillages = allVillages.filter(
-        function (village) {
-            return village.parseError;
-        }
-    );
+        const parseErrorVillages = allVillages.filter(
+            function (village) {
+                return village.parseError;
+            }
+        );
 
-    const parseErrors = parseErrorVillages.length;
+        const parseErrors = parseErrorVillages.length;
 
-    console.log(
-        '[DS Helper | Lesefehler]',
-        parseErrorVillages
-    );
+        console.log(
+            '[DS Helper | Lesefehler]',
+            parseErrorVillages
+        );
 
-    const groupSummary = buildGroupSummary(
-        sortedVillages
-    ).sort(function (a, b) {
-        return a.id - b.id;
-    });
+        const groupSummary = buildGroupSummary(
+            sortedVillages
+        ).sort(function (a, b) {
+            return a.id - b.id;
+        });
 
-    const groupSummaryRows = groupSummary
-        .map(function (group) {
-            return `
+        const groupSummaryRows = groupSummary
+            .map(function (group) {
+                return `
                 <tr>
                     <td style="text-align:center;">
                         ${group.id}
@@ -692,10 +702,10 @@ Status: Entwicklung / Simulation
                     </td>
                 </tr>
             `;
-        })
-        .join('');
+            })
+            .join('');
 
-    const popupHtml = `
+        const popupHtml = `
         <div id="${POPUP_ID}" style="
             position:fixed;
             top:20px;
@@ -754,11 +764,10 @@ Status: Entwicklung / Simulation
 
                         <th>Status</th>
                         <td>
-                            ${
-                                coinVillageFound
-                                    ? 'gefunden und ausgeschlossen'
-                                    : 'nicht gefunden'
-                            }
+                            ${coinVillageFound
+                ? 'gefunden und ausgeschlossen'
+                : 'nicht gefunden'
+            }
                         </td>
                     </tr>
 
@@ -881,15 +890,15 @@ Status: Entwicklung / Simulation
         </div>
     `;
 
-    $('body').append(popupHtml);
+        $('body').append(popupHtml);
 
-    $('#' + POPUP_ID + '-close').on(
-        'click',
-        function () {
-            removeExistingPopup();
-        }
-    );
-}
+        $('#' + POPUP_ID + '-close').on(
+            'click',
+            function () {
+                removeExistingPopup();
+            }
+        );
+    }
 
     function init() {
         const allVillages = readVillages();
