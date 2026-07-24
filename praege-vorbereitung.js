@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.2.
+Version: 0.4.3.
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,35 +18,50 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.2';
+    const VERSION = '0.4.3';
     const TARGET_FILL = 0.95;
     const DISTANCE_GROUPS = [
-        {
-            id: 1,
-            name: 'Sehr nah',
-            maxDistance: 10
-        },
-        {
-            id: 2,
-            name: 'Nah',
-            maxDistance: 20
-        },
-        {
-            id: 3,
-            name: 'Mittel',
-            maxDistance: 30
-        },
-        {
-            id: 4,
-            name: 'Weit',
-            maxDistance: 40
-        },
-        {
-            id: 5,
-            name: 'Sehr weit',
-            maxDistance: Infinity
-        }
-    ];
+    {
+        id: 1,
+        name: 'Sehr nah',
+        maxDistance: 10
+    },
+    {
+        id: 2,
+        name: 'Nah',
+        maxDistance: 20
+    },
+    {
+        id: 3,
+        name: 'Mittel',
+        maxDistance: 30
+    },
+    {
+        id: 4,
+        name: 'Weit',
+        maxDistance: 40
+    },
+    {
+        id: 5,
+        name: 'Sehr weit',
+        maxDistance: 50
+    },
+    {
+        id: 6,
+        name: 'Extrem weit',
+        maxDistance: 60
+    },
+    {
+        id: 7,
+        name: 'Außenbereich',
+        maxDistance: 70
+    },
+    {
+        id: 8,
+        name: 'Randbereich',
+        maxDistance: Infinity
+    }
+];
     const COIN_VILLAGE = {
         x: 538,
         y: 573,
