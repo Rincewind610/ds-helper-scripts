@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.6
+Version: 0.3.7
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.6';
+    const VERSION = '0.3.7';
     const TARGET_FILL = 0.95;
 
     const COIN_VILLAGE = {
@@ -333,8 +333,28 @@ Status: Entwicklung / Simulation
             village.storage * TARGET_FILL
         );
 
+        let role = 'balanced';
+
+const hasNeed =
+    targetAmount > village.wood ||
+    targetAmount > village.clay ||
+    targetAmount > village.iron;
+
+const hasSurplus =
+    village.wood > targetAmount ||
+    village.clay > targetAmount ||
+    village.iron > targetAmount;
+
+if (hasNeed) {
+    role = 'receiver';
+} else if (hasSurplus) {
+    role = 'sender';
+}
+
         return Object.assign({}, village, {
             simulation: {
+                role: role,
+                
                 targetFill: TARGET_FILL,
                 targetAmount: targetAmount,
 
