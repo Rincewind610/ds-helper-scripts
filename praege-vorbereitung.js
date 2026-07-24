@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.4
+Version: 0.4.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,8 +18,8 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.4';
-        const DISTANCE_GROUPS = [
+    const VERSION = '0.4.5';
+    const DISTANCE_GROUPS = [
         {
             id: 1,
             name: 'Sehr nah',
@@ -475,7 +475,6 @@ Status: Entwicklung / Simulation
         const groups = {};
 
         villages.forEach(function (village) {
-
             const id = village.simulation.distanceGroupId;
 
             if (!groups[id]) {
@@ -491,22 +490,49 @@ Status: Entwicklung / Simulation
 
                     surplusWood: 0,
                     surplusClay: 0,
-                    surplusIron: 0
+                    surplusIron: 0,
+
+                    saldoWood: 0,
+                    saldoClay: 0,
+                    saldoIron: 0
                 };
             }
 
             groups[id].villages++;
 
-            groups[id].needWood += village.simulation.needWood;
-            groups[id].needClay += village.simulation.needClay;
-            groups[id].needIron += village.simulation.needIron;
+            groups[id].needWood +=
+                village.simulation.needWood;
 
-            groups[id].surplusWood += village.simulation.surplusWood;
-            groups[id].surplusClay += village.simulation.surplusClay;
-            groups[id].surplusIron += village.simulation.surplusIron;
+            groups[id].needClay +=
+                village.simulation.needClay;
+
+            groups[id].needIron +=
+                village.simulation.needIron;
+
+            groups[id].surplusWood +=
+                village.simulation.surplusWood;
+
+            groups[id].surplusClay +=
+                village.simulation.surplusClay;
+
+            groups[id].surplusIron +=
+                village.simulation.surplusIron;
         });
 
-        return Object.values(groups);
+        const summary = Object.values(groups);
+
+        summary.forEach(function (group) {
+            group.saldoWood =
+                group.surplusWood - group.needWood;
+
+            group.saldoClay =
+                group.surplusClay - group.needClay;
+
+            group.saldoIron =
+                group.surplusIron - group.needIron;
+        });
+
+        return summary;
     }
 
     function getRoleLabel(village) {
@@ -664,44 +690,56 @@ Status: Entwicklung / Simulation
         const groupSummaryRows = groupSummary
             .map(function (group) {
                 return `
-                <tr>
-                    <td style="text-align:center;">
-                        ${group.id}
-                    </td>
+            <tr>
+                <td style="text-align:center;">
+                    ${group.id}
+                </td>
 
-                    <td style="white-space:nowrap;">
-                        ${escapeHtml(group.name)}
-                    </td>
+                <td style="white-space:nowrap;">
+                    ${escapeHtml(group.name)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.villages)}
-                    </td>
+                <td style="text-align:right;">
+                    ${formatNumber(group.villages)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.needWood)}
-                    </td>
+                <td style="text-align:right;">
+                    ${formatNumber(group.needWood)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.needClay)}
-                    </td>
+                <td style="text-align:right;">
+                    ${formatNumber(group.needClay)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.needIron)}
-                    </td>
+                <td style="text-align:right;">
+                    ${formatNumber(group.needIron)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.surplusWood)}
-                    </td>
+                <td style="text-align:right;">
+                    ${formatNumber(group.surplusWood)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.surplusClay)}
-                    </td>
+                <td style="text-align:right;">
+                    ${formatNumber(group.surplusClay)}
+                </td>
 
-                    <td style="text-align:right;">
-                        ${formatNumber(group.surplusIron)}
-                    </td>
-                </tr>
-            `;
+                <td style="text-align:right;">
+                    ${formatNumber(group.surplusIron)}
+                </td>
+
+                <td style="text-align:right;font-weight:bold;">
+                    ${formatNumber(group.saldoWood)}
+                </td>
+
+                <td style="text-align:right;font-weight:bold;">
+                    ${formatNumber(group.saldoClay)}
+                </td>
+
+                <td style="text-align:right;font-weight:bold;">
+                    ${formatNumber(group.saldoIron)}
+                </td>
+            </tr>
+        `;
             })
             .join('');
 
@@ -793,23 +831,46 @@ Status: Entwicklung / Simulation
                     margin-bottom:10px;
                 ">
                     <thead>
-                        <tr>
-                            <th rowspan="2">Gruppe</th>
-                            <th rowspan="2">Bezeichnung</th>
-                            <th rowspan="2">Dörfer</th>
-                            <th colspan="3">Bedarf</th>
-                            <th colspan="3">Überschuss</th>
-                        </tr>
+    <tr>
+        <th rowspan="2">
+            Gruppe
+        </th>
 
-                        <tr>
-                            <th>Holz</th>
-                            <th>Lehm</th>
-                            <th>Eisen</th>
-                            <th>Holz</th>
-                            <th>Lehm</th>
-                            <th>Eisen</th>
-                        </tr>
-                    </thead>
+        <th rowspan="2">
+            Bezeichnung
+        </th>
+
+        <th rowspan="2">
+            Dörfer
+        </th>
+
+        <th colspan="3">
+            Bedarf
+        </th>
+
+        <th colspan="3">
+            Überschuss
+        </th>
+
+        <th colspan="3">
+            Saldo
+        </th>
+    </tr>
+
+    <tr>
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
+
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
+
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
+    </tr>
+</thead>
 
                     <tbody>
                         ${groupSummaryRows}
