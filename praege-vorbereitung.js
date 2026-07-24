@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.4 sauber
+Version: 0.3.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,8 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.4';
+    const VERSION = '0.3.5';
+    const TARGET_FILL = 0.95;
 
     const COIN_VILLAGE = {
         x: 538,
@@ -326,6 +327,36 @@ Status: Entwicklung / Simulation
         return villages;
     }
 
+    function prepareSimulation(villages) {
+    return villages.map(function (village) {
+        const targetAmount = Math.floor(
+            village.storage * TARGET_FILL
+        );
+
+        return Object.assign({}, village, {
+            simulation: {
+                targetFill: TARGET_FILL,
+                targetAmount: targetAmount,
+
+                needWood: Math.max(
+                    0,
+                    targetAmount - village.wood
+                ),
+
+                needClay: Math.max(
+                    0,
+                    targetAmount - village.clay
+                ),
+
+                needIron: Math.max(
+                    0,
+                    targetAmount - village.iron
+                )
+            }
+        });
+    });
+}
+
     function sortVillages(villages) {
         return villages
             .filter(function (village) {
@@ -396,6 +427,22 @@ Status: Entwicklung / Simulation
                         <td style="text-align:right;">
                             ${formatNumber(village.storage)}
                         </td>
+
+                        <td style="text-align:right;">
+    ${formatNumber(village.simulation.targetAmount)}
+</td>
+
+<td style="text-align:right;">
+    ${formatNumber(village.simulation.needWood)}
+</td>
+
+<td style="text-align:right;">
+    ${formatNumber(village.simulation.needClay)}
+</td>
+
+<td style="text-align:right;">
+    ${formatNumber(village.simulation.needIron)}
+</td>
 
                         <td style="text-align:center;white-space:nowrap;">
                             ${formatNumber(village.merchantsFree)}
@@ -553,6 +600,22 @@ console.log(
                                         Lager
                                     </th>
 
+                                    <th style="width:95px;">
+    Soll
+</th>
+
+<th style="width:95px;">
+    Bedarf Holz
+</th>
+
+<th style="width:95px;">
+    Bedarf Lehm
+</th>
+
+<th style="width:95px;">
+    Bedarf Eisen
+</th>
+
                                     <th style="width:85px;">
                                         Händler
                                     </th>
@@ -589,14 +652,18 @@ console.log(
             return;
         }
 
-        const sortedVillages = sortVillages(
-            allVillages
-        );
+        const preparedVillages = prepareSimulation(
+    allVillages
+);
+
+const sortedVillages = sortVillages(
+    preparedVillages
+);
 
         showPopup(
-            allVillages,
-            sortedVillages
-        );
+    preparedVillages,
+    sortedVillages
+);
 
         console.log(
     '[DS Helper | Prägevorbereitung]',
