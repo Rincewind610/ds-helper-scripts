@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.5
+Version: 0.4.6
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.5';
+    const VERSION = '0.4.6';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -534,6 +534,98 @@ Status: Entwicklung / Simulation
 
         return summary;
     }
+    function buildGroupFlows(groupSummary) {
+        const flows = [];
+
+        const receivers = groupSummary
+            .filter(function (group) {
+                return (
+                    group.saldoWood < 0 ||
+                    group.saldoClay < 0 ||
+                    group.saldoIron < 0
+                );
+            })
+            .sort(function (a, b) {
+                return a.id - b.id;
+            })
+            .map(function (group) {
+                return {
+                    id: group.id,
+                    woodNeed: Math.max(0, -group.saldoWood),
+                    clayNeed: Math.max(0, -group.saldoClay),
+                    ironNeed: Math.max(0, -group.saldoIron)
+                };
+            });
+
+        const senders = groupSummary
+            .filter(function (group) {
+                return (
+                    group.saldoWood > 0 ||
+                    group.saldoClay > 0 ||
+                    group.saldoIron > 0
+                );
+            })
+            .sort(function (a, b) {
+                return b.id - a.id;
+            })
+            .map(function (group) {
+                return {
+                    id: group.id,
+                    woodAvailable: Math.max(0, group.saldoWood),
+                    clayAvailable: Math.max(0, group.saldoClay),
+                    ironAvailable: Math.max(0, group.saldoIron)
+                };
+            });
+
+        receivers.forEach(function (receiver) {
+            senders.forEach(function (sender) {
+                if (sender.id <= receiver.id) {
+                    return;
+                }
+
+                const wood = Math.min(
+                    receiver.woodNeed,
+                    sender.woodAvailable
+                );
+
+                const clay = Math.min(
+                    receiver.clayNeed,
+                    sender.clayAvailable
+                );
+
+                const iron = Math.min(
+                    receiver.ironNeed,
+                    sender.ironAvailable
+                );
+
+                if (wood === 0 && clay === 0 && iron === 0) {
+                    return;
+                }
+
+                flows.push({
+                    fromGroup: sender.id,
+                    toGroup: receiver.id,
+                    wood: wood,
+                    clay: clay,
+                    iron: iron
+                });
+
+                receiver.woodNeed -= wood;
+                receiver.clayNeed -= clay;
+                receiver.ironNeed -= iron;
+
+                sender.woodAvailable -= wood;
+                sender.clayAvailable -= clay;
+                sender.ironAvailable -= iron;
+            });
+        });
+
+        return {
+            flows: flows,
+            remainingNeeds: receivers,
+            remainingResources: senders
+        };
+    }
 
     function getRoleLabel(village) {
         switch (village.simulation.role) {
@@ -686,6 +778,15 @@ Status: Entwicklung / Simulation
         ).sort(function (a, b) {
             return a.id - b.id;
         });
+        const groupFlowResult = buildGroupFlows(
+            groupSummary
+        );
+
+        console.table(groupFlowResult.flows);
+
+        console.table(
+            groupFlowResult.remainingNeeds
+        );
 
         const groupSummaryRows = groupSummary
             .map(function (group) {
