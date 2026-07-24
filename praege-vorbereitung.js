@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.8
+Version: 0.4.9
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.8';
+    const VERSION = '0.4.9';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -69,6 +69,11 @@ Status: Entwicklung / Simulation
             targetFill: 0.25
         }
     ];
+    const SENDER_RESERVE = {
+        wood: 160000,
+        clay: 180000,
+        iron: 140000
+    };
     const COIN_VILLAGE = {
         x: 538,
         y: 573,
@@ -571,9 +576,20 @@ Status: Entwicklung / Simulation
             .map(function (group) {
                 return {
                     id: group.id,
-                    woodAvailable: Math.max(0, group.saldoWood),
-                    clayAvailable: Math.max(0, group.saldoClay),
-                    ironAvailable: Math.max(0, group.saldoIron)
+                    woodAvailable: Math.max(
+                        0,
+                        village.wood - SENDER_RESERVE.wood
+                    ),
+
+                    clayAvailable: Math.max(
+                        0,
+                        village.clay - SENDER_RESERVE.clay
+                    ),
+
+                    ironAvailable: Math.max(
+                        0,
+                        village.iron - SENDER_RESERVE.iron
+                    )
                 };
             });
 
