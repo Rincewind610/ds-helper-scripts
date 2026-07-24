@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.9
+Version: 0.4.0.
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,9 +18,35 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.9';
+    const VERSION = '0.4.0';
     const TARGET_FILL = 0.95;
-
+    const DISTANCE_GROUPS = [
+    {
+        id: 1,
+        name: 'Sehr nah',
+        maxDistance: 10
+    },
+    {
+        id: 2,
+        name: 'Nah',
+        maxDistance: 20
+    },
+    {
+        id: 3,
+        name: 'Mittel',
+        maxDistance: 30
+    },
+    {
+        id: 4,
+        name: 'Weit',
+        maxDistance: 40
+    },
+    {
+        id: 5,
+        name: 'Sehr weit',
+        maxDistance: Infinity
+    }
+];
     const COIN_VILLAGE = {
         x: 538,
         y: 573,
@@ -326,11 +352,30 @@ Status: Entwicklung / Simulation
 
         return villages;
     }
+    function getDistanceGroup(distance) {
+    for (const group of DISTANCE_GROUPS) {
+        if (distance <= group.maxDistance) {
+            return {
+                id: group.id,
+                name: group.name
+            };
+        }
+    }
+
+    return {
+        id: 5,
+        name: 'Sehr weit'
+    };
+}
+
 
     function prepareSimulation(villages) {
     return villages.map(function (village) {
         const targetAmount = Math.floor(
             village.storage * TARGET_FILL
+        );
+        const distanceGroup = getDistanceGroup(
+        village.distanceToCoinVillage
         );
 
         const needWood = Math.max(
@@ -383,8 +428,10 @@ Status: Entwicklung / Simulation
 
         return Object.assign({}, village, {
             simulation: {
+                distanceGroupId: distanceGroup.id,
+                distanceGroupName: distanceGroup.name,
+                
                 role: role,
-
                 targetFill: TARGET_FILL,
                 targetAmount: targetAmount,
 
@@ -448,72 +495,84 @@ Status: Entwicklung / Simulation
     }
 
     function buildVillageRows(villages) {
-        return villages
-            .map(function (village, index) {
-                const rowStyle = village.parseError
-                    ? 'background:#ffd1d1;'
-                    : '';
+    return villages
+        .map(function (village, index) {
+            const rowStyle = village.parseError
+                ? 'background:#ffd1d1;'
+                : '';
 
-                return `
-                    <tr style="${rowStyle}">
-                        <td style="text-align:right;">
-                            ${index + 1}
-                        </td>
+            return `
+                <tr style="${rowStyle}">
+                    <td style="text-align:right;">
+                        ${index + 1}
+                    </td>
 
-                        <td style="text-align:center;font-weight:bold;">
-                        ${getRoleLabel(village)}
-                        </td>
+                    <td style="white-space:nowrap;">
+                        ${escapeHtml(village.name)}
+                    </td>
 
-                        <td style="white-space:nowrap;">
-                            ${escapeHtml(village.name)}
-                        </td>
+                    <td style="text-align:right;">
+                        ${village.distanceToCoinVillage.toFixed(2)}
+                    </td>
 
-                        <td style="text-align:right;">
-                            ${village.distanceToCoinVillage.toFixed(2)}
-                        </td>
+                    <td style="text-align:center;white-space:nowrap;">
+                        ${village.simulation.distanceGroupId}
+                        –
+                        ${escapeHtml(
+                            village.simulation.distanceGroupName
+                        )}
+                    </td>
 
-                        <td style="text-align:right;">
-                            ${formatNumber(village.wood)}
-                        </td>
+                    <td style="text-align:right;">
+                        ${formatNumber(village.wood)}
+                    </td>
 
-                        <td style="text-align:right;">
-                            ${formatNumber(village.clay)}
-                        </td>
+                    <td style="text-align:right;">
+                        ${formatNumber(village.clay)}
+                    </td>
 
-                        <td style="text-align:right;">
-                            ${formatNumber(village.iron)}
-                        </td>
+                    <td style="text-align:right;">
+                        ${formatNumber(village.iron)}
+                    </td>
 
-                        <td style="text-align:right;">
-                            ${formatNumber(village.storage)}
-                        </td>
+                    <td style="text-align:right;">
+                        ${formatNumber(village.storage)}
+                    </td>
 
-                        <td style="text-align:right;">
-    ${formatNumber(village.simulation.targetAmount)}
-</td>
+                    <td style="text-align:right;">
+                        ${formatNumber(
+                            village.simulation.targetAmount
+                        )}
+                    </td>
 
-<td style="text-align:right;">
-    ${formatNumber(village.simulation.needWood)}
-</td>
+                    <td style="text-align:right;">
+                        ${formatNumber(
+                            village.simulation.needWood
+                        )}
+                    </td>
 
-<td style="text-align:right;">
-    ${formatNumber(village.simulation.needClay)}
-</td>
+                    <td style="text-align:right;">
+                        ${formatNumber(
+                            village.simulation.needClay
+                        )}
+                    </td>
 
-<td style="text-align:right;">
-    ${formatNumber(village.simulation.needIron)}
-</td>
+                    <td style="text-align:right;">
+                        ${formatNumber(
+                            village.simulation.needIron
+                        )}
+                    </td>
 
-                        <td style="text-align:center;white-space:nowrap;">
-                            ${formatNumber(village.merchantsFree)}
-                            /
-                            ${formatNumber(village.merchantsTotal)}
-                        </td>
-                    </tr>
-                `;
-            })
-            .join('');
-    }
+                    <td style="text-align:center;white-space:nowrap;">
+                        ${formatNumber(village.merchantsFree)}
+                        /
+                        ${formatNumber(village.merchantsTotal)}
+                    </td>
+                </tr>
+            `;
+        })
+        .join('');
+}
 
     function showPopup(allVillages, sortedVillages) {
         removeExistingPopup();
@@ -642,6 +701,10 @@ console.log(
 
                                     <th style="width:75px;">
                                         Distanz
+                                    </th>
+
+                                    <th style="width:90px;">
+                                        Gruppe
                                     </th>
 
                                     <th style="width:55px;">
