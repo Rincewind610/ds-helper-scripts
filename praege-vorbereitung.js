@@ -992,8 +992,13 @@ Status: Entwicklung / Simulation
         );
 
         console.log(
-            '[DS Helper | Dorf-Pools]',
-            villagePools
+            '[DS Helper | Empfänger Gruppe 1]',
+            villagePools.receiversByGroup[1]
+        );
+
+        console.log(
+            '[DS Helper | Lieferanten Gruppe 8]',
+            villagePools.sendersByGroup[8]
         );
 
         const groupFlowOutput = buildGroupFlowOutput(
