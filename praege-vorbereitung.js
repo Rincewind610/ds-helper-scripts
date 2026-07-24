@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.8
+Version: 0.3.9
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.8';
+    const VERSION = '0.3.9';
     const TARGET_FILL = 0.95;
 
     const COIN_VILLAGE = {
@@ -400,6 +400,19 @@ Status: Entwicklung / Simulation
     });
 }
 
+    function getRoleLabel(village) {
+    switch (village.simulation.role) {
+        case 'sender':
+            return 'S';
+
+        case 'receiver':
+            return 'E';
+
+        default:
+            return '=';
+    }
+}
+
     function sortVillages(villages) {
         return villages
             .filter(function (village) {
@@ -445,6 +458,10 @@ Status: Entwicklung / Simulation
                     <tr style="${rowStyle}">
                         <td style="text-align:right;">
                             ${index + 1}
+                        </td>
+
+                        <td style="text-align:center;font-weight:bold;">
+                        ${getRoleLabel(village)}
                         </td>
 
                         <td style="white-space:nowrap;">
@@ -625,6 +642,10 @@ console.log(
 
                                     <th style="width:75px;">
                                         Distanz
+                                    </th>
+
+                                    <th style="width:55px;">
+                                    Rolle
                                     </th>
 
                                     <th style="width:95px;">
