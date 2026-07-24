@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.9
+Version: 0.4.8
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.9';
+    const VERSION = '0.4.8';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -69,11 +69,6 @@ Status: Entwicklung / Simulation
             targetFill: 0.25
         }
     ];
-    const SENDER_RESERVE = {
-        wood: 160000,
-        clay: 180000,
-        iron: 140000
-    };
     const COIN_VILLAGE = {
         x: 538,
         y: 573,
@@ -576,20 +571,9 @@ Status: Entwicklung / Simulation
             .map(function (group) {
                 return {
                     id: group.id,
-                    woodAvailable: Math.max(
-                        0,
-                        village.wood - SENDER_RESERVE.wood
-                    ),
-
-                    clayAvailable: Math.max(
-                        0,
-                        village.clay - SENDER_RESERVE.clay
-                    ),
-
-                    ironAvailable: Math.max(
-                        0,
-                        village.iron - SENDER_RESERVE.iron
-                    )
+                    woodAvailable: Math.max(0, group.saldoWood),
+                    clayAvailable: Math.max(0, group.saldoClay),
+                    ironAvailable: Math.max(0, group.saldoIron)
                 };
             });
 
@@ -644,85 +628,80 @@ Status: Entwicklung / Simulation
     }
 
     function buildVillagePools(villages) {
-    const receiversByGroup = {};
-    const sendersByGroup = {};
+        const receiversByGroup = {};
+        const sendersByGroup = {};
 
-    villages.forEach(function (village, originalIndex) {
-        if (village.isCoinVillage) {
-            return;
-        }
+        villages.forEach(function (village, originalIndex) {
+            if (village.isCoinVillage) {
+                return;
+            }
 
-        const groupId =
-            village.simulation.distanceGroupId;
+            const groupId =
+                village.simulation.distanceGroupId;
 
-        const villageState = {
-            coord: village.coord,
-            name: village.name,
-            groupId: groupId,
-            originalIndex: originalIndex,
+            const villageState = {
+                coord: village.coord,
+                name: village.name,
+                groupId: groupId,
+                originalIndex: originalIndex,
 
-            merchantsFree: village.merchantsFree,
-            merchantsTotal: village.merchantsTotal,
+                merchantsFree: village.merchantsFree,
+                merchantsTotal: village.merchantsTotal,
 
-            woodNeed: village.simulation.needWood,
-            clayNeed: village.simulation.needClay,
-            ironNeed: village.simulation.needIron,
+                woodNeed: village.simulation.needWood,
+                clayNeed: village.simulation.needClay,
+                ironNeed: village.simulation.needIron,
 
-            woodAvailable: Math.max(
-                0,
-                village.wood - SENDER_RESERVE.wood
-            ),
+                woodAvailable:
+                    village.simulation.surplusWood,
 
-            clayAvailable: Math.max(
-                0,
-                village.clay - SENDER_RESERVE.clay
-            ),
+                clayAvailable:
+                    village.simulation.surplusClay,
 
-            ironAvailable: Math.max(
-                0,
-                village.iron - SENDER_RESERVE.iron
-            )
+                ironAvailable:
+                    village.simulation.surplusIron
+            };
+
+            const hasNeed =
+                villageState.woodNeed > 0 ||
+                villageState.clayNeed > 0 ||
+                villageState.ironNeed > 0;
+
+            const hasAvailableResources =
+                villageState.woodAvailable > 0 ||
+                villageState.clayAvailable > 0 ||
+                villageState.ironAvailable > 0;
+
+            if (hasNeed) {
+                if (!receiversByGroup[groupId]) {
+                    receiversByGroup[groupId] = [];
+                }
+
+                receiversByGroup[groupId].push(
+                    Object.assign({}, villageState)
+                );
+            }
+
+            if (
+                hasAvailableResources &&
+                villageState.merchantsFree > 0
+            ) {
+                if (!sendersByGroup[groupId]) {
+                    sendersByGroup[groupId] = [];
+                }
+
+                sendersByGroup[groupId].push(
+                    Object.assign({}, villageState)
+                );
+            }
+        });
+
+        return {
+            receiversByGroup: receiversByGroup,
+            sendersByGroup: sendersByGroup
         };
+    }
 
-        const hasNeed =
-            villageState.woodNeed > 0 ||
-            villageState.clayNeed > 0 ||
-            villageState.ironNeed > 0;
-
-        const hasAvailableResources =
-            villageState.woodAvailable > 0 ||
-            villageState.clayAvailable > 0 ||
-            villageState.ironAvailable > 0;
-
-        if (hasNeed) {
-            if (!receiversByGroup[groupId]) {
-                receiversByGroup[groupId] = [];
-            }
-
-            receiversByGroup[groupId].push(
-                Object.assign({}, villageState)
-            );
-        }
-
-        if (
-            hasAvailableResources &&
-            villageState.merchantsFree > 0
-        ) {
-            if (!sendersByGroup[groupId]) {
-                sendersByGroup[groupId] = [];
-            }
-
-            sendersByGroup[groupId].push(
-                Object.assign({}, villageState)
-            );
-        }
-    });
-
-    return {
-        receiversByGroup: receiversByGroup,
-        sendersByGroup: sendersByGroup
-    };
-}
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
             .map(function (flow) {
