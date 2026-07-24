@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.7
+Version: 0.3.7 neu
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.7';
+    const VERSION = '0.3.7 neu';
     const TARGET_FILL = 0.95;
 
     const COIN_VILLAGE = {
