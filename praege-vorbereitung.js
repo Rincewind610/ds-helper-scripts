@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.3.7 neu
+Version: 0.3.8
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.3.7 neu';
+    const VERSION = '0.3.8';
     const TARGET_FILL = 0.95;
 
     const COIN_VILLAGE = {
@@ -333,60 +333,68 @@ Status: Entwicklung / Simulation
             village.storage * TARGET_FILL
         );
 
+        const needWood = Math.max(
+            0,
+            targetAmount - village.wood
+        );
+
+        const needClay = Math.max(
+            0,
+            targetAmount - village.clay
+        );
+
+        const needIron = Math.max(
+            0,
+            targetAmount - village.iron
+        );
+
+        const surplusWood = Math.max(
+            0,
+            village.wood - targetAmount
+        );
+
+        const surplusClay = Math.max(
+            0,
+            village.clay - targetAmount
+        );
+
+        const surplusIron = Math.max(
+            0,
+            village.iron - targetAmount
+        );
+
+        const hasNeed =
+            needWood > 0 ||
+            needClay > 0 ||
+            needIron > 0;
+
+        const hasSurplus =
+            surplusWood > 0 ||
+            surplusClay > 0 ||
+            surplusIron > 0;
+
         let role = 'balanced';
 
-const hasNeed =
-    targetAmount > village.wood ||
-    targetAmount > village.clay ||
-    targetAmount > village.iron;
-
-const hasSurplus =
-    village.wood > targetAmount ||
-    village.clay > targetAmount ||
-    village.iron > targetAmount;
-
-if (hasNeed) {
-    role = 'receiver';
-} else if (hasSurplus) {
-    role = 'sender';
-}
+        if (hasNeed) {
+            role = 'receiver';
+        } else if (hasSurplus) {
+            role = 'sender';
+        }
 
         return Object.assign({}, village, {
             simulation: {
                 role: role,
-                
+
                 targetFill: TARGET_FILL,
                 targetAmount: targetAmount,
 
-                needWood: Math.max(
-                    0,
-                    targetAmount - village.wood
-                ),
+                needWood: needWood,
+                needClay: needClay,
+                needIron: needIron,
 
-                needClay: Math.max(
-                    0,
-                    targetAmount - village.clay
-                ),
-
-                needIron: Math.max(
-                    0,
-                    targetAmount - village.iron
-                ),
-
-                surplusWood: Math.max(
-                    0,
-                    village.wood - targetAmount
-                ),
-
-                surplusClay: Math.max(
-                    0,
-                    village.clay - targetAmount
-                ),
-
-                surplusIron: Math.max(
-                    0,
-                    village.iron - targetAmount
-                )
+                surplusWood: surplusWood,
+                surplusClay: surplusClay,
+                surplusIron: surplusIron
             }
         });
     });
