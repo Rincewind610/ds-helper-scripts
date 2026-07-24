@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.7
+Version: 0.4.8
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.7';
+    const VERSION = '0.4.8';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -626,6 +626,82 @@ Status: Entwicklung / Simulation
             remainingResources: senders
         };
     }
+
+    function buildVillagePools(villages) {
+        const receiversByGroup = {};
+        const sendersByGroup = {};
+
+        villages.forEach(function (village, originalIndex) {
+            if (village.isCoinVillage) {
+                return;
+            }
+
+            const groupId =
+                village.simulation.distanceGroupId;
+
+            const villageState = {
+                coord: village.coord,
+                name: village.name,
+                groupId: groupId,
+                originalIndex: originalIndex,
+
+                merchantsFree: village.merchantsFree,
+                merchantsTotal: village.merchantsTotal,
+
+                woodNeed: village.simulation.needWood,
+                clayNeed: village.simulation.needClay,
+                ironNeed: village.simulation.needIron,
+
+                woodAvailable:
+                    village.simulation.surplusWood,
+
+                clayAvailable:
+                    village.simulation.surplusClay,
+
+                ironAvailable:
+                    village.simulation.surplusIron
+            };
+
+            const hasNeed =
+                villageState.woodNeed > 0 ||
+                villageState.clayNeed > 0 ||
+                villageState.ironNeed > 0;
+
+            const hasAvailableResources =
+                villageState.woodAvailable > 0 ||
+                villageState.clayAvailable > 0 ||
+                villageState.ironAvailable > 0;
+
+            if (hasNeed) {
+                if (!receiversByGroup[groupId]) {
+                    receiversByGroup[groupId] = [];
+                }
+
+                receiversByGroup[groupId].push(
+                    Object.assign({}, villageState)
+                );
+            }
+
+            if (
+                hasAvailableResources &&
+                villageState.merchantsFree > 0
+            ) {
+                if (!sendersByGroup[groupId]) {
+                    sendersByGroup[groupId] = [];
+                }
+
+                sendersByGroup[groupId].push(
+                    Object.assign({}, villageState)
+                );
+            }
+        });
+
+        return {
+            receiversByGroup: receiversByGroup,
+            sendersByGroup: sendersByGroup
+        };
+    }
+
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
             .map(function (flow) {
@@ -909,6 +985,15 @@ Status: Entwicklung / Simulation
         });
         const groupFlowResult = buildGroupFlows(
             groupSummary
+        );
+
+        const villagePools = buildVillagePools(
+            sortedVillages
+        );
+
+        console.log(
+            '[DS Helper | Dorf-Pools]',
+            villagePools
         );
 
         const groupFlowOutput = buildGroupFlowOutput(
