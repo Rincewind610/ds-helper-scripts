@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.0.
+Version: 0.4.1.
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,35 +18,35 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.0';
+    const VERSION = '0.4.1';
     const TARGET_FILL = 0.95;
     const DISTANCE_GROUPS = [
-    {
-        id: 1,
-        name: 'Sehr nah',
-        maxDistance: 10
-    },
-    {
-        id: 2,
-        name: 'Nah',
-        maxDistance: 20
-    },
-    {
-        id: 3,
-        name: 'Mittel',
-        maxDistance: 30
-    },
-    {
-        id: 4,
-        name: 'Weit',
-        maxDistance: 40
-    },
-    {
-        id: 5,
-        name: 'Sehr weit',
-        maxDistance: Infinity
-    }
-];
+        {
+            id: 1,
+            name: 'Sehr nah',
+            maxDistance: 10
+        },
+        {
+            id: 2,
+            name: 'Nah',
+            maxDistance: 20
+        },
+        {
+            id: 3,
+            name: 'Mittel',
+            maxDistance: 30
+        },
+        {
+            id: 4,
+            name: 'Weit',
+            maxDistance: 40
+        },
+        {
+            id: 5,
+            name: 'Sehr weit',
+            maxDistance: Infinity
+        }
+    ];
     const COIN_VILLAGE = {
         x: 538,
         y: 573,
@@ -182,107 +182,107 @@ Status: Entwicklung / Simulation
         };
     }
 
- function extractRowData(row) {
-    const cells = row.children('td');
+    function extractRowData(row) {
+        const cells = row.children('td');
 
-    let resourceCellIndex = -1;
-    let resources = null;
+        let resourceCellIndex = -1;
+        let resources = null;
 
-    cells.each(function (index) {
-        if (resources) {
-            return;
-        }
+        cells.each(function (index) {
+            if (resources) {
+                return;
+            }
 
-        const result = extractResourcesFromCell($(this));
-
-        if (
-            result &&
-            result.wood >= 1000 &&
-            result.clay >= 1000 &&
-            result.iron >= 1000
-        ) {
-            resourceCellIndex = index;
-            resources = result;
-        }
-    });
-
-    if (!resources) {
-        return {
-            wood: 0,
-            clay: 0,
-            iron: 0,
-            storage: 0,
-            merchantsFree: 0,
-            merchantsTotal: 0,
-            parseError: true
-        };
-    }
-
-    let storage = 0;
-    let merchantsFree = 0;
-    let merchantsTotal = 0;
-
-    for (
-        let index = resourceCellIndex + 1;
-        index < cells.length;
-        index++
-    ) {
-        const cellText = $(cells[index])
-            .text()
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        if (!cellText) {
-            continue;
-        }
-
-        const merchantMatch = cellText.match(
-            /(\d[\d.]*)\s*\/\s*(\d[\d.]*)/
-        );
-
-        if (merchantMatch && merchantsTotal === 0) {
-            const firstValue = parseGameNumber(
-                merchantMatch[1]
-            );
-
-            const secondValue = parseGameNumber(
-                merchantMatch[2]
-            );
+            const result = extractResourcesFromCell($(this));
 
             if (
-                secondValue <= 1000 &&
-                firstValue <= secondValue
+                result &&
+                result.wood >= 1000 &&
+                result.clay >= 1000 &&
+                result.iron >= 1000
             ) {
-                merchantsFree = firstValue;
-                merchantsTotal = secondValue;
+                resourceCellIndex = index;
+                resources = result;
+            }
+        });
+
+        if (!resources) {
+            return {
+                wood: 0,
+                clay: 0,
+                iron: 0,
+                storage: 0,
+                merchantsFree: 0,
+                merchantsTotal: 0,
+                parseError: true
+            };
+        }
+
+        let storage = 0;
+        let merchantsFree = 0;
+        let merchantsTotal = 0;
+
+        for (
+            let index = resourceCellIndex + 1;
+            index < cells.length;
+            index++
+        ) {
+            const cellText = $(cells[index])
+                .text()
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (!cellText) {
                 continue;
             }
-        }
 
-        if (storage === 0) {
-            const possibleStorage = parseGameNumber(cellText);
+            const merchantMatch = cellText.match(
+                /(\d[\d.]*)\s*\/\s*(\d[\d.]*)/
+            );
 
-            if (
-                /^\d[\d.]*$/.test(cellText) &&
-                possibleStorage >= 10000
-            ) {
-                storage = possibleStorage;
+            if (merchantMatch && merchantsTotal === 0) {
+                const firstValue = parseGameNumber(
+                    merchantMatch[1]
+                );
+
+                const secondValue = parseGameNumber(
+                    merchantMatch[2]
+                );
+
+                if (
+                    secondValue <= 1000 &&
+                    firstValue <= secondValue
+                ) {
+                    merchantsFree = firstValue;
+                    merchantsTotal = secondValue;
+                    continue;
+                }
+            }
+
+            if (storage === 0) {
+                const possibleStorage = parseGameNumber(cellText);
+
+                if (
+                    /^\d[\d.]*$/.test(cellText) &&
+                    possibleStorage >= 10000
+                ) {
+                    storage = possibleStorage;
+                }
             }
         }
-    }
 
-    return {
-        wood: resources.wood,
-        clay: resources.clay,
-        iron: resources.iron,
-        storage: storage,
-        merchantsFree: merchantsFree,
-        merchantsTotal: merchantsTotal,
-        parseError:
-            storage === 0 ||
-            merchantsTotal === 0
-    };
-}
+        return {
+            wood: resources.wood,
+            clay: resources.clay,
+            iron: resources.iron,
+            storage: storage,
+            merchantsFree: merchantsFree,
+            merchantsTotal: merchantsTotal,
+            parseError:
+                storage === 0 ||
+                merchantsTotal === 0
+        };
+    }
 
     function readVillages() {
         const villages = [];
@@ -353,112 +353,149 @@ Status: Entwicklung / Simulation
         return villages;
     }
     function getDistanceGroup(distance) {
-    for (const group of DISTANCE_GROUPS) {
-        if (distance <= group.maxDistance) {
-            return {
-                id: group.id,
-                name: group.name
-            };
+        for (const group of DISTANCE_GROUPS) {
+            if (distance <= group.maxDistance) {
+                return {
+                    id: group.id,
+                    name: group.name
+                };
+            }
         }
-    }
 
-    return {
-        id: 5,
-        name: 'Sehr weit'
-    };
-}
+        return {
+            id: 5,
+            name: 'Sehr weit'
+        };
+    }
 
 
     function prepareSimulation(villages) {
-    return villages.map(function (village) {
-        const targetAmount = Math.floor(
-            village.storage * TARGET_FILL
-        );
-        const distanceGroup = getDistanceGroup(
-        village.distanceToCoinVillage
-        );
+        return villages.map(function (village) {
+            const targetAmount = Math.floor(
+                village.storage * TARGET_FILL
+            );
+            const distanceGroup = getDistanceGroup(
+                village.distanceToCoinVillage
+            );
 
-        const needWood = Math.max(
-            0,
-            targetAmount - village.wood
-        );
+            const needWood = Math.max(
+                0,
+                targetAmount - village.wood
+            );
 
-        const needClay = Math.max(
-            0,
-            targetAmount - village.clay
-        );
+            const needClay = Math.max(
+                0,
+                targetAmount - village.clay
+            );
 
-        const needIron = Math.max(
-            0,
-            targetAmount - village.iron
-        );
+            const needIron = Math.max(
+                0,
+                targetAmount - village.iron
+            );
 
-        const surplusWood = Math.max(
-            0,
-            village.wood - targetAmount
-        );
+            const surplusWood = Math.max(
+                0,
+                village.wood - targetAmount
+            );
 
-        const surplusClay = Math.max(
-            0,
-            village.clay - targetAmount
-        );
+            const surplusClay = Math.max(
+                0,
+                village.clay - targetAmount
+            );
 
-        const surplusIron = Math.max(
-            0,
-            village.iron - targetAmount
-        );
+            const surplusIron = Math.max(
+                0,
+                village.iron - targetAmount
+            );
 
-        const hasNeed =
-            needWood > 0 ||
-            needClay > 0 ||
-            needIron > 0;
+            const hasNeed =
+                needWood > 0 ||
+                needClay > 0 ||
+                needIron > 0;
 
-        const hasSurplus =
-            surplusWood > 0 ||
-            surplusClay > 0 ||
-            surplusIron > 0;
+            const hasSurplus =
+                surplusWood > 0 ||
+                surplusClay > 0 ||
+                surplusIron > 0;
 
-        let role = 'balanced';
+            let role = 'balanced';
 
-        if (hasNeed) {
-            role = 'receiver';
-        } else if (hasSurplus) {
-            role = 'sender';
-        }
-
-        return Object.assign({}, village, {
-            simulation: {
-                distanceGroupId: distanceGroup.id,
-                distanceGroupName: distanceGroup.name,
-                
-                role: role,
-                targetFill: TARGET_FILL,
-                targetAmount: targetAmount,
-
-                needWood: needWood,
-                needClay: needClay,
-                needIron: needIron,
-
-                surplusWood: surplusWood,
-                surplusClay: surplusClay,
-                surplusIron: surplusIron
+            if (hasNeed) {
+                role = 'receiver';
+            } else if (hasSurplus) {
+                role = 'sender';
             }
+
+            return Object.assign({}, village, {
+                simulation: {
+                    distanceGroupId: distanceGroup.id,
+                    distanceGroupName: distanceGroup.name,
+
+                    role: role,
+                    targetFill: TARGET_FILL,
+                    targetAmount: targetAmount,
+
+                    needWood: needWood,
+                    needClay: needClay,
+                    needIron: needIron,
+
+                    surplusWood: surplusWood,
+                    surplusClay: surplusClay,
+                    surplusIron: surplusIron
+                }
+            });
         });
-    });
-}
+    }
+    function buildGroupSummary(villages) {
+        const groups = {};
+
+        villages.forEach(function (village) {
+
+            const id = village.simulation.distanceGroupId;
+
+            if (!groups[id]) {
+                groups[id] = {
+                    id: id,
+                    name: village.simulation.distanceGroupName,
+
+                    villages: 0,
+
+                    needWood: 0,
+                    needClay: 0,
+                    needIron: 0,
+
+                    surplusWood: 0,
+                    surplusClay: 0,
+                    surplusIron: 0
+                };
+            }
+
+            groups[id].villages++;
+
+            groups[id].needWood += village.simulation.needWood;
+            groups[id].needClay += village.simulation.needClay;
+            groups[id].needIron += village.simulation.needIron;
+
+            groups[id].surplusWood += village.simulation.surplusWood;
+            groups[id].surplusClay += village.simulation.surplusClay;
+            groups[id].surplusIron += village.simulation.surplusIron;
+        });
+
+        return Object.values(groups);
+    }
 
     function getRoleLabel(village) {
-    switch (village.simulation.role) {
-        case 'sender':
-            return 'S';
+        switch (village.simulation.role) {
+            case 'sender':
+                return 'S';
 
-        case 'receiver':
-            return 'E';
+            case 'receiver':
+                return 'E';
 
-        default:
-            return '=';
+            default:
+                return '=';
+        }
     }
-}
 
     function sortVillages(villages) {
         return villages
@@ -495,13 +532,13 @@ Status: Entwicklung / Simulation
     }
 
     function buildVillageRows(villages) {
-    return villages
-        .map(function (village, index) {
-            const rowStyle = village.parseError
-                ? 'background:#ffd1d1;'
-                : '';
+        return villages
+            .map(function (village, index) {
+                const rowStyle = village.parseError
+                    ? 'background:#ffd1d1;'
+                    : '';
 
-            return `
+                return `
                 <tr style="${rowStyle}">
                     <td style="text-align:right;">
                         ${index + 1}
@@ -519,8 +556,8 @@ Status: Entwicklung / Simulation
                         ${village.simulation.distanceGroupId}
                         –
                         ${escapeHtml(
-                            village.simulation.distanceGroupName
-                        )}
+                    village.simulation.distanceGroupName
+                )}
                     </td>
 
                     <td style="text-align:right;">
@@ -541,26 +578,26 @@ Status: Entwicklung / Simulation
 
                     <td style="text-align:right;">
                         ${formatNumber(
-                            village.simulation.targetAmount
-                        )}
+                    village.simulation.targetAmount
+                )}
                     </td>
 
                     <td style="text-align:right;">
                         ${formatNumber(
-                            village.simulation.needWood
-                        )}
+                    village.simulation.needWood
+                )}
                     </td>
 
                     <td style="text-align:right;">
                         ${formatNumber(
-                            village.simulation.needClay
-                        )}
+                    village.simulation.needClay
+                )}
                     </td>
 
                     <td style="text-align:right;">
                         ${formatNumber(
-                            village.simulation.needIron
-                        )}
+                    village.simulation.needIron
+                )}
                     </td>
 
                     <td style="text-align:center;white-space:nowrap;">
@@ -570,9 +607,9 @@ Status: Entwicklung / Simulation
                     </td>
                 </tr>
             `;
-        })
-        .join('');
-}
+            })
+            .join('');
+    }
 
     function showPopup(allVillages, sortedVillages) {
         removeExistingPopup();
@@ -584,17 +621,17 @@ Status: Entwicklung / Simulation
         );
 
         const parseErrorVillages = allVillages.filter(
-    function (village) {
-        return village.parseError;
-    }
-);
+            function (village) {
+                return village.parseError;
+            }
+        );
 
-const parseErrors = parseErrorVillages.length;
+        const parseErrors = parseErrorVillages.length;
 
-console.log(
-    '[DS Helper | Lesefehler]',
-    parseErrorVillages
-);
+        console.log(
+            '[DS Helper | Lesefehler]',
+            parseErrorVillages
+        );
 
         const popupHtml = `
             <div id="${POPUP_ID}" style="
@@ -655,11 +692,10 @@ console.log(
 
                             <th>Status</th>
                             <td>
-                                ${
-                                    coinVillageFound
-                                        ? 'gefunden und ausgeschlossen'
-                                        : 'nicht gefunden'
-                                }
+                                ${coinVillageFound
+                ? 'gefunden und ausgeschlossen'
+                : 'nicht gefunden'
+            }
                             </td>
                         </tr>
 
@@ -707,8 +743,8 @@ console.log(
                                         Gruppe
                                     </th>
 
-                                    <th style="width:55px;">
-                                    Rolle
+                                    <th style="width:110px;">
+                                        Gruppe
                                     </th>
 
                                     <th style="width:95px;">
@@ -780,25 +816,31 @@ console.log(
         }
 
         const preparedVillages = prepareSimulation(
-    allVillages
-);
+            allVillages
+        );
 
-const sortedVillages = sortVillages(
-    preparedVillages
-);
+        const sortedVillages = sortVillages(
+            preparedVillages
+        );
+
+        const groupSummary = buildGroupSummary(
+            preparedVillages
+        );
+
+        console.table(groupSummary);
 
         showPopup(
-    preparedVillages,
-    sortedVillages
-);
+            preparedVillages,
+            sortedVillages
+        );
 
         console.log(
-    '[DS Helper | Prägevorbereitung]',
-    {
-        version: VERSION,
-        parseErrors: allVillages.filter(v => v.parseError)
-    }
-);
+            '[DS Helper | Prägevorbereitung]',
+            {
+                version: VERSION,
+                parseErrors: allVillages.filter(v => v.parseError)
+            }
+        );
     }
 
     init();
