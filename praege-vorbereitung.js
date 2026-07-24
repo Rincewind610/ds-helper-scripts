@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.6
+Version: 0.4.7
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.6';
+    const VERSION = '0.4.7';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -626,6 +626,135 @@ Status: Entwicklung / Simulation
             remainingResources: senders
         };
     }
+    function buildGroupFlowOutput(groupFlowResult) {
+        const flowRows = groupFlowResult.flows
+            .map(function (flow) {
+                return `
+                <tr>
+                    <td style="text-align:center;">
+                        ${flow.fromGroup}
+                    </td>
+
+                    <td style="text-align:center;">
+                        ${flow.toGroup}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(flow.wood)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(flow.clay)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(flow.iron)}
+                    </td>
+                </tr>
+            `;
+            })
+            .join('');
+
+        const remainingNeeds = groupFlowResult.remainingNeeds
+            .filter(function (group) {
+                return (
+                    group.woodNeed > 0 ||
+                    group.clayNeed > 0 ||
+                    group.ironNeed > 0
+                );
+            });
+
+        const remainingRows = remainingNeeds
+            .map(function (group) {
+                return `
+                <tr>
+                    <td style="text-align:center;">
+                        ${group.id}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.woodNeed)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.clayNeed)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.ironNeed)}
+                    </td>
+                </tr>
+            `;
+            })
+            .join('');
+
+        return `
+        <table class="vis" style="
+            width:100%;
+            margin-bottom:10px;
+        ">
+            <thead>
+                <tr>
+                    <th colspan="5">
+                        Geplante Gruppenflüsse
+                    </th>
+                </tr>
+
+                <tr>
+                    <th>Von Gruppe</th>
+                    <th>Zu Gruppe</th>
+                    <th>Holz</th>
+                    <th>Lehm</th>
+                    <th>Eisen</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                ${flowRows ||
+            `
+                        <tr>
+                            <td colspan="5">
+                                Keine Gruppenflüsse erforderlich
+                            </td>
+                        </tr>
+                    `
+            }
+            </tbody>
+        </table>
+
+        <table class="vis" style="
+            width:100%;
+            margin-bottom:10px;
+        ">
+            <thead>
+                <tr>
+                    <th colspan="4">
+                        Verbleibender Bedarf
+                    </th>
+                </tr>
+
+                <tr>
+                    <th>Gruppe</th>
+                    <th>Holz</th>
+                    <th>Lehm</th>
+                    <th>Eisen</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                ${remainingRows ||
+            `
+                        <tr>
+                            <td colspan="4">
+                                Alle Gruppen können vollständig versorgt werden
+                            </td>
+                        </tr>
+                    `
+            }
+            </tbody>
+        </table>
+    `;
+    }
 
     function getRoleLabel(village) {
         switch (village.simulation.role) {
@@ -782,10 +911,8 @@ Status: Entwicklung / Simulation
             groupSummary
         );
 
-        console.table(groupFlowResult.flows);
-
-        console.table(
-            groupFlowResult.remainingNeeds
+        const groupFlowOutput = buildGroupFlowOutput(
+            groupFlowResult
         );
 
         const groupSummaryRows = groupSummary
@@ -978,8 +1105,10 @@ Status: Entwicklung / Simulation
                     </tbody>
                 </table>
 
-                <div style="
-                    max-height:calc(100vh - 330px);
+${groupFlowOutput}
+
+<div style="
+    max-height:calc(100vh - 520px);
                     overflow:auto;
                     border:1px solid #c1a264;
                 ">
