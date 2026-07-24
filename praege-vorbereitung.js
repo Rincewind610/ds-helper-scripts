@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.1.
+Version: 0.4.2.
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.1';
+    const VERSION = '0.4.2';
     const TARGET_FILL = 0.95;
     const DISTANCE_GROUPS = [
         {
@@ -498,28 +498,25 @@ Status: Entwicklung / Simulation
     }
 
     function sortVillages(villages) {
-        return villages
-            .filter(function (village) {
-                return !village.isCoinVillage;
-            })
-            .sort(function (a, b) {
-                if (
-                    a.distanceToCoinVillage !==
-                    b.distanceToCoinVillage
-                ) {
-                    return (
-                        a.distanceToCoinVillage -
-                        b.distanceToCoinVillage
-                    );
-                }
+    return villages
+        .filter(function (village) {
+            return !village.isCoinVillage;
+        })
+        .sort(function (a, b) {
 
-                if (a.x !== b.x) {
-                    return a.x - b.x;
-                }
+            if (
+                a.simulation.distanceGroupId !==
+                b.simulation.distanceGroupId
+            ) {
+                return (
+                    a.simulation.distanceGroupId -
+                    b.simulation.distanceGroupId
+                );
+            }
 
-                return a.y - b.y;
-            });
-    }
+            return 0;
+        });
+}
 
     function escapeHtml(value) {
         return $('<div>')
@@ -612,197 +609,272 @@ Status: Entwicklung / Simulation
     }
 
     function showPopup(allVillages, sortedVillages) {
-        removeExistingPopup();
+    removeExistingPopup();
 
-        const coinVillageFound = allVillages.some(
-            function (village) {
-                return village.isCoinVillage;
-            }
-        );
+    const coinVillageFound = allVillages.some(
+        function (village) {
+            return village.isCoinVillage;
+        }
+    );
 
-        const parseErrorVillages = allVillages.filter(
-            function (village) {
-                return village.parseError;
-            }
-        );
+    const parseErrorVillages = allVillages.filter(
+        function (village) {
+            return village.parseError;
+        }
+    );
 
-        const parseErrors = parseErrorVillages.length;
+    const parseErrors = parseErrorVillages.length;
 
-        console.log(
-            '[DS Helper | Lesefehler]',
-            parseErrorVillages
-        );
+    console.log(
+        '[DS Helper | Lesefehler]',
+        parseErrorVillages
+    );
 
-        const popupHtml = `
-            <div id="${POPUP_ID}" style="
-                position:fixed;
-                top:35px;
-                left:50%;
-                transform:translateX(-50%);
-                width:1180px;
-                max-width:calc(100vw - 30px);
-                max-height:calc(100vh - 65px);
-                z-index:99999;
-                background:#f4e4bc;
-                border:2px solid #804000;
-                box-shadow:0 4px 18px rgba(0,0,0,0.55);
-                font-family:Verdana,Arial,sans-serif;
-                font-size:12px;
-                color:#000;
+    const groupSummary = buildGroupSummary(
+        sortedVillages
+    ).sort(function (a, b) {
+        return a.id - b.id;
+    });
+
+    const groupSummaryRows = groupSummary
+        .map(function (group) {
+            return `
+                <tr>
+                    <td style="text-align:center;">
+                        ${group.id}
+                    </td>
+
+                    <td style="white-space:nowrap;">
+                        ${escapeHtml(group.name)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.villages)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.needWood)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.needClay)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.needIron)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.surplusWood)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.surplusClay)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(group.surplusIron)}
+                    </td>
+                </tr>
+            `;
+        })
+        .join('');
+
+    const popupHtml = `
+        <div id="${POPUP_ID}" style="
+            position:fixed;
+            top:20px;
+            left:50%;
+            transform:translateX(-50%);
+            width:1500px;
+            max-width:calc(100vw - 30px);
+            max-height:calc(100vh - 40px);
+            z-index:99999;
+            background:#f4e4bc;
+            border:2px solid #804000;
+            box-shadow:0 4px 18px rgba(0,0,0,0.55);
+            font-family:Verdana,Arial,sans-serif;
+            font-size:12px;
+            color:#000;
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                padding:8px 10px;
+                background:#804000;
+                color:#fff;
+                font-weight:bold;
+                font-size:14px;
             ">
+                <span>
+                    DS Helper – Prägevorbereitung ${VERSION}
+                </span>
+
+                <button
+                    type="button"
+                    id="${POPUP_ID}-close"
+                    style="
+                        border:1px solid #fff;
+                        background:#b22222;
+                        color:#fff;
+                        cursor:pointer;
+                        font-weight:bold;
+                        padding:2px 8px;
+                    "
+                >
+                    X
+                </button>
+            </div>
+
+            <div style="padding:10px;">
+                <table class="vis" style="
+                    width:100%;
+                    margin-bottom:10px;
+                ">
+                    <tr>
+                        <th>Münzdorf</th>
+                        <td>${COIN_VILLAGE.coord}</td>
+
+                        <th>Status</th>
+                        <td>
+                            ${
+                                coinVillageFound
+                                    ? 'gefunden und ausgeschlossen'
+                                    : 'nicht gefunden'
+                            }
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Dörfer erkannt</th>
+                        <td>${allVillages.length}</td>
+
+                        <th>Dörfer ausgewertet</th>
+                        <td>${sortedVillages.length}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Lesefehler</th>
+                        <td>${parseErrors}</td>
+
+                        <th>Simulationsmodus</th>
+                        <td>aktiv – keine Transporte</td>
+                    </tr>
+                </table>
+
+                <table class="vis" style="
+                    width:100%;
+                    margin-bottom:10px;
+                ">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Gruppe</th>
+                            <th rowspan="2">Bezeichnung</th>
+                            <th rowspan="2">Dörfer</th>
+                            <th colspan="3">Bedarf</th>
+                            <th colspan="3">Überschuss</th>
+                        </tr>
+
+                        <tr>
+                            <th>Holz</th>
+                            <th>Lehm</th>
+                            <th>Eisen</th>
+                            <th>Holz</th>
+                            <th>Lehm</th>
+                            <th>Eisen</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${groupSummaryRows}
+                    </tbody>
+                </table>
 
                 <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                    padding:8px 10px;
-                    background:#804000;
-                    color:#fff;
-                    font-weight:bold;
-                    font-size:14px;
+                    max-height:calc(100vh - 330px);
+                    overflow:auto;
+                    border:1px solid #c1a264;
                 ">
-                    <span>
-                        DS Helper – Prägevorbereitung ${VERSION}
-                    </span>
-
-                    <button
-                        type="button"
-                        id="${POPUP_ID}-close"
-                        style="
-                            border:1px solid #fff;
-                            background:#b22222;
-                            color:#fff;
-                            cursor:pointer;
-                            font-weight:bold;
-                            padding:2px 8px;
-                        "
-                    >
-                        X
-                    </button>
-                </div>
-
-                <div style="padding:10px;">
                     <table class="vis" style="
                         width:100%;
-                        margin-bottom:10px;
+                        border-collapse:collapse;
                     ">
-                        <tr>
-                            <th>Münzdorf</th>
-                            <td>${COIN_VILLAGE.coord}</td>
+                        <thead>
+                            <tr>
+                                <th style="width:45px;">
+                                    Rang
+                                </th>
 
-                            <th>Status</th>
-                            <td>
-                                ${coinVillageFound
-                ? 'gefunden und ausgeschlossen'
-                : 'nicht gefunden'
-            }
-                            </td>
-                        </tr>
+                                <th>
+                                    Dorf
+                                </th>
 
-                        <tr>
-                            <th>Dörfer erkannt</th>
-                            <td>${allVillages.length}</td>
+                                <th style="width:75px;">
+                                    Distanz
+                                </th>
 
-                            <th>Dörfer ausgewertet</th>
-                            <td>${sortedVillages.length}</td>
-                        </tr>
+                                <th style="width:110px;">
+                                    Gruppe
+                                </th>
 
-                        <tr>
-                            <th>Lesefehler</th>
-                            <td>${parseErrors}</td>
+                                <th style="width:95px;">
+                                    Holz
+                                </th>
 
-                            <th>Simulationsmodus</th>
-                            <td>aktiv – keine Transporte</td>
-                        </tr>
+                                <th style="width:95px;">
+                                    Lehm
+                                </th>
+
+                                <th style="width:95px;">
+                                    Eisen
+                                </th>
+
+                                <th style="width:95px;">
+                                    Lager
+                                </th>
+
+                                <th style="width:95px;">
+                                    Soll
+                                </th>
+
+                                <th style="width:95px;">
+                                    Bedarf Holz
+                                </th>
+
+                                <th style="width:95px;">
+                                    Bedarf Lehm
+                                </th>
+
+                                <th style="width:95px;">
+                                    Bedarf Eisen
+                                </th>
+
+                                <th style="width:85px;">
+                                    Händler
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            ${buildVillageRows(sortedVillages)}
+                        </tbody>
                     </table>
-
-                    <div style="
-                        max-height:calc(100vh - 235px);
-                        overflow:auto;
-                        border:1px solid #c1a264;
-                    ">
-                        <table class="vis" style="
-                            width:100%;
-                            border-collapse:collapse;
-                        ">
-                            <thead>
-                                <tr>
-                                    <th style="width:45px;">
-                                        Rang
-                                    </th>
-
-                                    <th>
-                                        Dorf
-                                    </th>
-
-                                    <th style="width:75px;">
-                                        Distanz
-                                    </th>
-
-                                    <th style="width:90px;">
-                                        Gruppe
-                                    </th>
-
-                                    <th style="width:110px;">
-                                        Gruppe
-                                    </th>
-
-                                    <th style="width:95px;">
-                                        Holz
-                                    </th>
-
-                                    <th style="width:95px;">
-                                        Lehm
-                                    </th>
-
-                                    <th style="width:95px;">
-                                        Eisen
-                                    </th>
-
-                                    <th style="width:95px;">
-                                        Lager
-                                    </th>
-
-                                    <th style="width:95px;">
-    Soll
-</th>
-
-<th style="width:95px;">
-    Bedarf Holz
-</th>
-
-<th style="width:95px;">
-    Bedarf Lehm
-</th>
-
-<th style="width:95px;">
-    Bedarf Eisen
-</th>
-
-                                    <th style="width:85px;">
-                                        Händler
-                                    </th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                ${buildVillageRows(sortedVillages)}
-                            </tbody>
-                        </table>
-                    </div>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
-        $('body').append(popupHtml);
+    $('body').append(popupHtml);
 
-        $('#' + POPUP_ID + '-close').on(
-            'click',
-            function () {
-                removeExistingPopup();
-            }
-        );
-    }
+    $('#' + POPUP_ID + '-close').on(
+        'click',
+        function () {
+            removeExistingPopup();
+        }
+    );
+}
 
     function init() {
         const allVillages = readVillages();
