@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.9
+Version: 0.4.10
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.9';
+    const VERSION = '0.4.10';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -71,6 +71,18 @@ Status: Entwicklung / Simulation
     ];
 
     const SENDER_RESERVE = {
+    wood: 160000,
+    clay: 180000,
+    iron: 140000
+};
+
+// Tragekapazität pro freiem Händler.
+// Standard: 1000
+// Mit aktivem Premium-Händlerbonus: 1500
+const MERCHANT_CAPACITY = 1500;
+
+// Mindestbestand, den ein sendendes Dorf nach allen Transporten behält.
+const SENDER_RESERVE = {
     wood: 160000,
     clay: 180000,
     iron: 140000
@@ -654,6 +666,9 @@ Status: Entwicklung / Simulation
 
             merchantsFree: village.merchantsFree,
             merchantsTotal: village.merchantsTotal,
+
+            transportCapacity:
+                village.merchantsFree * MERCHANT_CAPACITY,
 
             woodNeed: village.simulation.needWood,
             clayNeed: village.simulation.needClay,
