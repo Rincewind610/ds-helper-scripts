@@ -70,11 +70,7 @@ Status: Entwicklung / Simulation
         }
     ];
 
-    const SENDER_RESERVE = {
-    wood: 160000,
-    clay: 180000,
-    iron: 140000
-};
+
 
 // Tragekapazität pro freiem Händler.
 // Standard: 1000
