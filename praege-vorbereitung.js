@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.5.4
+Version: 0.5.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.5.4';
+    const VERSION = '0.5.5';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -873,6 +873,197 @@ Status: Entwicklung / Simulation
         return transports;
     }
 
+    /*
+=======================================
+Alle Gruppenflüsse auf Dorfebene
+
+Erstellt einmal gemeinsame Arbeitsstände
+für Sender und Empfänger und verarbeitet
+danach alle geplanten Gruppenflüsse
+nacheinander.
+
+Die Mengen jedes Gruppenflusses bilden
+dabei eine feste Obergrenze.
+
+Es werden weiterhin keine Transporte
+im Spiel ausgeführt.
+=======================================
+*/
+    function simulateAllVillageFlows(
+        groupFlows,
+        villagePools
+    ) {
+        const senderStatesByGroup = {};
+        const receiverStatesByGroup = {};
+
+        Object.keys(
+            villagePools.sendersByGroup
+        ).forEach(function (groupId) {
+            senderStatesByGroup[groupId] =
+                villagePools.sendersByGroup[groupId]
+                    .map(function (sender) {
+                        return {
+                            coord: sender.coord,
+
+                            woodAvailable:
+                                sender.woodAvailable,
+
+                            clayAvailable:
+                                sender.clayAvailable,
+
+                            ironAvailable:
+                                sender.ironAvailable
+                        };
+                    });
+        });
+
+        Object.keys(
+            villagePools.receiversByGroup
+        ).forEach(function (groupId) {
+            receiverStatesByGroup[groupId] =
+                villagePools.receiversByGroup[groupId]
+                    .map(function (receiver) {
+                        return {
+                            coord: receiver.coord,
+
+                            woodNeed:
+                                receiver.woodNeed,
+
+                            clayNeed:
+                                receiver.clayNeed,
+
+                            ironNeed:
+                                receiver.ironNeed
+                        };
+                    });
+        });
+
+        const transports = [];
+
+        groupFlows.forEach(function (groupFlow) {
+            const senders =
+                senderStatesByGroup[
+                groupFlow.fromGroup
+                ] || [];
+
+            const receivers =
+                receiverStatesByGroup[
+                groupFlow.toGroup
+                ] || [];
+
+            if (
+                senders.length === 0 ||
+                receivers.length === 0
+            ) {
+                return;
+            }
+
+            let flowWoodRemaining =
+                groupFlow.wood;
+
+            let flowClayRemaining =
+                groupFlow.clay;
+
+            let flowIronRemaining =
+                groupFlow.iron;
+
+            let senderIndex = 0;
+
+            receivers.forEach(function (receiver) {
+                while (
+                    (
+                        receiver.woodNeed > 0 ||
+                        receiver.clayNeed > 0 ||
+                        receiver.ironNeed > 0
+                    ) &&
+                    (
+                        flowWoodRemaining > 0 ||
+                        flowClayRemaining > 0 ||
+                        flowIronRemaining > 0
+                    ) &&
+                    senderIndex < senders.length
+                ) {
+                    const sender =
+                        senders[senderIndex];
+
+                    const wood = Math.min(
+                        sender.woodAvailable,
+                        receiver.woodNeed,
+                        flowWoodRemaining
+                    );
+
+                    const clay = Math.min(
+                        sender.clayAvailable,
+                        receiver.clayNeed,
+                        flowClayRemaining
+                    );
+
+                    const iron = Math.min(
+                        sender.ironAvailable,
+                        receiver.ironNeed,
+                        flowIronRemaining
+                    );
+
+                    if (
+                        wood === 0 &&
+                        clay === 0 &&
+                        iron === 0
+                    ) {
+                        const senderIsExhausted =
+                            sender.woodAvailable === 0 &&
+                            sender.clayAvailable === 0 &&
+                            sender.ironAvailable === 0;
+
+                        if (senderIsExhausted) {
+                            senderIndex++;
+                            continue;
+                        }
+
+                        break;
+                    }
+
+                    transports.push({
+                        fromGroup:
+                            groupFlow.fromGroup,
+
+                        toGroup:
+                            groupFlow.toGroup,
+
+                        from: sender.coord,
+                        to: receiver.coord,
+
+                        wood: wood,
+                        clay: clay,
+                        iron: iron
+                    });
+
+                    sender.woodAvailable -= wood;
+                    sender.clayAvailable -= clay;
+                    sender.ironAvailable -= iron;
+
+                    receiver.woodNeed -= wood;
+                    receiver.clayNeed -= clay;
+                    receiver.ironNeed -= iron;
+
+                    flowWoodRemaining -= wood;
+                    flowClayRemaining -= clay;
+                    flowIronRemaining -= iron;
+
+                    const senderIsExhausted =
+                        sender.woodAvailable === 0 &&
+                        sender.clayAvailable === 0 &&
+                        sender.ironAvailable === 0;
+
+                    if (senderIsExhausted) {
+                        senderIndex++;
+                    }
+                }
+            });
+        });
+
+        return transports;
+    }
+
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
             .map(function (flow) {
@@ -1168,16 +1359,15 @@ Status: Entwicklung / Simulation
 
         console.table(villagePoolSummary);
 
-        const firstVillageFlow =
-            simulateVillageFlow(
-                8,
-                1,
+        const allVillageFlows =
+            simulateAllVillageFlows(
+                groupFlowResult.flows,
                 villagePools
             );
 
         console.log(
-            '[DS Helper | Dorftransporte Gruppe 8 zu 1]',
-            firstVillageFlow
+            '[DS Helper | Alle Dorftransporte]',
+            allVillageFlows
         );
 
         console.log(
