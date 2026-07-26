@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.5.3.1
+Version: 0.5.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.5.3.1';
+    const VERSION = '0.5.4';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -761,109 +761,117 @@ Status: Entwicklung / Simulation
         return summary;
     }
 
-    function simulateFirstVillageFlow(villagePools) {
-    const senders =
-        villagePools.sendersByGroup[8] || [];
-
-    const receivers =
-        villagePools.receiversByGroup[1] || [];
-
-    if (
-        senders.length === 0 ||
-        receivers.length === 0
+    function simulateVillageFlow(
+        senderGroupId,
+        receiverGroupId,
+        villagePools
     ) {
-        return [];
-    }
+        const senders =
+            villagePools.sendersByGroup[
+            senderGroupId
+            ] || [];
 
-    const senderStates = senders.map(function (sender) {
-        return {
-            coord: sender.coord,
+        const receivers =
+            villagePools.receiversByGroup[
+            receiverGroupId
+            ] || [];
 
-            woodAvailable: sender.woodAvailable,
-            clayAvailable: sender.clayAvailable,
-            ironAvailable: sender.ironAvailable
-        };
-    });
-
-    const receiverStates = receivers.map(function (receiver) {
-        return {
-            coord: receiver.coord,
-
-            woodNeed: receiver.woodNeed,
-            clayNeed: receiver.clayNeed,
-            ironNeed: receiver.ironNeed
-        };
-    });
-
-    const transports = [];
-
-    let senderIndex = 0;
-
-    receiverStates.forEach(function (receiver) {
-        while (
-            (
-                receiver.woodNeed > 0 ||
-                receiver.clayNeed > 0 ||
-                receiver.ironNeed > 0
-            ) &&
-            senderIndex < senderStates.length
+        if (
+            senders.length === 0 ||
+            receivers.length === 0
         ) {
-            const sender = senderStates[senderIndex];
-
-            const wood = Math.min(
-                sender.woodAvailable,
-                receiver.woodNeed
-            );
-
-            const clay = Math.min(
-                sender.clayAvailable,
-                receiver.clayNeed
-            );
-
-            const iron = Math.min(
-                sender.ironAvailable,
-                receiver.ironNeed
-            );
-
-            if (
-                wood === 0 &&
-                clay === 0 &&
-                iron === 0
-            ) {
-                senderIndex++;
-                continue;
-            }
-
-            transports.push({
-                from: sender.coord,
-                to: receiver.coord,
-
-                wood: wood,
-                clay: clay,
-                iron: iron
-            });
-
-            sender.woodAvailable -= wood;
-            sender.clayAvailable -= clay;
-            sender.ironAvailable -= iron;
-
-            receiver.woodNeed -= wood;
-            receiver.clayNeed -= clay;
-            receiver.ironNeed -= iron;
-
-            const senderIsExhausted =
-                sender.woodAvailable === 0 &&
-                sender.clayAvailable === 0 &&
-                sender.ironAvailable === 0;
-
-            if (senderIsExhausted) {
-                senderIndex++;
-            }
+            return [];
         }
-    });
 
-    return transports;
-}
+        const senderStates = senders.map(function (sender) {
+            return {
+                coord: sender.coord,
+
+                woodAvailable: sender.woodAvailable,
+                clayAvailable: sender.clayAvailable,
+                ironAvailable: sender.ironAvailable
+            };
+        });
+
+        const receiverStates = receivers.map(function (receiver) {
+            return {
+                coord: receiver.coord,
+
+                woodNeed: receiver.woodNeed,
+                clayNeed: receiver.clayNeed,
+                ironNeed: receiver.ironNeed
+            };
+        });
+
+        const transports = [];
+
+        let senderIndex = 0;
+
+        receiverStates.forEach(function (receiver) {
+            while (
+                (
+                    receiver.woodNeed > 0 ||
+                    receiver.clayNeed > 0 ||
+                    receiver.ironNeed > 0
+                ) &&
+                senderIndex < senderStates.length
+            ) {
+                const sender = senderStates[senderIndex];
+
+                const wood = Math.min(
+                    sender.woodAvailable,
+                    receiver.woodNeed
+                );
+
+                const clay = Math.min(
+                    sender.clayAvailable,
+                    receiver.clayNeed
+                );
+
+                const iron = Math.min(
+                    sender.ironAvailable,
+                    receiver.ironNeed
+                );
+
+                if (
+                    wood === 0 &&
+                    clay === 0 &&
+                    iron === 0
+                ) {
+                    senderIndex++;
+                    continue;
+                }
+
+                transports.push({
+                    from: sender.coord,
+                    to: receiver.coord,
+
+                    wood: wood,
+                    clay: clay,
+                    iron: iron
+                });
+
+                sender.woodAvailable -= wood;
+                sender.clayAvailable -= clay;
+                sender.ironAvailable -= iron;
+
+                receiver.woodNeed -= wood;
+                receiver.clayNeed -= clay;
+                receiver.ironNeed -= iron;
+
+                const senderIsExhausted =
+                    sender.woodAvailable === 0 &&
+                    sender.clayAvailable === 0 &&
+                    sender.ironAvailable === 0;
+
+                if (senderIsExhausted) {
+                    senderIndex++;
+                }
+            }
+        });
+
+        return transports;
+    }
 
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
@@ -1161,7 +1169,9 @@ Status: Entwicklung / Simulation
         console.table(villagePoolSummary);
 
         const firstVillageFlow =
-            simulateFirstVillageFlow(
+            simulateVillageFlow(
+                8,
+                1,
                 villagePools
             );
 
