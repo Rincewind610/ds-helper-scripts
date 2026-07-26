@@ -1608,11 +1608,6 @@ im Spiel ausgeführt.
                 villagePools
             );
 
-        const senderStatistics =
-            buildSenderStatistics(
-                allVillageFlows,
-                villagePools
-            );
 
         console.table(senderStatistics);
 
