@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.1
+Version: 0.6.2
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.1';
+    const VERSION = '0.6.2';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -888,219 +888,354 @@ Status: Entwicklung / Simulation
         return transports;
     }
 
+
     /*
 =======================================
 Alle Gruppenflüsse auf Dorfebene
 
-Erstellt einmal gemeinsame Arbeitsstände
-für Sender und Empfänger und verarbeitet
-danach alle geplanten Gruppenflüsse
-nacheinander.
+Berücksichtigt:
 
-Die Mengen jedes Gruppenflusses bilden
-dabei eine feste Obergrenze.
+- Sperrbestand der Senderdörfer
+- aktuelle Bedarfe der Empfängerdörfer
+- Obergrenzen der Gruppenflüsse
+- aktuell freie Händler
+- 1.500 Rohstoffe je Händler
 
 Es werden weiterhin keine Transporte
 im Spiel ausgeführt.
 =======================================
 */
-    function simulateAllVillageFlows(
-        groupFlows,
-        villagePools
+function simulateAllVillageFlows(
+    groupFlows,
+    villagePools
+) {
+    const senderStatesByGroup = {};
+    const receiverStatesByGroup = {};
+
+    /*
+    Verteilt eine geplante Rohstoffmenge
+    proportional auf die noch verfügbare
+    Händlerkapazität.
+    */
+    function limitTransportToCapacity(
+        wood,
+        clay,
+        iron,
+        capacity
     ) {
-        const senderStatesByGroup = {};
-        const receiverStatesByGroup = {};
+        const total = wood + clay + iron;
 
-        Object.keys(
-            villagePools.sendersByGroup
-        ).forEach(function (groupId) {
-            senderStatesByGroup[groupId] =
-                villagePools.sendersByGroup[groupId]
-                    .map(function (sender) {
-                        return {
-                            coord: sender.coord,
+        if (total <= capacity) {
+            return {
+                wood: wood,
+                clay: clay,
+                iron: iron
+            };
+        }
 
-                            transportCapacity:
-                                sender.transportCapacity,
+        if (capacity <= 0 || total <= 0) {
+            return {
+                wood: 0,
+                clay: 0,
+                iron: 0
+            };
+        }
 
-                            woodAvailable:
-                                sender.woodAvailable,
+        const factor = capacity / total;
 
-                            clayAvailable:
-                                sender.clayAvailable,
+        let limitedWood = Math.floor(
+            wood * factor
+        );
 
-                            ironAvailable:
-                                sender.ironAvailable
-                        };
-                    });
-        });
+        let limitedClay = Math.floor(
+            clay * factor
+        );
 
-        Object.keys(
-            villagePools.receiversByGroup
-        ).forEach(function (groupId) {
-            receiverStatesByGroup[groupId] =
-                villagePools.receiversByGroup[groupId]
-                    .map(function (receiver) {
-                        return {
-                            coord: receiver.coord,
+        let limitedIron = Math.floor(
+            iron * factor
+        );
 
-                            woodNeed:
-                                receiver.woodNeed,
+        let remainingCapacity =
+            capacity -
+            limitedWood -
+            limitedClay -
+            limitedIron;
 
-                            clayNeed:
-                                receiver.clayNeed,
-
-                            ironNeed:
-                                receiver.ironNeed
-                        };
-                    });
-        });
-
-        const transports = [];
-
-        groupFlows.forEach(function (groupFlow) {
-            const senders =
-                senderStatesByGroup[
-                groupFlow.fromGroup
-                ] || [];
-
-            const receivers =
-                receiverStatesByGroup[
-                groupFlow.toGroup
-                ] || [];
+        /*
+        Rundungsreste verteilen, ohne die
+        ursprünglich geplanten Mengen zu
+        überschreiten.
+        */
+        while (remainingCapacity > 0) {
+            let changed = false;
 
             if (
-                senders.length === 0 ||
-                receivers.length === 0
+                limitedWood < wood &&
+                remainingCapacity > 0
             ) {
-                return;
+                limitedWood++;
+                remainingCapacity--;
+                changed = true;
             }
 
-            let flowWoodRemaining =
-                groupFlow.wood;
+            if (
+                limitedClay < clay &&
+                remainingCapacity > 0
+            ) {
+                limitedClay++;
+                remainingCapacity--;
+                changed = true;
+            }
 
-            let flowClayRemaining =
-                groupFlow.clay;
+            if (
+                limitedIron < iron &&
+                remainingCapacity > 0
+            ) {
+                limitedIron++;
+                remainingCapacity--;
+                changed = true;
+            }
 
-            let flowIronRemaining =
-                groupFlow.iron;
+            if (!changed) {
+                break;
+            }
+        }
 
-            let senderIndex = 0;
+        return {
+            wood: limitedWood,
+            clay: limitedClay,
+            iron: limitedIron
+        };
+    }
 
-            receivers.forEach(function (receiver) {
-                while (
+    Object.keys(
+        villagePools.sendersByGroup
+    ).forEach(function (groupId) {
+        senderStatesByGroup[groupId] =
+            villagePools.sendersByGroup[groupId]
+                .map(function (sender) {
+                    return {
+                        coord: sender.coord,
+
+                        woodAvailable:
+                            sender.woodAvailable,
+
+                        clayAvailable:
+                            sender.clayAvailable,
+
+                        ironAvailable:
+                            sender.ironAvailable,
+
+                        remainingTransportCapacity:
+                            sender.transportCapacity
+                    };
+                });
+    });
+
+    Object.keys(
+        villagePools.receiversByGroup
+    ).forEach(function (groupId) {
+        receiverStatesByGroup[groupId] =
+            villagePools.receiversByGroup[groupId]
+                .map(function (receiver) {
+                    return {
+                        coord: receiver.coord,
+
+                        woodNeed:
+                            receiver.woodNeed,
+
+                        clayNeed:
+                            receiver.clayNeed,
+
+                        ironNeed:
+                            receiver.ironNeed
+                    };
+                });
+    });
+
+    const transports = [];
+
+    groupFlows.forEach(function (groupFlow) {
+        const senders =
+            senderStatesByGroup[
+                groupFlow.fromGroup
+            ] || [];
+
+        const receivers =
+            receiverStatesByGroup[
+                groupFlow.toGroup
+            ] || [];
+
+        if (
+            senders.length === 0 ||
+            receivers.length === 0
+        ) {
+            return;
+        }
+
+        let flowWoodRemaining =
+            groupFlow.wood;
+
+        let flowClayRemaining =
+            groupFlow.clay;
+
+        let flowIronRemaining =
+            groupFlow.iron;
+
+        let senderIndex = 0;
+
+        receivers.forEach(function (receiver) {
+            while (
+                (
+                    receiver.woodNeed > 0 ||
+                    receiver.clayNeed > 0 ||
+                    receiver.ironNeed > 0
+                ) &&
+                (
+                    flowWoodRemaining > 0 ||
+                    flowClayRemaining > 0 ||
+                    flowIronRemaining > 0
+                ) &&
+                senderIndex < senders.length
+            ) {
+                const sender =
+                    senders[senderIndex];
+
+                const plannedWood = Math.min(
+                    sender.woodAvailable,
+                    receiver.woodNeed,
+                    flowWoodRemaining
+                );
+
+                const plannedClay = Math.min(
+                    sender.clayAvailable,
+                    receiver.clayNeed,
+                    flowClayRemaining
+                );
+
+                const plannedIron = Math.min(
+                    sender.ironAvailable,
+                    receiver.ironNeed,
+                    flowIronRemaining
+                );
+
+                const plannedTotal =
+                    plannedWood +
+                    plannedClay +
+                    plannedIron;
+
+                /*
+                Dieser Sender kann für diesen
+                Gruppenfluss momentan nichts
+                beitragen. Nächster Sender.
+                */
+                if (plannedTotal === 0) {
+                    senderIndex++;
+                    continue;
+                }
+
+                /*
+                Transport auf die aktuell noch
+                freie Händlerkapazität begrenzen.
+                */
+                const limitedTransport =
+                    limitTransportToCapacity(
+                        plannedWood,
+                        plannedClay,
+                        plannedIron,
+                        sender.remainingTransportCapacity
+                    );
+
+                const wood =
+                    limitedTransport.wood;
+
+                const clay =
+                    limitedTransport.clay;
+
+                const iron =
+                    limitedTransport.iron;
+
+                const transportSize =
+                    wood +
+                    clay +
+                    iron;
+
+                if (transportSize === 0) {
+                    senderIndex++;
+                    continue;
+                }
+
+                const merchantsUsed = Math.ceil(
+                    transportSize /
+                    MERCHANT_CAPACITY
+                );
+
+                transports.push({
+                    fromGroup:
+                        groupFlow.fromGroup,
+
+                    toGroup:
+                        groupFlow.toGroup,
+
+                    from: sender.coord,
+                    to: receiver.coord,
+
+                    wood: wood,
+                    clay: clay,
+                    iron: iron,
+
+                    transportSize:
+                        transportSize,
+
+                    merchantsUsed:
+                        merchantsUsed
+                });
+
+                sender.woodAvailable -= wood;
+                sender.clayAvailable -= clay;
+                sender.ironAvailable -= iron;
+
+                receiver.woodNeed -= wood;
+                receiver.clayNeed -= clay;
+                receiver.ironNeed -= iron;
+
+                flowWoodRemaining -= wood;
+                flowClayRemaining -= clay;
+                flowIronRemaining -= iron;
+
+                /*
+                Händler können nur vollständig
+                eingesetzt werden. Nicht genutzte
+                Restkapazität eines Händlers wird
+                daher nicht erneut verwendet.
+                */
+                sender.remainingTransportCapacity -=
+                    merchantsUsed *
+                    MERCHANT_CAPACITY;
+
+                sender.remainingTransportCapacity =
+                    Math.max(
+                        0,
+                        sender.remainingTransportCapacity
+                    );
+
+                const senderCannotContinue =
+                    sender.remainingTransportCapacity === 0 ||
                     (
-                        receiver.woodNeed > 0 ||
-                        receiver.clayNeed > 0 ||
-                        receiver.ironNeed > 0
-                    ) &&
-                    (
-                        flowWoodRemaining > 0 ||
-                        flowClayRemaining > 0 ||
-                        flowIronRemaining > 0
-                    ) &&
-                    senderIndex < senders.length
-                ) {
-                    const sender =
-                        senders[senderIndex];
-
-                    const wood = Math.min(
-                        sender.woodAvailable,
-                        receiver.woodNeed,
-                        flowWoodRemaining
-                    );
-
-                    const clay = Math.min(
-                        sender.clayAvailable,
-                        receiver.clayNeed,
-                        flowClayRemaining
-                    );
-
-                    const iron = Math.min(
-                        sender.ironAvailable,
-                        receiver.ironNeed,
-                        flowIronRemaining
-                    );
-
-                    if (
-                        wood === 0 &&
-                        clay === 0 &&
-                        iron === 0
-                    ) {
-                        const senderIsExhausted =
-                            sender.woodAvailable === 0 &&
-                            sender.clayAvailable === 0 &&
-                            sender.ironAvailable === 0;
-
-                        if (senderIsExhausted) {
-                            senderIndex++;
-                            continue;
-                        }
-
-                        break;
-                    }
-
-                    const transportSize =
-                        wood +
-                        clay +
-                        iron;
-
-                    if (
-                        transportSize >
-                        sender.transportCapacity
-                    ) {
-                        console.warn(
-                            '[DS Helper] Transport größer als freie Händlerkapazität',
-                            {
-                                sender: sender.coord,
-                                transportSize: transportSize,
-                                transportCapacity:
-                                    sender.transportCapacity
-                            }
-                        );
-                    }
-
-                    transports.push({
-                        fromGroup:
-                            groupFlow.fromGroup,
-
-                        toGroup:
-                            groupFlow.toGroup,
-
-                        from: sender.coord,
-                        to: receiver.coord,
-
-                        wood: wood,
-                        clay: clay,
-                        iron: iron
-                    });
-
-                    sender.woodAvailable -= wood;
-                    sender.clayAvailable -= clay;
-                    sender.ironAvailable -= iron;
-
-                    receiver.woodNeed -= wood;
-                    receiver.clayNeed -= clay;
-                    receiver.ironNeed -= iron;
-
-                    flowWoodRemaining -= wood;
-                    flowClayRemaining -= clay;
-                    flowIronRemaining -= iron;
-
-                    const senderIsExhausted =
                         sender.woodAvailable === 0 &&
                         sender.clayAvailable === 0 &&
-                        sender.ironAvailable === 0;
+                        sender.ironAvailable === 0
+                    );
 
-                    if (senderIsExhausted) {
-                        senderIndex++;
-                    }
+                if (senderCannotContinue) {
+                    senderIndex++;
                 }
-            });
+            }
         });
+    });
 
-        return transports;
-    }
+    return transports;
+}
 
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
