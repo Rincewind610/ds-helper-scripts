@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.5.2
+Version: 0.5.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.5.2';
+    const VERSION = '0.5.3';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -762,69 +762,108 @@ Status: Entwicklung / Simulation
     }
 
     function simulateFirstVillageFlow(villagePools) {
+    const senders =
+        villagePools.sendersByGroup[8] || [];
 
-        const senders =
-            villagePools.sendersByGroup[8] || [];
+    const receivers =
+        villagePools.receiversByGroup[1] || [];
 
-        const receivers =
-            villagePools.receiversByGroup[1] || [];
+    if (
+        senders.length === 0 ||
+        receivers.length === 0
+    ) {
+        return [];
+    }
 
-        if (
-            senders.length === 0 ||
-            receivers.length === 0
+    const senderStates = senders.map(function (sender) {
+        return {
+            coord: sender.coord,
+
+            woodAvailable: sender.woodAvailable,
+            clayAvailable: sender.clayAvailable,
+            ironAvailable: sender.ironAvailable
+        };
+    });
+
+    const receiverStates = receivers.map(function (receiver) {
+        return {
+            coord: receiver.coord,
+
+            woodNeed: receiver.woodNeed,
+            clayNeed: receiver.clayNeed,
+            ironNeed: receiver.ironNeed
+        };
+    });
+
+    const transports = [];
+
+    let senderIndex = 0;
+
+    receiverStates.forEach(function (receiver) {
+        while (
+            (
+                receiver.woodNeed > 0 ||
+                receiver.clayNeed > 0 ||
+                receiver.ironNeed > 0
+            ) &&
+            senderIndex < senderStates.length
         ) {
-            return null;
-        }
-
-        const sender = senders[0];
-
-        let woodAvailable =
-            sender.woodAvailable;
-
-        let clayAvailable =
-            sender.clayAvailable;
-
-        let ironAvailable =
-            sender.ironAvailable;
-
-        const transports = [];
-
-        receivers.forEach(function (receiver) {
+            const sender = senderStates[senderIndex];
 
             const wood = Math.min(
-                woodAvailable,
+                sender.woodAvailable,
                 receiver.woodNeed
             );
 
             const clay = Math.min(
-                clayAvailable,
+                sender.clayAvailable,
                 receiver.clayNeed
             );
 
             const iron = Math.min(
-                ironAvailable,
+                sender.ironAvailable,
                 receiver.ironNeed
             );
 
-            transports.push({
+            if (
+                wood === 0 &&
+                clay === 0 &&
+                iron === 0
+            ) {
+                senderIndex++;
+                continue;
+            }
 
+            transports.push({
                 from: sender.coord,
                 to: receiver.coord,
 
                 wood: wood,
                 clay: clay,
                 iron: iron
-
             });
 
-            woodAvailable -= wood;
-            clayAvailable -= clay;
-            ironAvailable -= iron;
+            sender.woodAvailable -= wood;
+            sender.clayAvailable -= clay;
+            sender.ironAvailable -= iron;
 
-        });
+            receiver.woodNeed -= wood;
+            receiver.clayNeed -= clay;
+            receiver.ironNeed -= iron;
 
-        return transports;
-    }
+            const senderIsExhausted =
+                sender.woodAvailable === 0 &&
+                sender.clayAvailable === 0 &&
+                sender.ironAvailable === 0;
+
+            if (senderIsExhausted) {
+                senderIndex++;
+            }
+        }
+    });
+
+    return transports;
+}
 
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
