@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.5.1
+Version: 0.5.1.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.5.1';
+    const VERSION = '0.5.1.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -778,35 +778,35 @@ Status: Entwicklung / Simulation
 
         const sender = senders[0];
 
-const transports = [];
+        const transports = [];
 
-receivers.forEach(function (receiver) {
+        receivers.forEach(function (receiver) {
 
-    transports.push({
+            transports.push({
 
-        from: sender.coord,
-        to: receiver.coord,
+                from: sender.coord,
+                to: receiver.coord,
 
-        wood: Math.min(
-            sender.woodAvailable,
-            receiver.woodNeed
-        ),
+                wood: Math.min(
+                    sender.woodAvailable,
+                    receiver.woodNeed
+                ),
 
-        clay: Math.min(
-            sender.clayAvailable,
-            receiver.clayNeed
-        ),
+                clay: Math.min(
+                    sender.clayAvailable,
+                    receiver.clayNeed
+                ),
 
-        iron: Math.min(
-            sender.ironAvailable,
-            receiver.ironNeed
-        )
+                iron: Math.min(
+                    sender.ironAvailable,
+                    receiver.ironNeed
+                )
 
-    });
+            });
 
-});
+        });
 
-return transports;
+        return transports;
     }
 
     function buildGroupFlowOutput(groupFlowResult) {
@@ -1109,7 +1109,10 @@ return transports;
                 villagePools
             );
 
-        console.table(firstVillageFlow);
+        console.log(
+            '[DS Helper | Dorftransporte Gruppe 8 zu 1]',
+            firstVillageFlow
+        );
 
         console.log(
             '[DS Helper | Empfänger Gruppe 1]',
