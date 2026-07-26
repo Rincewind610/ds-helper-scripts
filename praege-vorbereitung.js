@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.5.3
+Version: 0.5.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.5.3';
+    const VERSION = '0.5.4';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -761,12 +761,34 @@ Status: Entwicklung / Simulation
         return summary;
     }
 
-    function simulateFirstVillageFlow(villagePools) {
+    /*
+=======================================
+Dorftransporte für einen Gruppenfluss
+
+Verarbeitet genau einen vorgegebenen
+Gruppenfluss auf Dorfebene.
+
+Sender und Empfänger werden anhand
+der Gruppen des Flusses ausgewählt.
+
+Es werden weiterhin nur Transporte
+simuliert und nichts im Spiel versendet.
+=======================================
+*/
+function simulateVillageFlow(groupFlow, villagePools) {
+    if (!groupFlow) {
+        return [];
+    }
+
     const senders =
-        villagePools.sendersByGroup[8] || [];
+        villagePools.sendersByGroup[
+            groupFlow.fromGroup
+        ] || [];
 
     const receivers =
-        villagePools.receiversByGroup[1] || [];
+        villagePools.receiversByGroup[
+            groupFlow.toGroup
+        ] || [];
 
     if (
         senders.length === 0 ||
@@ -835,6 +857,9 @@ Status: Entwicklung / Simulation
             }
 
             transports.push({
+                fromGroup: groupFlow.fromGroup,
+                toGroup: groupFlow.toGroup,
+
                 from: sender.coord,
                 to: receiver.coord,
 
