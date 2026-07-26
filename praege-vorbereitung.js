@@ -1238,72 +1238,72 @@ im Spiel ausgeführt.
     }
 
     function buildSenderStatistics(
-    transports,
-    villagePools
-) {
-    const statistics = {};
+        transports,
+        villagePools
+    ) {
+        const statistics = {};
 
-    Object.values(
-        villagePools.sendersByGroup
-    ).forEach(function (group) {
+        Object.values(
+            villagePools.sendersByGroup
+        ).forEach(function (group) {
 
-        group.forEach(function (sender) {
+            group.forEach(function (sender) {
 
-            statistics[sender.coord] = {
+                statistics[sender.coord] = {
 
-                coord:
-                    sender.coord,
+                    coord:
+                        sender.coord,
 
-                group:
-                    sender.groupId,
+                    group:
+                        sender.groupId,
 
-                merchantsFree:
-                    sender.merchantsFree,
+                    merchantsFree:
+                        sender.merchantsFree,
 
-                merchantsUsed:
-                    0,
+                    merchantsUsed:
+                        0,
 
-                transports:
-                    0,
+                    transports:
+                        0,
 
-                resourcesMoved:
-                    0
-            };
+                    resourcesMoved:
+                        0
+                };
+            });
+
         });
 
-    });
+        transports.forEach(function (transport) {
 
-    transports.forEach(function (transport) {
-
-        const sender =
-            statistics[
+            const sender =
+                statistics[
                 transport.from
-            ];
+                ];
 
-        if (!sender) {
-            return;
-        }
+            if (!sender) {
+                return;
+            }
 
-        sender.transports++;
+            sender.transports++;
 
-        sender.merchantsUsed +=
-            transport.merchantsUsed;
+            sender.merchantsUsed +=
+                transport.merchantsUsed;
 
-        sender.resourcesMoved +=
-            transport.transportSize;
-
-    });
-
-    return Object.values(statistics)
-        .sort(function (a, b) {
-
-            return (
-                b.resourcesMoved -
-                a.resourcesMoved
-            );
+            sender.resourcesMoved +=
+                transport.transportSize;
 
         });
-}
+
+        return Object.values(statistics)
+            .sort(function (a, b) {
+
+                return (
+                    b.resourcesMoved -
+                    a.resourcesMoved
+                );
+
+            });
+    }
 
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
@@ -1607,6 +1607,14 @@ im Spiel ausgeführt.
                 groupFlowResult.flows,
                 villagePools
             );
+
+        const senderStatistics =
+            buildSenderStatistics(
+                allVillageFlows,
+                villagePools
+            );
+
+        console.table(senderStatistics);
 
         const senderStatistics =
             buildSenderStatistics(
