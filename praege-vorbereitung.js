@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.5.5
+Version: 0.6.0
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.5.5';
+    const VERSION = '0.6.0';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -547,15 +547,18 @@ Status: Entwicklung / Simulation
 
         return summary;
     }
-    function buildGroupFlows(groupSummary) {
+    function buildGroupFlows(
+        groupSummary,
+        villagePoolSummary
+    ) {
         const flows = [];
 
         const receivers = groupSummary
             .filter(function (group) {
                 return (
-                    group.saldoWood < 0 ||
-                    group.saldoClay < 0 ||
-                    group.saldoIron < 0
+                    group.needWood > 0 ||
+                    group.needClay > 0 ||
+                    group.needIron > 0
                 );
             })
             .sort(function (a, b) {
@@ -564,29 +567,36 @@ Status: Entwicklung / Simulation
             .map(function (group) {
                 return {
                     id: group.id,
-                    woodNeed: Math.max(0, -group.saldoWood),
-                    clayNeed: Math.max(0, -group.saldoClay),
-                    ironNeed: Math.max(0, -group.saldoIron)
+
+                    woodNeed: group.needWood,
+                    clayNeed: group.needClay,
+                    ironNeed: group.needIron
                 };
             });
 
-        const senders = groupSummary
+        const senders = villagePoolSummary
             .filter(function (group) {
                 return (
-                    group.saldoWood > 0 ||
-                    group.saldoClay > 0 ||
-                    group.saldoIron > 0
+                    group.woodAvailable > 0 ||
+                    group.clayAvailable > 0 ||
+                    group.ironAvailable > 0
                 );
             })
             .sort(function (a, b) {
-                return b.id - a.id;
+                return b.groupId - a.groupId;
             })
             .map(function (group) {
                 return {
-                    id: group.id,
-                    woodAvailable: Math.max(0, group.saldoWood),
-                    clayAvailable: Math.max(0, group.saldoClay),
-                    ironAvailable: Math.max(0, group.saldoIron)
+                    id: group.groupId,
+
+                    woodAvailable:
+                        group.woodAvailable,
+
+                    clayAvailable:
+                        group.clayAvailable,
+
+                    ironAvailable:
+                        group.ironAvailable
                 };
             });
 
@@ -611,13 +621,18 @@ Status: Entwicklung / Simulation
                     sender.ironAvailable
                 );
 
-                if (wood === 0 && clay === 0 && iron === 0) {
+                if (
+                    wood === 0 &&
+                    clay === 0 &&
+                    iron === 0
+                ) {
                     return;
                 }
 
                 flows.push({
                     fromGroup: sender.id,
                     toGroup: receiver.id,
+
                     wood: wood,
                     clay: clay,
                     iron: iron
@@ -1345,9 +1360,6 @@ im Spiel ausgeführt.
         ).sort(function (a, b) {
             return a.id - b.id;
         });
-        const groupFlowResult = buildGroupFlows(
-            groupSummary
-        );
 
         const villagePools = buildVillagePools(
             sortedVillages
@@ -1358,6 +1370,11 @@ im Spiel ausgeführt.
         );
 
         console.table(villagePoolSummary);
+
+        const groupFlowResult = buildGroupFlows(
+            groupSummary,
+            villagePoolSummary
+        );
 
         const allVillageFlows =
             simulateAllVillageFlows(
