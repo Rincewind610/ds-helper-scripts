@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.4.11
+Version: 0.4.0
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.4.11';
+    const VERSION = '0.5.0';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -761,6 +761,53 @@ Status: Entwicklung / Simulation
         return summary;
     }
 
+    function simulateFirstVillageFlow(villagePools) {
+
+        const senders =
+            villagePools.sendersByGroup[8] || [];
+
+        const receivers =
+            villagePools.receiversByGroup[1] || [];
+
+        if (
+            senders.length === 0 ||
+            receivers.length === 0
+        ) {
+            return null;
+        }
+
+        const sender = senders[0];
+        const receiver = receivers[0];
+
+        const wood = Math.min(
+            sender.woodAvailable,
+            receiver.woodNeed
+        );
+
+        const clay = Math.min(
+            sender.clayAvailable,
+            receiver.clayNeed
+        );
+
+        const iron = Math.min(
+            sender.ironAvailable,
+            receiver.ironNeed
+        );
+
+        return {
+            from: sender.coord,
+            to: receiver.coord,
+
+            wood: wood,
+            clay: clay,
+            iron: iron,
+
+            merchantsFree: sender.merchantsFree,
+            transportCapacity:
+                sender.transportCapacity
+        };
+    }
+
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
             .map(function (flow) {
@@ -1055,6 +1102,16 @@ Status: Entwicklung / Simulation
         );
 
         console.table(villagePoolSummary);
+
+        const firstVillageFlow =
+            simulateFirstVillageFlow(
+                villagePools
+            );
+
+        console.log(
+            '[DS Helper | Erster Dorftransport]',
+            firstVillageFlow
+        );
 
         console.log(
             '[DS Helper | Empfänger Gruppe 1]',
