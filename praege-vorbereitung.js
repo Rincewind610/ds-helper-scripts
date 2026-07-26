@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.2.1
+Version: 0.6.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.2.1';
+    const VERSION = '0.6.3';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1237,6 +1237,74 @@ im Spiel ausgeführt.
         return transports;
     }
 
+    function buildSenderStatistics(
+    transports,
+    villagePools
+) {
+    const statistics = {};
+
+    Object.values(
+        villagePools.sendersByGroup
+    ).forEach(function (group) {
+
+        group.forEach(function (sender) {
+
+            statistics[sender.coord] = {
+
+                coord:
+                    sender.coord,
+
+                group:
+                    sender.groupId,
+
+                merchantsFree:
+                    sender.merchantsFree,
+
+                merchantsUsed:
+                    0,
+
+                transports:
+                    0,
+
+                resourcesMoved:
+                    0
+            };
+        });
+
+    });
+
+    transports.forEach(function (transport) {
+
+        const sender =
+            statistics[
+                transport.from
+            ];
+
+        if (!sender) {
+            return;
+        }
+
+        sender.transports++;
+
+        sender.merchantsUsed +=
+            transport.merchantsUsed;
+
+        sender.resourcesMoved +=
+            transport.transportSize;
+
+    });
+
+    return Object.values(statistics)
+        .sort(function (a, b) {
+
+            return (
+                b.resourcesMoved -
+                a.resourcesMoved
+            );
+
+        });
+}
+
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
             .map(function (flow) {
@@ -1539,6 +1607,14 @@ im Spiel ausgeführt.
                 groupFlowResult.flows,
                 villagePools
             );
+
+        const senderStatistics =
+            buildSenderStatistics(
+                allVillageFlows,
+                villagePools
+            );
+
+        console.table(senderStatistics);
 
         console.table(
             allVillageFlows.slice(0, 25)
