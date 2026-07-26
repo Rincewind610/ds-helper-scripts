@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.0
+Version: 0.6.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.0';
+    const VERSION = '0.6.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -920,6 +920,9 @@ im Spiel ausgeführt.
                         return {
                             coord: sender.coord,
 
+                            transportCapacity:
+                                sender.transportCapacity,
+
                             woodAvailable:
                                 sender.woodAvailable,
 
@@ -1035,6 +1038,26 @@ im Spiel ausgeführt.
                         }
 
                         break;
+                    }
+
+                    const transportSize =
+                        wood +
+                        clay +
+                        iron;
+
+                    if (
+                        transportSize >
+                        sender.transportCapacity
+                    ) {
+                        console.warn(
+                            '[DS Helper] Transport größer als freie Händlerkapazität',
+                            {
+                                sender: sender.coord,
+                                transportSize: transportSize,
+                                transportCapacity:
+                                    sender.transportCapacity
+                            }
+                        );
                     }
 
                     transports.push({
