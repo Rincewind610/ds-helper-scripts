@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.8
+Version: 0.6.8.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.8';
+    const VERSION = '0.6.8.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -82,11 +82,9 @@ Status: Entwicklung / Simulation
         iron: 140000
     };
 
-    const COIN_VILLAGE = {
-        x: 538,
-        y: 573,
-        coord: '538|573'
-    };
+    const DEFAULT_COIN_VILLAGE_COORD = '538|573';
+
+    const COIN_VILLAGE = loadCoinVillage();
 
     const POPUP_ID = 'ds-helper-praegevorbereitung';
 
@@ -107,6 +105,57 @@ Status: Entwicklung / Simulation
             .replace(/[^\d-]/g, '');
 
         return cleaned ? parseInt(cleaned, 10) : 0;
+    }
+
+    function loadCoinVillage() {
+        const savedCoord =
+            localStorage.getItem(
+                'dsHelperPraegeCoinVillage'
+            ) || DEFAULT_COIN_VILLAGE_COORD;
+
+        const match = savedCoord.match(
+            /^(\d{1,3})\|(\d{1,3})$/
+        );
+
+        if (!match) {
+            return {
+                x: 538,
+                y: 573,
+                coord: DEFAULT_COIN_VILLAGE_COORD
+            };
+        }
+
+        return {
+            x: parseInt(match[1], 10),
+            y: parseInt(match[2], 10),
+            coord: savedCoord
+        };
+    }
+
+    function saveCoinVillage(coord) {
+        const normalizedCoord = String(coord)
+            .trim()
+            .replace(/\s+/g, '');
+
+        const match = normalizedCoord.match(
+            /^(\d{1,3})\|(\d{1,3})$/
+        );
+
+        if (!match) {
+            UI.ErrorMessage(
+                'Bitte eine gültige Koordinate wie 538|573 eingeben.',
+                5000
+            );
+
+            return false;
+        }
+
+        localStorage.setItem(
+            'dsHelperPraegeCoinVillage',
+            normalizedCoord
+        );
+
+        return true;
     }
 
     function formatNumber(value) {
@@ -2328,7 +2377,29 @@ im Spiel ausgeführt.
                 ">
                     <tr>
                         <th>Münzdorf</th>
-                        <td>${COIN_VILLAGE.coord}</td>
+<td>
+    <input
+        type="text"
+        id="${POPUP_ID}-coin-village"
+        value="${COIN_VILLAGE.coord}"
+        maxlength="7"
+        style="
+            width:75px;
+            text-align:center;
+        "
+    >
+
+    <button
+        type="button"
+        id="${POPUP_ID}-save-coin-village"
+        style="
+            margin-left:5px;
+            cursor:pointer;
+        "
+    >
+        Übernehmen
+    </button>
+</td>
 
                         <th>Status</th>
                         <td>
@@ -2624,6 +2695,31 @@ ${groupFlowOutput}
 
         updateTransportOpenProgress(
             allVillageFlows.length
+
+            $('#' + POPUP_ID + '-save-coin-village').on(
+                'click',
+                function () {
+                    const coord =
+                        $('#' + POPUP_ID + '-coin-village')
+                            .val();
+
+                    if (!saveCoinVillage(coord)) {
+                        return;
+                    }
+
+                    UI.SuccessMessage(
+                        'Münzdorf gespeichert. Das Skript wird neu gestartet.',
+                        3000
+                    );
+
+                    window.setTimeout(
+                        function () {
+                            window.location.reload();
+                        },
+                        500
+                    );
+                }
+            );
         );
     }
 
