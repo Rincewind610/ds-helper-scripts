@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.6
+Version: 0.6.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.6';
+    const VERSION = '0.6.5';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -326,14 +326,6 @@ Status: Entwicklung / Simulation
         $('.quickedit-vn').closest('tr').each(function () {
             const row = $(this);
 
-            const villageElement = row
-                .find('.quickedit-vn')
-                .first();
-
-            const villageId = String(
-                villageElement.attr('data-id') || ''
-            );
-
             const rowText = row
                 .text()
                 .replace(/\s+/g, ' ')
@@ -363,8 +355,6 @@ Status: Entwicklung / Simulation
             const rowData = extractRowData(row);
 
             villages.push({
-                id: villageId,
-
                 name: extractVillageName(row, coord),
 
                 coord: coord,
@@ -678,8 +668,6 @@ Status: Entwicklung / Simulation
                 village.simulation.distanceGroupId;
 
             const villageState = {
-                id: village.id,
-
                 coord: village.coord,
                 name: village.name,
                 groupId: groupId,
@@ -812,11 +800,10 @@ Status: Entwicklung / Simulation
 
         const senderStates = senders.map(function (sender) {
             return {
-                id: sender.id,
                 coord: sender.coord,
 
-                woodAvailable:
-                    clayAvailable: sender.clayAvailable,
+                woodAvailable: sender.woodAvailable,
+                clayAvailable: sender.clayAvailable,
                 ironAvailable: sender.ironAvailable
             };
         });
@@ -871,8 +858,6 @@ Status: Entwicklung / Simulation
                 }
 
                 transports.push({
-                    fromVillageId: sender.id,
-
                     from: sender.coord,
                     to: receiver.coord,
 
