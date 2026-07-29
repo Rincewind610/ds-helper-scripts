@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.10
+Version: 0.6.10.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.10';
+    const VERSION = '0.6.10.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2363,6 +2363,7 @@ im Spiel ausgeführt.
             width:1500px;
             max-width:calc(100vw - 30px);
             max-height:calc(100vh - 40px);
+            overflow:auto;
             z-index:99999;
             background:#f4e4bc;
             border:2px solid #804000;
