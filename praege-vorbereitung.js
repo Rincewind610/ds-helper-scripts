@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.3.1
+Version: 0.6.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.3.1';
+    const VERSION = '0.6.4';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1305,6 +1305,142 @@ im Spiel ausgeführt.
             });
     }
 
+    function buildTransportOutput(transports) {
+        const totalWood = transports.reduce(
+            function (sum, transport) {
+                return sum + transport.wood;
+            },
+            0
+        );
+
+        const totalClay = transports.reduce(
+            function (sum, transport) {
+                return sum + transport.clay;
+            },
+            0
+        );
+
+        const totalIron = transports.reduce(
+            function (sum, transport) {
+                return sum + transport.iron;
+            },
+            0
+        );
+
+        const totalMerchants = transports.reduce(
+            function (sum, transport) {
+                return sum + transport.merchantsUsed;
+            },
+            0
+        );
+
+        const transportRows = transports
+            .map(function (transport, index) {
+                return `
+                <tr>
+                    <td style="text-align:right;">
+                        ${index + 1}
+                    </td>
+
+                    <td style="text-align:center;white-space:nowrap;">
+                        ${escapeHtml(transport.from)}
+                    </td>
+
+                    <td style="text-align:center;white-space:nowrap;">
+                        ${escapeHtml(transport.to)}
+                    </td>
+
+                    <td style="text-align:center;">
+                        ${transport.fromGroup}
+                    </td>
+
+                    <td style="text-align:center;">
+                        ${transport.toGroup}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(transport.wood)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(transport.clay)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(transport.iron)}
+                    </td>
+
+                    <td style="text-align:right;">
+                        ${formatNumber(transport.merchantsUsed)}
+                    </td>
+                </tr>
+            `;
+            })
+            .join('');
+
+        return `
+        <table class="vis" style="
+            width:100%;
+            margin-bottom:10px;
+        ">
+            <thead>
+                <tr>
+                    <th colspan="9">
+                        Geplante Dorftransporte
+                        – ${formatNumber(transports.length)} Transporte
+                    </th>
+                </tr>
+
+                <tr>
+                    <th>Nr.</th>
+                    <th>Sender</th>
+                    <th>Empfänger</th>
+                    <th>Von Gruppe</th>
+                    <th>Zu Gruppe</th>
+                    <th>Holz</th>
+                    <th>Lehm</th>
+                    <th>Eisen</th>
+                    <th>Händler</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                ${transportRows || `
+                    <tr>
+                        <td colspan="9">
+                            Keine Dorftransporte erforderlich
+                        </td>
+                    </tr>
+                `}
+            </tbody>
+
+            <tfoot>
+                <tr>
+                    <th colspan="5">
+                        Gesamt
+                    </th>
+
+                    <th style="text-align:right;">
+                        ${formatNumber(totalWood)}
+                    </th>
+
+                    <th style="text-align:right;">
+                        ${formatNumber(totalClay)}
+                    </th>
+
+                    <th style="text-align:right;">
+                        ${formatNumber(totalIron)}
+                    </th>
+
+                    <th style="text-align:right;">
+                        ${formatNumber(totalMerchants)}
+                    </th>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+    }
+
     function buildGroupFlowOutput(groupFlowResult) {
         const flowRows = groupFlowResult.flows
             .map(function (flow) {
@@ -1635,6 +1771,10 @@ im Spiel ausgeführt.
             groupFlowResult
         );
 
+        const transportOutput = buildTransportOutput(
+            allVillageFlows
+        );
+
         const groupSummaryRows = groupSummary
             .map(function (group) {
                 return `
@@ -1826,6 +1966,15 @@ im Spiel ausgeführt.
                 </table>
 
 ${groupFlowOutput}
+
+<div style="
+    max-height:300px;
+    overflow:auto;
+    border:1px solid #c1a264;
+    margin-bottom:10px;
+">
+    ${transportOutput}
+</div>
 
 <div style="
     max-height:calc(100vh - 520px);
