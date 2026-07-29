@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.4
+Version: 0.6.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.4';
+    const VERSION = '0.6.5';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1305,6 +1305,86 @@ im Spiel ausgeführt.
             });
     }
 
+    function copyTransportData(transports) {
+        const exportData = {
+            version: VERSION,
+            coinVillage: COIN_VILLAGE.coord,
+
+            transports: transports.map(function (transport) {
+                return {
+                    from: transport.from,
+                    to: transport.to,
+
+                    wood: transport.wood,
+                    clay: transport.clay,
+                    iron: transport.iron,
+
+                    merchantsUsed:
+                        transport.merchantsUsed,
+
+                    fromGroup:
+                        transport.fromGroup,
+
+                    toGroup:
+                        transport.toGroup
+                };
+            })
+        };
+
+        const exportText = JSON.stringify(
+            exportData,
+            null,
+            2
+        );
+
+        function showSuccess() {
+            UI.SuccessMessage(
+                'Transportliste wurde kopiert.',
+                3000
+            );
+        }
+
+        function fallbackCopy() {
+            const textarea = $('<textarea>')
+                .val(exportText)
+                .css({
+                    position: 'fixed',
+                    left: '-9999px',
+                    top: '-9999px'
+                })
+                .appendTo('body');
+
+            textarea[0].select();
+
+            const copied = document.execCommand('copy');
+
+            textarea.remove();
+
+            if (copied) {
+                showSuccess();
+            } else {
+                UI.ErrorMessage(
+                    'Transportliste konnte nicht kopiert werden.',
+                    5000
+                );
+            }
+        }
+
+        if (
+            navigator.clipboard &&
+            navigator.clipboard.writeText
+        ) {
+            navigator.clipboard
+                .writeText(exportText)
+                .then(showSuccess)
+                .catch(fallbackCopy);
+
+            return;
+        }
+
+        fallbackCopy();
+    }
+
     function buildTransportOutput(transports) {
         const totalWood = transports.reduce(
             function (sum, transport) {
@@ -1968,6 +2048,27 @@ im Spiel ausgeführt.
 ${groupFlowOutput}
 
 <div style="
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:6px;
+">
+    <button
+        type="button"
+        id="${POPUP_ID}-copy-transports"
+        style="
+            border:1px solid #804000;
+            background:#f4e4bc;
+            color:#000;
+            cursor:pointer;
+            font-weight:bold;
+            padding:5px 10px;
+        "
+    >
+        Transportliste kopieren
+    </button>
+</div>
+
+<div style="
     max-height:300px;
     overflow:auto;
     border:1px solid #c1a264;
@@ -2056,6 +2157,15 @@ ${groupFlowOutput}
             'click',
             function () {
                 removeExistingPopup();
+            }
+        );
+
+        $('#' + POPUP_ID + '-copy-transports').on(
+            'click',
+            function () {
+                copyTransportData(
+                    allVillageFlows
+                );
             }
         );
     }
