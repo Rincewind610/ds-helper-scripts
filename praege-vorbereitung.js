@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.9
+Version: 0.6.10
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.9';
+    const VERSION = '0.6.10';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2075,24 +2075,52 @@ im Spiel ausgeführt.
         }
     }
 
+    function getGroupRowColor(groupId) {
+        const colors = {
+            1: '#e57373',
+            2: '#ef9a9a',
+            3: '#ffab91',
+            4: '#ffcc80',
+            5: '#ffe082',
+            6: '#fff59d',
+            7: '#dcedc8',
+            8: '#c8e6c9'
+        };
+
+        return colors[groupId] || '#ffffff';
+    }
+
     function sortVillages(villages) {
         return villages
             .filter(function (village) {
                 return !village.isCoinVillage;
             })
             .sort(function (a, b) {
+                const groupDifference =
+                    a.simulation.distanceGroupId -
+                    b.simulation.distanceGroupId;
 
-                if (
-                    a.simulation.distanceGroupId !==
-                    b.simulation.distanceGroupId
-                ) {
-                    return (
-                        a.simulation.distanceGroupId -
-                        b.simulation.distanceGroupId
-                    );
+                if (groupDifference !== 0) {
+                    return groupDifference;
                 }
 
-                return 0;
+                const fillA = a.storage > 0
+                    ? Math.max(
+                        a.wood,
+                        a.clay,
+                        a.iron
+                    ) / a.storage
+                    : 0;
+
+                const fillB = b.storage > 0
+                    ? Math.max(
+                        b.wood,
+                        b.clay,
+                        b.iron
+                    ) / b.storage
+                    : 0;
+
+                return fillB - fillA;
             });
     }
 
@@ -2109,9 +2137,13 @@ im Spiel ausgeführt.
     function buildVillageRows(villages) {
         return villages
             .map(function (village, index) {
+                const groupColor = getGroupRowColor(
+                    village.simulation.distanceGroupId
+                );
+
                 const rowStyle = village.parseError
-                    ? 'background:#ffd1d1;'
-                    : '';
+                    ? 'background:#ffb3b3;'
+                    : 'background:' + groupColor + ';';
 
                 return `
                 <tr style="${rowStyle}">
@@ -2693,7 +2725,7 @@ ${groupFlowOutput}
             }
         );
 
-                updateTransportOpenProgress(
+        updateTransportOpenProgress(
             allVillageFlows.length
         );
 
