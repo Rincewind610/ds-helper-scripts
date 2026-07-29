@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.6.1
+Version: 0.6.7
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.6.1';
+    const VERSION = '0.6.7';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1404,6 +1404,153 @@ im Spiel ausgeführt.
         fallbackCopy();
     }
 
+    function openTransportInMarket(transport) {
+        if (!transport.fromVillageId) {
+            UI.ErrorMessage(
+                'Für das Senderdorf wurde keine Dorf-ID gefunden.',
+                5000
+            );
+
+            return;
+        }
+
+        const marketUrl =
+            window.location.origin +
+            '/game.php?village=' +
+            encodeURIComponent(transport.fromVillageId) +
+            '&screen=market&mode=send';
+
+        const marketWindow =
+            window.open(marketUrl, '_blank');
+
+        if (!marketWindow) {
+            UI.ErrorMessage(
+                'Der Marktplatz-Tab wurde vom Browser blockiert.',
+                5000
+            );
+
+            return;
+        }
+
+        const coordParts =
+            String(transport.to).split('|');
+
+        const targetX = coordParts[0];
+        const targetY = coordParts[1];
+
+        let attempts = 0;
+
+        const fillInterval = window.setInterval(
+            function () {
+                attempts++;
+
+                try {
+                    const marketDocument =
+                        marketWindow.document;
+
+                    const woodInput =
+                        marketDocument.querySelector(
+                            'input[name="wood"]'
+                        );
+
+                    const clayInput =
+                        marketDocument.querySelector(
+                            'input[name="stone"]'
+                        );
+
+                    const ironInput =
+                        marketDocument.querySelector(
+                            'input[name="iron"]'
+                        );
+
+                    const xInput =
+                        marketDocument.querySelector(
+                            'input[name="x"]'
+                        );
+
+                    const yInput =
+                        marketDocument.querySelector(
+                            'input[name="y"]'
+                        );
+
+                    if (
+                        !woodInput ||
+                        !clayInput ||
+                        !ironInput ||
+                        !xInput ||
+                        !yInput
+                    ) {
+                        if (attempts >= 40) {
+                            window.clearInterval(
+                                fillInterval
+                            );
+
+                            UI.ErrorMessage(
+                                'Der Marktplatz konnte nicht ausgefüllt werden.',
+                                5000
+                            );
+                        }
+
+                        return;
+                    }
+
+                    woodInput.value =
+                        transport.wood;
+
+                    clayInput.value =
+                        transport.clay;
+
+                    ironInput.value =
+                        transport.iron;
+
+                    xInput.value =
+                        targetX;
+
+                    yInput.value =
+                        targetY;
+
+                    [
+                        woodInput,
+                        clayInput,
+                        ironInput,
+                        xInput,
+                        yInput
+                    ].forEach(function (input) {
+                        input.dispatchEvent(
+                            new Event('input', {
+                                bubbles: true
+                            })
+                        );
+
+                        input.dispatchEvent(
+                            new Event('change', {
+                                bubbles: true
+                            })
+                        );
+                    });
+
+                    xInput.focus();
+
+                    window.clearInterval(
+                        fillInterval
+                    );
+                } catch (error) {
+                    if (attempts >= 40) {
+                        window.clearInterval(
+                            fillInterval
+                        );
+
+                        console.error(
+                            'Marktplatz konnte nicht ausgefüllt werden:',
+                            error
+                        );
+                    }
+                }
+            },
+            250
+        );
+    }
+
     function buildTransportOutput(transports) {
         const totalWood = transports.reduce(
             function (sum, transport) {
@@ -1472,6 +1619,24 @@ im Spiel ausgeführt.
                     <td style="text-align:right;">
                         ${formatNumber(transport.merchantsUsed)}
                     </td>
+
+                    <td style="text-align:center;">
+    <button
+        type="button"
+        class="ds-helper-open-transport"
+        data-transport-index="${index}"
+        style="
+            border:1px solid #804000;
+            background:#f4e4bc;
+            color:#000;
+            cursor:pointer;
+            font-weight:bold;
+            padding:3px 7px;
+        "
+    >
+        Öffnen
+    </button>
+</td>
                 </tr>
             `;
             })
@@ -1484,7 +1649,7 @@ im Spiel ausgeführt.
         ">
             <thead>
                 <tr>
-                    <th colspan="9">
+                    <th colspan="10">
                         Geplante Dorftransporte
                         – ${formatNumber(transports.length)} Transporte
                     </th>
@@ -1500,13 +1665,14 @@ im Spiel ausgeführt.
                     <th>Lehm</th>
                     <th>Eisen</th>
                     <th>Händler</th>
+                    <th>Aktion</th>
                 </tr>
             </thead>
 
             <tbody>
                 ${transportRows || `
                     <tr>
-                        <td colspan="9">
+                        <td colspan="10">
                             Keine Dorftransporte erforderlich
                         </td>
                     </tr>
@@ -1534,6 +1700,8 @@ im Spiel ausgeführt.
                     <th style="text-align:right;">
                         ${formatNumber(totalMerchants)}
                     </th>
+
+                    <th></th>
                 </tr>
             </tfoot>
         </table>
@@ -2187,6 +2355,36 @@ ${groupFlowOutput}
                 );
             }
         );
+        $('#' + POPUP_ID + ' .ds-helper-open-transport').on(
+    'click',
+    function () {
+        const button = $(this);
+
+        const transportIndex = Number(
+            button.attr('data-transport-index')
+        );
+
+        const transport =
+            allVillageFlows[transportIndex];
+
+        if (!transport) {
+            UI.ErrorMessage(
+                'Der Transport wurde nicht gefunden.',
+                5000
+            );
+
+            return;
+        }
+
+        openTransportInMarket(
+            transport
+        );
+
+        button
+            .prop('disabled', true)
+            .text('Geöffnet');
+    }
+);
     }
 
     function init() {
