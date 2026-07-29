@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.10.1
+Version: 0.6.10.2
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.10.1';
+    const VERSION = '0.6.10.2';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2141,12 +2141,12 @@ im Spiel ausgeführt.
                     village.simulation.distanceGroupId
                 );
 
-                const rowStyle = village.parseError
-                    ? 'background:#ffb3b3;'
-                    : 'background:' + groupColor + ';';
+                const rowColor = village.parseError
+    ? '#ffb3b3'
+    : groupColor;
 
                 return `
-                <tr style="${rowStyle}">
+                <tr style="background:${rowColor};">
                     <td style="text-align:right;">
                         ${index + 1}
                     </td>
@@ -2155,7 +2155,7 @@ im Spiel ausgeführt.
                         ${escapeHtml(village.name)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${village.distanceToCoinVillage.toFixed(2)}
                     </td>
 
@@ -2167,41 +2167,41 @@ im Spiel ausgeführt.
                 )}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(village.wood)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(village.clay)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(village.iron)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(village.storage)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(
                     village.simulation.targetAmount
                 )}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(
                     village.simulation.needWood
                 )}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(
                     village.simulation.needClay
                 )}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td style="text-align:right;background:${rowColor} !important;">
                         ${formatNumber(
                     village.simulation.needIron
                 )}
@@ -2658,6 +2658,25 @@ ${groupFlowOutput}
     `;
 
         $('body').append(popupHtml);
+
+        $('#' + POPUP_ID + ' tbody tr').each(
+    function () {
+        const row = $(this);
+        const backgroundColor =
+            row.css('background-color');
+
+        if (
+            backgroundColor &&
+            backgroundColor !==
+                'rgba(0, 0, 0, 0)'
+        ) {
+            row.children('td').css(
+                'background-color',
+                backgroundColor
+            );
+        }
+    }
+);
 
         $('#' + POPUP_ID + '-close').on(
             'click',
