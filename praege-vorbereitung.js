@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.6
+Version: 0.6.6.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.6';
+    const VERSION = '0.6.6.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1030,6 +1030,7 @@ im Spiel ausgeführt.
                 villagePools.sendersByGroup[groupId]
                     .map(function (sender) {
                         return {
+                            id: sender.id,
                             coord: sender.coord,
 
                             woodAvailable:
