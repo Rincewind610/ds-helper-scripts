@@ -1199,6 +1199,9 @@ im Spiel ausgeführt.
                         clay: clay,
                         iron: iron,
 
+                        fromVillageId:
+                            sender.id,
+
                         transportSize:
                             transportSize,
 
