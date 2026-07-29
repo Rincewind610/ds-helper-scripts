@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.8.1
+Version: 0.6.9
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.8.1';
+    const VERSION = '0.6.9';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2693,35 +2693,36 @@ ${groupFlowOutput}
             }
         );
 
-        updateTransportOpenProgress(
+                updateTransportOpenProgress(
             allVillageFlows.length
+        );
 
-            $('#' + POPUP_ID + '-save-coin-village').on(
-                'click',
-                function () {
-                    const coord =
-                        $('#' + POPUP_ID + '-coin-village')
-                            .val();
+        $('#' + POPUP_ID + '-save-coin-village').on(
+            'click',
+            function () {
+                const coord =
+                    $('#' + POPUP_ID + '-coin-village')
+                        .val();
 
-                    if (!saveCoinVillage(coord)) {
-                        return;
-                    }
-
-                    UI.SuccessMessage(
-                        'Münzdorf gespeichert. Das Skript wird neu gestartet.',
-                        3000
-                    );
-
-                    window.setTimeout(
-                        function () {
-                            window.location.reload();
-                        },
-                        500
-                    );
+                if (!saveCoinVillage(coord)) {
+                    return;
                 }
-            );
+
+                UI.SuccessMessage(
+                    'Münzdorf gespeichert. Das Skript wird neu gestartet.',
+                    3000
+                );
+
+                window.setTimeout(
+                    function () {
+                        window.location.reload();
+                    },
+                    500
+                );
+            }
         );
     }
+
 
     function init() {
         const allVillages = readVillages();
