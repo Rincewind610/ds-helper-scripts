@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.7
+Version: 0.6.8
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.7';
+    const VERSION = '0.6.8';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -89,6 +89,13 @@ Status: Entwicklung / Simulation
     };
 
     const POPUP_ID = 'ds-helper-praegevorbereitung';
+
+    const TRANSPORT_OPEN_DELAY = 250;
+
+    const transportOpenState = {
+        openedIndexes: new Set(),
+        isOpening: false
+    };
 
     function parseGameNumber(value) {
         if (value === null || value === undefined) {
@@ -1411,7 +1418,7 @@ im Spiel ausgeführt.
                 5000
             );
 
-            return;
+            return false;
         }
 
         const marketUrl =
@@ -1429,7 +1436,7 @@ im Spiel ausgeführt.
                 5000
             );
 
-            return;
+            return false;
         }
 
         const coordParts =
@@ -1549,6 +1556,174 @@ im Spiel ausgeführt.
             },
             250
         );
+
+        return true;
+    }
+
+    function wait(milliseconds) {
+        return new Promise(function (resolve) {
+            window.setTimeout(
+                resolve,
+                milliseconds
+            );
+        });
+    }
+
+    function getNextUnopenedTransportIndexes(
+        totalTransports,
+        amount
+    ) {
+        const indexes = [];
+
+        for (
+            let index = 0;
+            index < totalTransports;
+            index++
+        ) {
+            if (
+                transportOpenState.openedIndexes.has(index)
+            ) {
+                continue;
+            }
+
+            indexes.push(index);
+
+            if (indexes.length >= amount) {
+                break;
+            }
+        }
+
+        return indexes;
+    }
+
+    function updateTransportOpenProgress(
+        totalTransports
+    ) {
+        const opened =
+            transportOpenState.openedIndexes.size;
+
+        const allOpened =
+            opened >= totalTransports;
+
+        $('#' + POPUP_ID + '-open-progress').text(
+            opened +
+            ' / ' +
+            totalTransports +
+            ' geöffnet'
+        );
+
+        $('#' + POPUP_ID + ' .ds-helper-open-batch')
+            .prop(
+                'disabled',
+                transportOpenState.isOpening ||
+                allOpened
+            );
+    }
+
+    function markTransportOpened(
+        transportIndex,
+        totalTransports
+    ) {
+        transportOpenState.openedIndexes.add(
+            transportIndex
+        );
+
+        const row =
+            $('#' + POPUP_ID).find(
+                'tr[data-transport-index="' +
+                transportIndex +
+                '"]'
+            );
+
+        row.css({
+            opacity: '0.45',
+            background: '#ddd0aa'
+        });
+
+        row.find('.ds-helper-open-transport')
+            .prop('disabled', true)
+            .text('Geöffnet');
+
+        updateTransportOpenProgress(
+            totalTransports
+        );
+    }
+
+    async function openTransportBatch(
+        transports,
+        amount
+    ) {
+        if (transportOpenState.isOpening) {
+            return;
+        }
+
+        const transportIndexes =
+            getNextUnopenedTransportIndexes(
+                transports.length,
+                amount
+            );
+
+        if (!transportIndexes.length) {
+            updateTransportOpenProgress(
+                transports.length
+            );
+
+            return;
+        }
+
+        transportOpenState.isOpening = true;
+
+        updateTransportOpenProgress(
+            transports.length
+        );
+
+        $('#' + POPUP_ID + '-open-progress').text(
+            transportOpenState.openedIndexes.size +
+            ' / ' +
+            transports.length +
+            ' geöffnet – Tabs werden geöffnet …'
+        );
+
+        for (
+            let position = 0;
+            position < transportIndexes.length;
+            position++
+        ) {
+            const transportIndex =
+                transportIndexes[position];
+
+            const transport =
+                transports[transportIndex];
+
+            const opened =
+                openTransportInMarket(
+                    transport
+                );
+
+            if (!opened) {
+                break;
+            }
+
+            markTransportOpened(
+                transportIndex,
+                transports.length
+            );
+
+            if (
+                position <
+                transportIndexes.length - 1
+            ) {
+                await wait(
+                    TRANSPORT_OPEN_DELAY
+                );
+            }
+        }
+
+        transportOpenState.isOpening = false;
+
+        updateTransportOpenProgress(
+            transports.length
+        );
     }
 
     function buildTransportOutput(transports) {
@@ -1583,7 +1758,7 @@ im Spiel ausgeführt.
         const transportRows = transports
             .map(function (transport, index) {
                 return `
-                <tr>
+                <tr data-transport-index="${index}">
                     <td style="text-align:right;">
                         ${index + 1}
                     </td>
@@ -2236,7 +2411,8 @@ ${groupFlowOutput}
 
 <div style="
     display:flex;
-    justify-content:flex-end;
+    align-items:center;
+    gap:8px;
     margin-bottom:6px;
 ">
     <button
@@ -2253,6 +2429,45 @@ ${groupFlowOutput}
     >
         Transportliste kopieren
     </button>
+
+    <button
+        type="button"
+        class="ds-helper-open-batch"
+        data-batch-size="30"
+        style="
+            border:1px solid #804000;
+            background:#f4e4bc;
+            color:#000;
+            cursor:pointer;
+            font-weight:bold;
+            padding:5px 10px;
+        "
+    >
+        Nächste 30 Tabs öffnen
+    </button>
+
+    <button
+        type="button"
+        class="ds-helper-open-batch"
+        data-batch-size="50"
+        style="
+            border:1px solid #804000;
+            background:#f4e4bc;
+            color:#000;
+            cursor:pointer;
+            font-weight:bold;
+            padding:5px 10px;
+        "
+    >
+        Nächste 50 Tabs öffnen
+    </button>
+
+    <strong
+        id="${POPUP_ID}-open-progress"
+        style="margin-left:auto;"
+    >
+        0 / ${allVillageFlows.length} geöffnet
+    </strong>
 </div>
 
 <div style="
@@ -2356,35 +2571,60 @@ ${groupFlowOutput}
             }
         );
         $('#' + POPUP_ID + ' .ds-helper-open-transport').on(
-    'click',
-    function () {
-        const button = $(this);
+            'click',
+            function () {
+                const transportIndex = Number(
+                    $(this).attr(
+                        'data-transport-index'
+                    )
+                );
 
-        const transportIndex = Number(
-            button.attr('data-transport-index')
+                const transport =
+                    allVillageFlows[
+                    transportIndex
+                    ];
+
+                if (!transport) {
+                    UI.ErrorMessage(
+                        'Der Transport wurde nicht gefunden.',
+                        5000
+                    );
+
+                    return;
+                }
+
+                const opened =
+                    openTransportInMarket(
+                        transport
+                    );
+
+                if (opened) {
+                    markTransportOpened(
+                        transportIndex,
+                        allVillageFlows.length
+                    );
+                }
+            }
+        );
+        $('#' + POPUP_ID + ' .ds-helper-open-batch').on(
+            'click',
+            function () {
+                const batchSize = Number(
+                    $(this).attr(
+                        'data-batch-size'
+                    )
+                );
+
+                openTransportBatch(
+                    allVillageFlows,
+                    batchSize
+                );
+            }
         );
 
-        const transport =
-            allVillageFlows[transportIndex];
-
-        if (!transport) {
-            UI.ErrorMessage(
-                'Der Transport wurde nicht gefunden.',
-                5000
-            );
-
-            return;
-        }
-
-        openTransportInMarket(
-            transport
+        updateTransportOpenProgress(
+            allVillageFlows.length
         );
-
-        button
-            .prop('disabled', true)
-            .text('Geöffnet');
-    }
-);
     }
 
     function init() {
