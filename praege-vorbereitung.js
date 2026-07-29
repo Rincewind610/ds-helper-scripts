@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.10.2
+Version: 0.6.10.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.10.2';
+    const VERSION = '0.6.10.3';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2075,19 +2075,47 @@ im Spiel ausgeführt.
         }
     }
 
-    function getGroupRowColor(groupId) {
-        const colors = {
-            1: '#e57373',
-            2: '#ef9a9a',
-            3: '#ffab91',
-            4: '#ffcc80',
-            5: '#ffe082',
-            6: '#fff59d',
-            7: '#dcedc8',
-            8: '#c8e6c9'
-        };
+    function getFillRowColor(village) {
+        if (!village.storage) {
+            return '#ffffff';
+        }
 
-        return colors[groupId] || '#ffffff';
+        const fillPercent =
+            Math.max(
+                village.wood,
+                village.clay,
+                village.iron
+            ) / village.storage * 100;
+
+        if (fillPercent >= 95) {
+            return '#e57373';
+        }
+
+        if (fillPercent >= 85) {
+            return '#ef9a9a';
+        }
+
+        if (fillPercent >= 75) {
+            return '#ffab91';
+        }
+
+        if (fillPercent >= 65) {
+            return '#ffcc80';
+        }
+
+        if (fillPercent >= 55) {
+            return '#ffe082';
+        }
+
+        if (fillPercent >= 45) {
+            return '#fff59d';
+        }
+
+        if (fillPercent >= 35) {
+            return '#dcedc8';
+        }
+
+        return '#c8e6c9';
     }
 
     function sortVillages(villages) {
@@ -2137,16 +2165,16 @@ im Spiel ausgeführt.
     function buildVillageRows(villages) {
         return villages
             .map(function (village, index) {
-                const groupColor = getGroupRowColor(
-                    village.simulation.distanceGroupId
+                const rowColor = getFillRowColor(
+                    village
                 );
 
-                const rowColor = village.parseError
-    ? '#ffb3b3'
-    : groupColor;
+                const finalRowColor = village.parseError
+                    ? '#ffb3b3'
+                    : rowColor;
 
                 return `
-                <tr style="background:${rowColor};">
+                <tr style="background:${finalRowColor};">
                     <td style="text-align:right;">
                         ${index + 1}
                     </td>
@@ -2660,23 +2688,23 @@ ${groupFlowOutput}
         $('body').append(popupHtml);
 
         $('#' + POPUP_ID + ' tbody tr').each(
-    function () {
-        const row = $(this);
-        const backgroundColor =
-            row.css('background-color');
+            function () {
+                const row = $(this);
+                const backgroundColor =
+                    row.css('background-color');
 
-        if (
-            backgroundColor &&
-            backgroundColor !==
-                'rgba(0, 0, 0, 0)'
-        ) {
-            row.children('td').css(
-                'background-color',
-                backgroundColor
-            );
-        }
-    }
-);
+                if (
+                    backgroundColor &&
+                    backgroundColor !==
+                    'rgba(0, 0, 0, 0)'
+                ) {
+                    row.children('td').css(
+                        'background-color',
+                        backgroundColor
+                    );
+                }
+            }
+        );
 
         $('#' + POPUP_ID + '-close').on(
             'click',
