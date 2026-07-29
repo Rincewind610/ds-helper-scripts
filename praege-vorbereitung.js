@@ -815,8 +815,8 @@ Status: Entwicklung / Simulation
                 id: sender.id,
                 coord: sender.coord,
 
-                woodAvailable:
-                    clayAvailable: sender.clayAvailable,
+                woodAvailable: sender.woodAvailable,
+                clayAvailable: sender.clayAvailable,
                 ironAvailable: sender.ironAvailable
             };
         });
