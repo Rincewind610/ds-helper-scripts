@@ -9,7 +9,7 @@ Autor: Rincewind610
 Funktion:
 Liest Dörfer, Ressourcen, Lager und Händler
 aus der Produktionsübersicht aus und sortiert
-die Dörfer nach Entfernung zum Münzdorf.
+die Dörfer nach Entfernung zum Münzdorf. Anschließend werden Transporte zu den Dörfer geschickt, die nahe am Münzdorf liegen und einen Bedarf haben. Die Transporte werden von den Dörfern mit einem Überschuss an Ressourcen ausgeführt.
 
 Status: Entwicklung / Simulation
 =======================================
