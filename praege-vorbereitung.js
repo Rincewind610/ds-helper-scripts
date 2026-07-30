@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.1
+Version: 0.8.2
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.1';
+    const VERSION = '0.8.2';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1804,16 +1804,21 @@ im Spiel ausgeführt.
             })
             : null;
 
+        const sourceVillageId =
+            Number(transport.fromVillageId);
+
+        const targetVillageId =
+            targetVillage
+                ? Number(targetVillage.id)
+                : 0;
+
         const sourceVillageIdValid =
-            /^\d+$/.test(
-                String(transport.fromVillageId || '')
-            );
+            Number.isSafeInteger(sourceVillageId) &&
+            sourceVillageId > 0;
 
         const targetVillageIdValid =
-            Boolean(targetVillage) &&
-            /^\d+$/.test(
-                String(targetVillage.id || '')
-            );
+            Number.isSafeInteger(targetVillageId) &&
+            targetVillageId > 0;
 
         const resourceNames = [
             'wood',
@@ -1960,16 +1965,41 @@ im Spiel ausgeführt.
             );
         }
 
+        const success =
+            Object.values(checks).every(
+                function (checkPassed) {
+                    return checkPassed;
+                }
+            );
+
+        const sendData = success
+            ? {
+                sourceVillageId:
+                    sourceVillageId,
+
+                targetVillageId:
+                    targetVillageId,
+
+                wood:
+                    transport.wood,
+
+                stone:
+                    transport.clay,
+
+                iron:
+                    transport.iron,
+
+                merchantsRequired:
+                    calculatedMerchants
+            }
+            : null;
+
         return {
-            success:
-                Object.values(checks).every(
-                    function (checkPassed) {
-                        return checkPassed;
-                    }
-                ),
+            success: success,
 
             checks: checks,
-            errors: errors
+            errors: errors,
+            sendData: sendData
         };
     }
 
@@ -2019,6 +2049,24 @@ im Spiel ausgeführt.
             `
             : '';
 
+        const sendDataOutput = result.sendData
+            ? `
+                <div class="ds-helper-send-data-title">
+                    Versanddatensatz
+                </div>
+
+                <pre class="ds-helper-send-data">${
+                    escapeHtml(
+                        JSON.stringify(
+                            result.sendData,
+                            null,
+                            2
+                        )
+                    )
+                }</pre>
+            `
+            : '';
+
         const statusRow =
             $('#' + POPUP_ID).find(
                 '.ds-helper-transport-check-row' +
@@ -2051,6 +2099,8 @@ im Spiel ausgeführt.
                     </ul>
 
                     ${errorOutput}
+
+                    ${sendDataOutput}
 
                     <strong class="ds-helper-check-notice">
                         Es wurde kein Transport versendet.
@@ -2767,6 +2817,8 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-check-list { display:flex; flex-wrap:wrap; gap:4px 18px; margin:0 0 7px; padding:0; list-style:none; }
                 #${POPUP_ID} .ds-helper-check-list li { white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-check-errors { margin:0 0 7px; padding-left:18px; color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-send-data-title { margin:9px 0 5px; color:var(--ds-helper-text); font-weight:700; }
+                #${POPUP_ID} .ds-helper-send-data { max-width:100%; margin:0 0 8px; padding:8px 10px; overflow:auto; box-sizing:border-box; border:1px solid var(--ds-helper-border); border-radius:4px; background:var(--ds-helper-bg); color:var(--ds-helper-text); font-family:Consolas,Monaco,monospace; font-size:11px; line-height:1.45; }
                 #${POPUP_ID} .ds-helper-check-notice { display:block; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-total-row th { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; border-top:3px solid var(--ds-helper-accent); }
                 #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:9px; color:var(--ds-helper-text); background:var(--ds-helper-bg); }

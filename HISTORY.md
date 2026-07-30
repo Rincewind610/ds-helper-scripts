@@ -13,6 +13,23 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-30 - praege-vorbereitung.js v0.8.2
+
+- Die lokale Versandpruefung erzeugt bei vollstaendig erfolgreicher Pruefung
+  einen Versanddatensatz fuer genau die ausgewaehlte Transportzeile.
+- Der Datensatz enthaelt ausschliesslich `sourceVillageId`,
+  `targetVillageId`, `wood`, `stone`, `iron` und `merchantsRequired` als
+  numerische Werte und wird als JSON im Statusbereich angezeigt.
+- Bei fehlgeschlagener Pruefung bleibt der Versanddatensatz `null`.
+- Keine HTTP-Anfrage, kein Transportversand, keine Tab-Oeffnung und keine
+  automatische Folgeaktion ergaenzt.
+- Version von `praege-vorbereitung.js` auf `0.8.2` angehoben.
+- Pruefung: `git diff --check` ohne Whitespace-Fehler; statische Kontrolle
+  bestaetigt exakt sechs Datensatzfelder und keine Versand-/HTTP-Aufrufe.
+- `node --check` versucht, aber `node` ist auf diesem System nicht im PATH
+  verfuegbar.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.8.1
 
 - Pro Transportzeile eine rein lokale Versandpruefung ergaenzt, die Quelle,
