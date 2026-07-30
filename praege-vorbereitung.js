@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.7.1
+Version: 0.7.2
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.7.1';
+    const VERSION = '0.7.2';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1977,14 +1977,12 @@ im Spiel ausgeführt.
             .join('');
 
         return `
+        <div class="ds-helper-section-heading">
+            Geplante Gruppenflüsse
+        </div>
+
         <table class="vis ds-helper-table ds-helper-stat-table">
             <thead>
-                <tr>
-                    <th colspan="5" class="ds-helper-section-title">
-                        Geplante Gruppenflüsse
-                    </th>
-                </tr>
-
                 <tr>
                     <th>Von Gruppe</th>
                     <th>Zu Gruppe</th>
@@ -2007,14 +2005,12 @@ im Spiel ausgeführt.
             </tbody>
         </table>
 
+        <div class="ds-helper-section-heading">
+            Offener Bedarf
+        </div>
+
         <table class="vis ds-helper-table ds-helper-stat-table">
             <thead>
-                <tr>
-                    <th colspan="4" class="ds-helper-section-title">
-                        Offener Bedarf
-                    </th>
-                </tr>
-
                 <tr>
                     <th>Gruppe</th>
                     <th>Holz</th>
@@ -2393,8 +2389,8 @@ im Spiel ausgeführt.
             --ds-helper-text:#242424;
             --ds-helper-accent:#E14165;
             --ds-helper-border:#dddddd;
-            --ds-helper-muted:#f4f4f4;
-            --ds-helper-soft:#eeeeee;
+            --ds-helper-muted:#f7f7f7;
+            --ds-helper-soft:#f4f4f4;
             background:var(--ds-helper-bg);
             border:1px solid var(--ds-helper-border);
             border-radius:5px;
@@ -2405,21 +2401,23 @@ im Spiel ausgeführt.
         ">
             <style>
                 #${POPUP_ID} .ds-helper-content { padding:12px; }
-                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:3px solid var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); }
                 #${POPUP_ID} .ds-helper-title-main { display:block; font-size:18px; line-height:1.15; font-weight:700; color:var(--ds-helper-text); }
-                #${POPUP_ID} .ds-helper-title-sub { display:block; margin-top:2px; font-size:13px; line-height:1.2; font-weight:600; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-title-sub { display:block; margin-top:2px; font-size:13px; line-height:1.2; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-version { display:block; margin-top:3px; font-size:11px; line-height:1.2; font-weight:400; color:var(--ds-helper-text); }
-                #${POPUP_ID} .ds-helper-section-heading { margin:14px 0 8px; padding-bottom:5px; border-bottom:3px solid var(--ds-helper-accent); color:var(--ds-helper-text); background:var(--ds-helper-bg); font-weight:700; font-size:13px; line-height:1.2; }
+                #${POPUP_ID} .ds-helper-section-heading { margin:14px 0 8px; padding-bottom:5px; border-bottom:2px solid var(--ds-helper-accent); color:var(--ds-helper-text); background:var(--ds-helper-bg); font-weight:700; font-size:13px; line-height:1.2; }
+                #${POPUP_ID} .ds-helper-info-grid { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:10px 18px; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--ds-helper-border); border-bottom:1px solid var(--ds-helper-border); background:var(--ds-helper-bg); }
+                #${POPUP_ID} .ds-helper-info-block { border-left:3px solid var(--ds-helper-accent); padding-left:10px; }
+                #${POPUP_ID} .ds-helper-info-row { display:grid; grid-template-columns:150px minmax(0, 1fr); gap:8px; align-items:center; min-height:30px; border-bottom:1px solid var(--ds-helper-soft); }
+                #${POPUP_ID} .ds-helper-info-row:last-child { border-bottom:0; }
+                #${POPUP_ID} .ds-helper-info-label { color:var(--ds-helper-text); font-weight:700; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-info-value { color:var(--ds-helper-text); min-width:0; }
                 #${POPUP_ID} .ds-helper-table { width:100%; margin-bottom:12px; border-collapse:collapse; background:var(--ds-helper-bg); color:var(--ds-helper-text); border:1px solid var(--ds-helper-border); }
                 #${POPUP_ID} .ds-helper-table th,
                 #${POPUP_ID} .ds-helper-table td { padding:6px 8px; vertical-align:middle; border-bottom:1px solid var(--ds-helper-soft); color:var(--ds-helper-text); }
-                #${POPUP_ID} .ds-helper-table thead th { background:var(--ds-helper-text); color:var(--ds-helper-bg); font-weight:700; text-align:center; border-color:var(--ds-helper-text); }
-                #${POPUP_ID} .ds-helper-section-title { background:var(--ds-helper-bg) !important; color:var(--ds-helper-text) !important; text-align:left !important; border:0 !important; border-bottom:3px solid var(--ds-helper-accent) !important; font-weight:700; font-size:13px; padding:8px 0 6px !important; }
+                #${POPUP_ID} .ds-helper-table thead th { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; text-align:center; border-color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-sticky-head th { position:sticky; top:0; z-index:2; }
-                #${POPUP_ID} .ds-helper-overview { border-left:0; border-right:0; }
-                #${POPUP_ID} .ds-helper-overview th { width:150px; text-align:left; white-space:nowrap; font-weight:700; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:1px solid var(--ds-helper-soft); }
-                #${POPUP_ID} .ds-helper-overview td { min-width:110px; background:var(--ds-helper-bg); border-bottom:1px solid var(--ds-helper-soft); }
-                #${POPUP_ID} input[type="text"] { min-height:27px; box-sizing:border-box; border:1px solid var(--ds-helper-border); border-radius:4px; background:var(--ds-helper-bg); color:var(--ds-helper-text); padding:4px 7px; font-family:Verdana,Arial,sans-serif; font-size:12px; box-shadow:none; outline:none; }
+                #${POPUP_ID} input[type="text"] { min-height:28px; box-sizing:border-box; border:1px solid var(--ds-helper-border); border-radius:4px; background:var(--ds-helper-bg); color:var(--ds-helper-text); padding:4px 7px; font-family:Verdana,Arial,sans-serif; font-size:12px; box-shadow:none; outline:none; }
                 #${POPUP_ID} input[type="text"]:focus { border-color:var(--ds-helper-accent); box-shadow:0 0 0 2px rgba(225,65,101,0.18); }
                 #${POPUP_ID} .ds-helper-cell-number { text-align:right; white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-cell-center,
@@ -2445,7 +2443,7 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-btn-small { min-height:24px; padding:4px 8px; font-size:11px; }
                 #${POPUP_ID} .ds-helper-close-btn { min-width:30px; min-height:28px; background:transparent; color:var(--ds-helper-text); border:1px solid var(--ds-helper-border); padding:3px 8px; }
                 #${POPUP_ID} .ds-helper-close-btn:hover:not(:disabled) { background:var(--ds-helper-accent); color:var(--ds-helper-bg); border-color:var(--ds-helper-accent); filter:none; }
-                #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin:14px 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:3px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin:14px 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-transport-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; color:var(--ds-helper-text); font-weight:700; }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr:nth-child(even),
@@ -2465,23 +2463,31 @@ im Spiel ausgeführt.
                 <button type="button" id="${POPUP_ID}-close" class="ds-helper-btn ds-helper-close-btn">X</button>
             </div>
             <div class="ds-helper-content">
-                <table class="vis ds-helper-table ds-helper-overview">
-                    <tr>
-                        <th>Münzdorf</th>
-                        <td>
-                            <input type="text" id="${POPUP_ID}-coin-village" value="${COIN_VILLAGE.coord}" maxlength="7" style="width:75px; text-align:center;">
-                            <button type="button" id="${POPUP_ID}-save-coin-village" class="ds-helper-btn">Übernehmen</button>
-                        </td>
-                        <th>Dörfer erkannt</th>
-                        <td>${allVillages.length}</td>
-                    </tr>
-                    <tr>
-                        <th>Dörfer ausgewertet</th>
-                        <td>${sortedVillages.length}</td>
-                        <th>Ungenutzte Dörfer</th>
-                        <td>${parseErrors}</td>
-                    </tr>
-                </table>
+                <div class="ds-helper-info-grid">
+                    <div class="ds-helper-info-block">
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Münzdorf</span>
+                            <span class="ds-helper-info-value">
+                                <input type="text" id="${POPUP_ID}-coin-village" value="${COIN_VILLAGE.coord}" maxlength="7" style="width:75px; text-align:center;">
+                                <button type="button" id="${POPUP_ID}-save-coin-village" class="ds-helper-btn">Übernehmen</button>
+                            </span>
+                        </div>
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Dörfer ausgewertet</span>
+                            <span class="ds-helper-info-value">${sortedVillages.length}</span>
+                        </div>
+                    </div>
+                    <div class="ds-helper-info-block">
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Dörfer erkannt</span>
+                            <span class="ds-helper-info-value">${allVillages.length}</span>
+                        </div>
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Ungenutzte Dörfer</span>
+                            <span class="ds-helper-info-value">${parseErrors}</span>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="ds-helper-section-heading">Dorfübersicht</div>
 
