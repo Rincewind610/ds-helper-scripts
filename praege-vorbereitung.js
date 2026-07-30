@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.2
+Version: 0.8.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.2';
+    const VERSION = '0.8.3';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -94,6 +94,8 @@ Status: Entwicklung / Simulation
         openedIndexes: new Set(),
         isOpening: false
     };
+
+    const transportSendState = new Map();
 
     function parseGameNumber(value) {
         if (value === null || value === undefined) {
@@ -1959,18 +1961,21 @@ im Spiel ausgeführt.
             );
         }
 
+        const warnings = [];
+
         if (!checks.csrfToken) {
-            errors.push(
-                'CSRF-Token fehlt.'
+            warnings.push(
+                'CSRF-Token fehlt, ist f\u00fcr map_send aber nicht erforderlich.'
             );
         }
 
         const success =
-            Object.values(checks).every(
-                function (checkPassed) {
-                    return checkPassed;
-                }
-            );
+            checks.source &&
+            checks.target &&
+            checks.villageIds &&
+            checks.resources &&
+            checks.merchants &&
+            checks.tribalWarsPost;
 
         const sendData = success
             ? {
@@ -1999,8 +2004,517 @@ im Spiel ausgeführt.
 
             checks: checks,
             errors: errors,
+            warnings: warnings,
             sendData: sendData
         };
+    }
+
+    function prepareTransportSendState(
+        transportIndex,
+        sendData
+    ) {
+        const currentState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        if (
+            currentState &&
+            (
+                currentState.status === 'confirming' ||
+                currentState.status === 'sending' ||
+                currentState.status === 'sent'
+            )
+        ) {
+            return currentState;
+        }
+
+        if (!sendData) {
+            transportSendState.delete(
+                transportIndex
+            );
+
+            return null;
+        }
+
+        const sendPayload = Object.freeze({
+            sourceVillageId:
+                sendData.sourceVillageId,
+
+            targetVillageId:
+                sendData.targetVillageId,
+
+            wood:
+                sendData.wood,
+
+            stone:
+                sendData.stone,
+
+            iron:
+                sendData.iron,
+
+            merchantsRequired:
+                sendData.merchantsRequired
+        });
+
+        const sendState = {
+            status: 'ready',
+            sendPayload: sendPayload,
+            feedback: null
+        };
+
+        transportSendState.set(
+            transportIndex,
+            sendState
+        );
+
+        return sendState;
+    }
+
+    function validateSingleTransportPayload(
+        sendPayload
+    ) {
+        const errors = [];
+
+        if (!sendPayload) {
+            errors.push(
+                'Versanddatensatz fehlt.'
+            );
+
+            return {
+                valid: false,
+                errors: errors
+            };
+        }
+
+        if (
+            !Number.isSafeInteger(
+                sendPayload.sourceVillageId
+            ) ||
+            sendPayload.sourceVillageId <= 0
+        ) {
+            errors.push(
+                'Ausgangsdorf-ID ist ung\u00fcltig.'
+            );
+        }
+
+        if (
+            !Number.isSafeInteger(
+                sendPayload.targetVillageId
+            ) ||
+            sendPayload.targetVillageId <= 0
+        ) {
+            errors.push(
+                'Zieldorf-ID ist ung\u00fcltig.'
+            );
+        }
+
+        const resourcesValid =
+            Number.isInteger(sendPayload.wood) &&
+            Number.isFinite(sendPayload.wood) &&
+            sendPayload.wood >= 0 &&
+            Number.isInteger(sendPayload.stone) &&
+            Number.isFinite(sendPayload.stone) &&
+            sendPayload.stone >= 0 &&
+            Number.isInteger(sendPayload.iron) &&
+            Number.isFinite(sendPayload.iron) &&
+            sendPayload.iron >= 0;
+
+        if (!resourcesValid) {
+            errors.push(
+                'Rohstoffmengen sind ung\u00fcltig.'
+            );
+        } else if (
+            sendPayload.wood +
+            sendPayload.stone +
+            sendPayload.iron <= 0
+        ) {
+            errors.push(
+                'Mindestens eine Rohstoffmenge muss gr\u00f6\u00dfer als 0 sein.'
+            );
+        }
+
+        if (
+            !Number.isSafeInteger(
+                sendPayload.merchantsRequired
+            ) ||
+            sendPayload.merchantsRequired <= 0
+        ) {
+            errors.push(
+                'H\u00e4ndlerbedarf ist ung\u00fcltig.'
+            );
+        }
+
+        if (
+            !window.TribalWars ||
+            typeof window.TribalWars.post !==
+                'function'
+        ) {
+            errors.push(
+                'TribalWars.post ist nicht verf\u00fcgbar.'
+            );
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    function getTransportResponseMessage(response) {
+        if (typeof response === 'string') {
+            return response.trim();
+        }
+
+        if (!response || typeof response !== 'object') {
+            return '';
+        }
+
+        const responseJson =
+            response.responseJSON;
+
+        const messageCandidates = [
+            response.error,
+            response.message,
+            response.success,
+            responseJson && responseJson.error,
+            responseJson && responseJson.message
+        ];
+
+        for (
+            let index = 0;
+            index < messageCandidates.length;
+            index++
+        ) {
+            if (
+                typeof messageCandidates[index] ===
+                    'string' &&
+                messageCandidates[index].trim() !== ''
+            ) {
+                return messageCandidates[index].trim();
+            }
+        }
+
+        return '';
+    }
+
+    function transportResponseHasError(response) {
+        if (!response || typeof response !== 'object') {
+            return false;
+        }
+
+        return Boolean(
+            response.error ||
+            response.success === false ||
+            (
+                response.responseJSON &&
+                response.responseJSON.error
+            )
+        );
+    }
+
+    function getTransportSendButtonText(status) {
+        if (status === 'confirming') {
+            return 'Best\u00e4tigung ...';
+        }
+
+        if (status === 'sending') {
+            return 'Wird gesendet \u2026';
+        }
+
+        if (status === 'sent') {
+            return 'Gesendet';
+        }
+
+        return 'Transport senden';
+    }
+
+    function updateTransportSendUi(transportIndex) {
+        const sendState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        if (!sendState) {
+            return;
+        }
+
+        const popup = $('#' + POPUP_ID);
+
+        const transportRow = popup.find(
+            'tr[data-transport-index="' +
+            transportIndex +
+            '"]'
+        );
+
+        const checkRow = popup.find(
+            '.ds-helper-transport-check-row' +
+            '[data-check-index="' +
+            transportIndex +
+            '"]'
+        );
+
+        const sendButton = checkRow.find(
+            '.ds-helper-send-transport'
+        );
+
+        sendButton
+            .prop(
+                'disabled',
+                sendState.status !== 'ready'
+            )
+            .text(
+                getTransportSendButtonText(
+                    sendState.status
+                )
+            );
+
+        transportRow.toggleClass(
+            'ds-helper-transport-sent',
+            sendState.status === 'sent'
+        );
+
+        const feedbackElement = checkRow.find(
+            '.ds-helper-send-feedback'
+        );
+
+        if (sendState.feedback) {
+            const feedbackSymbol =
+                sendState.feedback.type === 'success'
+                    ? '\u2714'
+                    : sendState.feedback.type === 'error'
+                        ? '\u2716'
+                        : '';
+
+            const feedbackDetail =
+                sendState.feedback.detail
+                    ? `
+                        <div class="ds-helper-send-feedback-detail">
+                            ${escapeHtml(
+                                sendState.feedback.detail
+                            )}
+                        </div>
+                    `
+                    : '';
+
+            feedbackElement.html(`
+                <div class="ds-helper-send-feedback-message ${
+                    'is-' + sendState.feedback.type
+                }">
+                    ${feedbackSymbol}
+                    ${escapeHtml(
+                        sendState.feedback.message
+                    )}
+                </div>
+                ${feedbackDetail}
+            `);
+        } else {
+            feedbackElement.empty();
+        }
+
+        const notice = checkRow.find(
+            '.ds-helper-check-notice'
+        );
+
+        if (sendState.status === 'sent') {
+            notice.text(
+                'Transport wurde erfolgreich gesendet.'
+            );
+        } else if (sendState.status === 'sending') {
+            notice.text(
+                'Versand wurde gestartet. Es folgt keine automatische Aktion.'
+            );
+        } else {
+            notice.text(
+                'Es wurde kein Transport versendet.'
+            );
+        }
+    }
+
+    function sendSingleTransport(
+        transportIndex,
+        transport
+    ) {
+        const sendState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        if (
+            !sendState ||
+            sendState.status !== 'ready'
+        ) {
+            return;
+        }
+
+        sendState.status = 'confirming';
+        sendState.feedback = null;
+
+        updateTransportSendUi(
+            transportIndex
+        );
+
+        const sendPayload =
+            sendState.sendPayload;
+
+        const confirmationText = [
+            'Diesen Transport wirklich senden?',
+            '',
+            'Von: ' + transport.from,
+            'Nach: ' + transport.to,
+            '',
+            'Holz: ' + formatNumber(sendPayload.wood),
+            'Lehm: ' + formatNumber(sendPayload.stone),
+            'Eisen: ' + formatNumber(sendPayload.iron),
+            'H\u00e4ndler: ' +
+                formatNumber(
+                    sendPayload.merchantsRequired
+                )
+        ].join('\n');
+
+        let confirmed = false;
+
+        try {
+            confirmed = window.confirm(
+                confirmationText
+            );
+        } catch (error) {
+            sendState.status = 'ready';
+            sendState.feedback = {
+                type: 'error',
+                message:
+                    'Best\u00e4tigungsdialog konnte nicht ge\u00f6ffnet werden.',
+                detail:
+                    getTransportResponseMessage(error)
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+
+            return;
+        }
+
+        if (!confirmed) {
+            sendState.status = 'ready';
+            sendState.feedback = {
+                type: 'info',
+                message:
+                    'Versand abgebrochen. Es wurde kein Transport versendet.',
+                detail: ''
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+
+            return;
+        }
+
+        const validation =
+            validateSingleTransportPayload(
+                sendPayload
+            );
+
+        if (!validation.valid) {
+            sendState.status = 'ready';
+            sendState.feedback = {
+                type: 'error',
+                message:
+                    'Transport konnte nicht gesendet werden.',
+                detail:
+                    validation.errors.join(' ')
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+
+            return;
+        }
+
+        sendState.status = 'sending';
+        sendState.feedback = {
+            type: 'info',
+            message: 'Transport wird gesendet \u2026',
+            detail: ''
+        };
+
+        updateTransportSendUi(
+            transportIndex
+        );
+
+        const handleSendError = function (response) {
+            if (sendState.status !== 'sending') {
+                return;
+            }
+
+            sendState.status = 'ready';
+            sendState.feedback = {
+                type: 'error',
+                message:
+                    'Transport konnte nicht gesendet werden.',
+                detail:
+                    getTransportResponseMessage(
+                        response
+                    )
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+        };
+
+        const handleSendSuccess = function (response) {
+            if (sendState.status !== 'sending') {
+                return;
+            }
+
+            if (transportResponseHasError(response)) {
+                handleSendError(response);
+                return;
+            }
+
+            sendState.status = 'sent';
+            sendState.feedback = {
+                type: 'success',
+                message:
+                    'Transport erfolgreich gesendet.',
+                detail:
+                    getTransportResponseMessage(
+                        response
+                    )
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+        };
+
+        try {
+            TribalWars.post(
+                'market',
+                {
+                    ajaxaction: 'map_send',
+                    village:
+                        sendPayload.sourceVillageId
+                },
+                {
+                    target_id:
+                        sendPayload.targetVillageId,
+                    wood:
+                        sendPayload.wood,
+                    stone:
+                        sendPayload.stone,
+                    iron:
+                        sendPayload.iron
+                },
+                handleSendSuccess,
+                handleSendError
+            );
+        } catch (error) {
+            handleSendError(error);
+        }
     }
 
     function renderTransportCheckResult(
@@ -2022,11 +2536,18 @@ im Spiel ausgeführt.
                 const checkPassed =
                     result.checks[checkLabel[0]];
 
+                const checkStatus =
+                    checkPassed
+                        ? 'OK'
+                        : checkLabel[0] === 'csrfToken'
+                            ? 'Nicht erforderlich'
+                            : 'Fehler';
+
                 return `
                     <li>
                         ${escapeHtml(checkLabel[1])}:
                         <strong>
-                            ${checkPassed ? 'OK' : 'Fehler'}
+                            ${checkStatus}
                         </strong>
                     </li>
                 `;
@@ -2041,6 +2562,22 @@ im Spiel ausgeführt.
                             return `
                                 <li>
                                     ${escapeHtml(errorMessage)}
+                                </li>
+                            `;
+                        })
+                        .join('')}
+                </ul>
+            `
+            : '';
+
+        const warningOutput = result.warnings.length
+            ? `
+                <ul class="ds-helper-check-warnings">
+                    ${result.warnings
+                        .map(function (warningMessage) {
+                            return `
+                                <li>
+                                    ${escapeHtml(warningMessage)}
                                 </li>
                             `;
                         })
@@ -2064,6 +2601,30 @@ im Spiel ausgeführt.
                         )
                     )
                 }</pre>
+            `
+            : '';
+
+        const sendState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        const sendActionOutput = sendState
+            ? `
+                <div class="ds-helper-send-actions">
+                    <button
+                        type="button"
+                        class="ds-helper-btn ds-helper-btn-primary ds-helper-send-transport"
+                        data-transport-index="${transportIndex}"
+                        ${sendState.status === 'ready' ? '' : 'disabled'}
+                    >
+                        ${getTransportSendButtonText(
+                            sendState.status
+                        )}
+                    </button>
+
+                    <div class="ds-helper-send-feedback"></div>
+                </div>
             `
             : '';
 
@@ -2100,7 +2661,11 @@ im Spiel ausgeführt.
 
                     ${errorOutput}
 
+                    ${warningOutput}
+
                     ${sendDataOutput}
+
+                    ${sendActionOutput}
 
                     <strong class="ds-helper-check-notice">
                         Es wurde kein Transport versendet.
@@ -2109,6 +2674,10 @@ im Spiel ausgeführt.
             `);
 
         statusRow.show();
+
+        updateTransportSendUi(
+            transportIndex
+        );
     }
 
     function buildTransportOutput(transports) {
@@ -2817,8 +3386,15 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-check-list { display:flex; flex-wrap:wrap; gap:4px 18px; margin:0 0 7px; padding:0; list-style:none; }
                 #${POPUP_ID} .ds-helper-check-list li { white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-check-errors { margin:0 0 7px; padding-left:18px; color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-check-warnings { margin:0 0 7px; padding-left:18px; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-send-data-title { margin:9px 0 5px; color:var(--ds-helper-text); font-weight:700; }
                 #${POPUP_ID} .ds-helper-send-data { max-width:100%; margin:0 0 8px; padding:8px 10px; overflow:auto; box-sizing:border-box; border:1px solid var(--ds-helper-border); border-radius:4px; background:var(--ds-helper-bg); color:var(--ds-helper-text); font-family:Consolas,Monaco,monospace; font-size:11px; line-height:1.45; }
+                #${POPUP_ID} .ds-helper-send-actions { display:flex; align-items:flex-start; gap:10px; margin:8px 0; flex-wrap:wrap; }
+                #${POPUP_ID} .ds-helper-send-feedback { flex:1 1 320px; min-height:30px; }
+                #${POPUP_ID} .ds-helper-send-feedback-message { padding-top:6px; color:var(--ds-helper-text); font-weight:700; }
+                #${POPUP_ID} .ds-helper-send-feedback-message.is-error { color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-send-feedback-detail { margin-top:3px; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-transport-sent { outline:2px solid var(--ds-helper-accent); outline-offset:-2px; }
                 #${POPUP_ID} .ds-helper-check-notice { display:block; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-total-row th { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; border-top:3px solid var(--ds-helper-accent); }
                 #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:9px; color:var(--ds-helper-text); background:var(--ds-helper-bg); }
@@ -2995,9 +3571,44 @@ ${groupFlowOutput}
                         sortedVillages
                     );
 
+                prepareTransportSendState(
+                    transportIndex,
+                    checkResult.sendData
+                );
+
                 renderTransportCheckResult(
                     transportIndex,
                     checkResult
+                );
+            }
+        );
+        $('#' + POPUP_ID).on(
+            'click',
+            '.ds-helper-send-transport',
+            function () {
+                const transportIndex = Number(
+                    $(this).attr(
+                        'data-transport-index'
+                    )
+                );
+
+                const transport =
+                    allVillageFlows[
+                    transportIndex
+                    ];
+
+                if (!transport) {
+                    UI.ErrorMessage(
+                        'Der Transport wurde nicht gefunden.',
+                        5000
+                    );
+
+                    return;
+                }
+
+                sendSingleTransport(
+                    transportIndex,
+                    transport
                 );
             }
         );

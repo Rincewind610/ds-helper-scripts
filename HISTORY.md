@@ -13,6 +13,29 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-31 - praege-vorbereitung.js v0.8.3
+
+- Bewusst bestaetigten Einzeltransport pro gepruefter Transportzeile ergaenzt.
+- Der Versand verwendet exakt den in Version 0.8.2 erzeugten und pro Zeile
+  eingefrorenen Versanddatensatz mit `ajaxaction: map_send`.
+- Bestaetigungsdialog, unmittelbare Payload-Pruefung sowie Schutz gegen
+  Doppelklick und erneuten Versand bereits erfolgreicher Zeilen ergaenzt.
+- Erfolgs- und Fehlerstatus werden direkt im Pruefbereich angezeigt; bei
+  Fehlern gibt es keinen automatischen Wiederholungsversuch.
+- Die CSRF-Pruefung bleibt sichtbar, blockiert `map_send` aber nicht.
+- Keine Warteschlange, kein Timer, kein Sammelversand und keine automatische
+  Folgeaktion ergaenzt.
+- Version von `praege-vorbereitung.js` auf `0.8.3` angehoben.
+- Pruefung: `git diff --check` ohne Whitespace-Fehler; statisch genau eine
+  `TribalWars.post`-Aufrufstelle sowie die Reihenfolge Bestaetigung,
+  Revalidierung und POST bestaetigt.
+- Keine geschuetzte Funktion und kein verbotener Automatik-/Netzwerkpfad im
+  Diff; es wurde kein echter Transport als automatisierter Test ausgeloest.
+- `node --check` versucht, aber `node` ist auf diesem System nicht im PATH
+  verfuegbar; ersatzweise lokale Chromium-Kompilierung mit `new Function`
+  erfolgreich, ohne das Skript auszufuehren.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.8.2
 
 - Die lokale Versandpruefung erzeugt bei vollstaendig erfolgreicher Pruefung
