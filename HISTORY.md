@@ -13,6 +13,23 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-30 - praege-vorbereitung.js v0.7.1
+
+- Visuelles Design der Praegevorbereitung auf modernes DS-Helper-Farbschema
+  umgestellt: Weiss, Dunkelgrau und Akzentfarbe `#E14165`.
+- Scoped CSS-Variablen und gemeinsame Klassen fuer Popup, Kopfbereich,
+  Abschnittsueberschriften, Buttons, Tabellen, Eingabefeld und Scrollbereiche
+  ergaenzt bzw. ueberarbeitet.
+- Sichtbare Abschnittsueberschriften `Dorfuebersicht` und `Gruppenbilanz`
+  ergaenzt; bestehende Bereichsreihenfolge beibehalten.
+- Version von `praege-vorbereitung.js` auf `0.7.1` angehoben.
+- Berechnungslogik, Transportlogik, Gruppenzuordnung, Sortierung,
+  IDs, Event-Handler und Datenstrukturen unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler, nur CRLF-Hinweis.
+- Offen: Test im Spiel als Schnellleistenskript.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.7.0
 
 - Benutzeroberflaeche der Praegevorbereitung aufgeraeumt: kompakte obere

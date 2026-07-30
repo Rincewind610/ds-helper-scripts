@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.7.0
+Version: 0.7.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.7.0';
+    const VERSION = '0.7.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2389,52 +2389,81 @@ im Spiel ausgeführt.
             max-height:calc(100vh - 40px);
             overflow:auto;
             z-index:99999;
-            background:#f4e4bc;
-            border:2px solid #804000;
-            box-shadow:0 4px 18px rgba(0,0,0,0.55);
+            --ds-helper-bg:#ffffff;
+            --ds-helper-text:#242424;
+            --ds-helper-accent:#E14165;
+            --ds-helper-border:#dddddd;
+            --ds-helper-muted:#f4f4f4;
+            --ds-helper-soft:#eeeeee;
+            background:var(--ds-helper-bg);
+            border:1px solid var(--ds-helper-border);
+            border-radius:5px;
+            box-shadow:0 8px 30px rgba(0,0,0,0.22);
             font-family:Verdana,Arial,sans-serif;
             font-size:12px;
-            color:#000;
+            color:var(--ds-helper-text);
         ">
             <style>
-                #${POPUP_ID} .ds-helper-content { padding:10px; }
-                #${POPUP_ID} .ds-helper-table { width:100%; margin-bottom:10px; border-collapse:collapse; }
+                #${POPUP_ID} .ds-helper-content { padding:12px; }
+                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:3px solid var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-title-main { display:block; font-size:18px; line-height:1.15; font-weight:700; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-title-sub { display:block; margin-top:2px; font-size:13px; line-height:1.2; font-weight:600; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-title-version { display:block; margin-top:3px; font-size:11px; line-height:1.2; font-weight:400; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-section-heading { margin:14px 0 8px; padding-bottom:5px; border-bottom:3px solid var(--ds-helper-accent); color:var(--ds-helper-text); background:var(--ds-helper-bg); font-weight:700; font-size:13px; line-height:1.2; }
+                #${POPUP_ID} .ds-helper-table { width:100%; margin-bottom:12px; border-collapse:collapse; background:var(--ds-helper-bg); color:var(--ds-helper-text); border:1px solid var(--ds-helper-border); }
                 #${POPUP_ID} .ds-helper-table th,
-                #${POPUP_ID} .ds-helper-table td { padding:5px 7px; vertical-align:middle; }
-                #${POPUP_ID} .ds-helper-table thead th,
-                #${POPUP_ID} .ds-helper-section-title { background:#c1a264; color:#000; font-weight:bold; text-align:center; border:1px solid #8f6f32; }
+                #${POPUP_ID} .ds-helper-table td { padding:6px 8px; vertical-align:middle; border-bottom:1px solid var(--ds-helper-soft); color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-table thead th { background:var(--ds-helper-text); color:var(--ds-helper-bg); font-weight:700; text-align:center; border-color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-section-title { background:var(--ds-helper-bg) !important; color:var(--ds-helper-text) !important; text-align:left !important; border:0 !important; border-bottom:3px solid var(--ds-helper-accent) !important; font-weight:700; font-size:13px; padding:8px 0 6px !important; }
                 #${POPUP_ID} .ds-helper-sticky-head th { position:sticky; top:0; z-index:2; }
-                #${POPUP_ID} .ds-helper-overview th { width:150px; text-align:left; white-space:nowrap; }
-                #${POPUP_ID} .ds-helper-overview td { min-width:110px; }
+                #${POPUP_ID} .ds-helper-overview { border-left:0; border-right:0; }
+                #${POPUP_ID} .ds-helper-overview th { width:150px; text-align:left; white-space:nowrap; font-weight:700; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:1px solid var(--ds-helper-soft); }
+                #${POPUP_ID} .ds-helper-overview td { min-width:110px; background:var(--ds-helper-bg); border-bottom:1px solid var(--ds-helper-soft); }
+                #${POPUP_ID} input[type="text"] { min-height:27px; box-sizing:border-box; border:1px solid var(--ds-helper-border); border-radius:4px; background:var(--ds-helper-bg); color:var(--ds-helper-text); padding:4px 7px; font-family:Verdana,Arial,sans-serif; font-size:12px; box-shadow:none; outline:none; }
+                #${POPUP_ID} input[type="text"]:focus { border-color:var(--ds-helper-accent); box-shadow:0 0 0 2px rgba(225,65,101,0.18); }
                 #${POPUP_ID} .ds-helper-cell-number { text-align:right; white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-cell-center,
                 #${POPUP_ID} .ds-helper-cell-action,
                 #${POPUP_ID} .ds-helper-cell-coord { text-align:center; white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-village-name-cell { text-align:left; white-space:nowrap; padding-left:10px; }
-                #${POPUP_ID} .ds-helper-rank-cell { border-right:1px solid #b59a64; padding-right:10px; }
-                #${POPUP_ID} .ds-helper-group-separator td { background:#b89452 !important; color:#000; font-weight:bold; text-align:left; border-top:2px solid #804000; border-bottom:1px solid #804000; padding:6px 8px; }
-                #${POPUP_ID} .ds-helper-scroll-box { overflow:auto; border:1px solid #c1a264; margin-bottom:10px; background:#f7edcf; }
+                #${POPUP_ID} .ds-helper-rank-cell { border-right:1px solid var(--ds-helper-border); padding-right:10px; }
+                #${POPUP_ID} .ds-helper-village-table tbody tr:not(.ds-helper-group-separator):hover td { outline:1px solid rgba(36,36,36,0.18); outline-offset:-1px; font-weight:600; }
+                #${POPUP_ID} .ds-helper-group-separator td { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; text-align:left; border:0; border-left:4px solid var(--ds-helper-accent); padding:6px 9px; }
+                #${POPUP_ID} .ds-helper-scroll-box { overflow:auto; border:1px solid var(--ds-helper-border); border-radius:5px; margin-bottom:12px; background:var(--ds-helper-bg); }
                 #${POPUP_ID} .ds-helper-village-scroll { max-height:calc(100vh - 520px); }
                 #${POPUP_ID} .ds-helper-transport-scroll { max-height:300px; }
-                #${POPUP_ID} .ds-helper-button-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
-                #${POPUP_ID} .ds-helper-btn { min-height:27px; border:1px solid #8f6f32; border-radius:3px; background:#f4e4bc; color:#000; cursor:pointer; font-family:Verdana,Arial,sans-serif; font-size:12px; font-weight:bold; line-height:1.2; padding:5px 10px; }
-                #${POPUP_ID} .ds-helper-btn:hover:not(:disabled) { background:#e6c982; border-color:#804000; }
-                #${POPUP_ID} .ds-helper-btn:disabled { cursor:default; opacity:0.55; }
-                #${POPUP_ID} .ds-helper-btn-primary { background:#ead39a; border-color:#804000; }
-                #${POPUP_ID} .ds-helper-btn-small { min-height:24px; padding:3px 8px; font-size:11px; }
-                #${POPUP_ID} .ds-helper-close-btn { border-color:#fff; background:#b22222; color:#fff; padding:2px 8px; }
-                #${POPUP_ID} .ds-helper-close-btn:hover { background:#8f1a1a; }
-                #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin-bottom:6px; }
-                #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; }
-                #${POPUP_ID} .ds-helper-total-row th { background:#d2b778; font-weight:bold; border-top:2px solid #804000; }
-                #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:8px; }
+                #${POPUP_ID} .ds-helper-scroll-box::-webkit-scrollbar { width:11px; height:11px; }
+                #${POPUP_ID} .ds-helper-scroll-box::-webkit-scrollbar-track { background:var(--ds-helper-muted); }
+                #${POPUP_ID} .ds-helper-scroll-box::-webkit-scrollbar-thumb { background:var(--ds-helper-border); border-radius:5px; border:2px solid var(--ds-helper-muted); }
+                #${POPUP_ID} .ds-helper-scroll-box::-webkit-scrollbar-thumb:hover { background:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-button-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+                #${POPUP_ID} .ds-helper-btn { min-height:28px; border:0; border-radius:5px; background:var(--ds-helper-accent); color:var(--ds-helper-bg); cursor:pointer; font-family:Verdana,Arial,sans-serif; font-size:12px; font-weight:700; line-height:1.2; padding:6px 11px; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-btn:hover:not(:disabled) { color:var(--ds-helper-bg); filter:brightness(0.92); box-shadow:0 2px 7px rgba(225,65,101,0.22); }
+                #${POPUP_ID} .ds-helper-btn:active:not(:disabled) { filter:brightness(0.84); transform:translateY(1px); }
+                #${POPUP_ID} .ds-helper-btn:disabled { cursor:default; background:var(--ds-helper-soft); color:#777777; box-shadow:none; filter:none; }
+                #${POPUP_ID} .ds-helper-btn-primary { min-height:30px; padding:7px 12px; }
+                #${POPUP_ID} .ds-helper-btn-small { min-height:24px; padding:4px 8px; font-size:11px; }
+                #${POPUP_ID} .ds-helper-close-btn { min-width:30px; min-height:28px; background:transparent; color:var(--ds-helper-text); border:1px solid var(--ds-helper-border); padding:3px 8px; }
+                #${POPUP_ID} .ds-helper-close-btn:hover:not(:disabled) { background:var(--ds-helper-accent); color:var(--ds-helper-bg); border-color:var(--ds-helper-accent); filter:none; }
+                #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin:14px 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:3px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-transport-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; color:var(--ds-helper-text); font-weight:700; }
+                #${POPUP_ID} .ds-helper-transport-table tbody tr:nth-child(even),
+                #${POPUP_ID} .ds-helper-stat-table tbody tr:nth-child(even) { background:var(--ds-helper-muted); }
+                #${POPUP_ID} .ds-helper-transport-table tbody tr:hover,
+                #${POPUP_ID} .ds-helper-stat-table tbody tr:hover { background:var(--ds-helper-soft); }
+                #${POPUP_ID} .ds-helper-total-row th { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; border-top:3px solid var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:9px; color:var(--ds-helper-text); background:var(--ds-helper-bg); }
             </style>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#804000; color:#fff; font-weight:bold; font-size:14px;">
-                <span>DS Helper – Prägevorbereitung ${VERSION}</span>
+            <div class="ds-helper-header">
+                <div>
+                    <span class="ds-helper-title-main">DS Helper</span>
+                    <span class="ds-helper-title-sub">Prägevorbereitung</span>
+                    <span class="ds-helper-title-version">Version ${VERSION}</span>
+                </div>
                 <button type="button" id="${POPUP_ID}-close" class="ds-helper-btn ds-helper-close-btn">X</button>
             </div>
-
             <div class="ds-helper-content">
                 <table class="vis ds-helper-table ds-helper-overview">
                     <tr>
@@ -2453,6 +2482,8 @@ im Spiel ausgeführt.
                         <td>${parseErrors}</td>
                     </tr>
                 </table>
+
+                <div class="ds-helper-section-heading">Dorfübersicht</div>
 
                 <div class="ds-helper-scroll-box ds-helper-village-scroll">
                     <table class="vis ds-helper-table ds-helper-village-table">
@@ -2489,6 +2520,8 @@ im Spiel ausgeführt.
                 <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
                     ${transportOutput}
                 </div>
+
+                <div class="ds-helper-section-heading">Gruppenbilanz</div>
 
                 <table class="vis ds-helper-table ds-helper-stat-table">
                     <thead>
