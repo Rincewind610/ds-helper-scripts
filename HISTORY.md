@@ -13,6 +13,23 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-30 - praege-vorbereitung.js v0.7.0
+
+- Benutzeroberflaeche der Praegevorbereitung aufgeraeumt: kompakte obere
+  Uebersicht, einheitliche Button-Stile, klarere Dorf- und Transporttabellen
+  sowie optisch vereinheitlichte Statistikbereiche.
+- Transportliste als ein- und ausklappbaren UI-Bereich ergaenzt; Transportdaten
+  und Fortschritt bleiben unveraendert erhalten.
+- Gruppentrenner in der Dorfuebersicht nur in der HTML-Ausgabe ergaenzt.
+- Sichtbare Bezeichnung `Verbleibender Bedarf` zu `Offener Bedarf` geaendert.
+- Version von `praege-vorbereitung.js` auf `0.7.0` angehoben.
+- Berechnungslogik, Transportlogik, Gruppenzuordnung und Sortierung
+  unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler, nur CRLF-Hinweis.
+- Offen: Test im Spiel als Schnellleistenskript.
+
 ### 2026-07-30 - Anzeige Ungenutzte Doerfer
 
 - In `praege-vorbereitung.js` die sichtbare Popup-Beschriftung

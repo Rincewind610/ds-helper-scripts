@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.11
+Version: 0.7.0
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.11';
+    const VERSION = '0.7.0';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1808,83 +1808,65 @@ im Spiel ausgeführt.
             .map(function (transport, index) {
                 return `
                 <tr data-transport-index="${index}">
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${index + 1}
                     </td>
 
-                    <td style="text-align:center;white-space:nowrap;">
+                    <td class="ds-helper-cell-coord">
                         ${escapeHtml(transport.from)}
                     </td>
 
-                    <td style="text-align:center;white-space:nowrap;">
+                    <td class="ds-helper-cell-coord">
                         ${escapeHtml(transport.to)}
                     </td>
 
-                    <td style="text-align:center;">
+                    <td class="ds-helper-cell-center">
                         ${transport.fromGroup}
                     </td>
 
-                    <td style="text-align:center;">
+                    <td class="ds-helper-cell-center">
                         ${transport.toGroup}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(transport.wood)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(transport.clay)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(transport.iron)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(transport.merchantsUsed)}
                     </td>
 
-                    <td style="text-align:center;">
-    <button
-        type="button"
-        class="ds-helper-open-transport"
-        data-transport-index="${index}"
-        style="
-            border:1px solid #804000;
-            background:#f4e4bc;
-            color:#000;
-            cursor:pointer;
-            font-weight:bold;
-            padding:3px 7px;
-        "
-    >
-        Öffnen
-    </button>
-</td>
+                    <td class="ds-helper-cell-action">
+                        <button
+                            type="button"
+                            class="ds-helper-btn ds-helper-btn-small ds-helper-open-transport"
+                            data-transport-index="${index}"
+                        >
+                            Öffnen
+                        </button>
+                    </td>
                 </tr>
             `;
             })
             .join('');
 
         return `
-        <table class="vis" style="
-            width:100%;
-            margin-bottom:10px;
-        ">
-            <thead>
+        <table class="vis ds-helper-table ds-helper-transport-table">
+            <thead class="ds-helper-sticky-head">
                 <tr>
-                    <th colspan="10">
-                        Geplante Dorftransporte
-                        – ${formatNumber(transports.length)} Transporte
-                    </th>
-                </tr>
-
-                <tr>
-                    <th>Nr.</th>
-                    <th>Sender</th>
-                    <th>Empfänger</th>
+                    <th>#</th>
+                    <th>Von</th>
+                    <th>Nach</th>
                     <th>Von Gruppe</th>
-                    <th>Zu Gruppe</th>
+                    <th>Nach Gruppe</th>
                     <th>Holz</th>
                     <th>Lehm</th>
                     <th>Eisen</th>
@@ -1896,7 +1878,7 @@ im Spiel ausgeführt.
             <tbody>
                 ${transportRows || `
                     <tr>
-                        <td colspan="10">
+                        <td colspan="10" class="ds-helper-empty-row">
                             Keine Dorftransporte erforderlich
                         </td>
                     </tr>
@@ -1904,24 +1886,24 @@ im Spiel ausgeführt.
             </tbody>
 
             <tfoot>
-                <tr>
+                <tr class="ds-helper-total-row">
                     <th colspan="5">
                         Gesamt
                     </th>
 
-                    <th style="text-align:right;">
+                    <th class="ds-helper-cell-number">
                         ${formatNumber(totalWood)}
                     </th>
 
-                    <th style="text-align:right;">
+                    <th class="ds-helper-cell-number">
                         ${formatNumber(totalClay)}
                     </th>
 
-                    <th style="text-align:right;">
+                    <th class="ds-helper-cell-number">
                         ${formatNumber(totalIron)}
                     </th>
 
-                    <th style="text-align:right;">
+                    <th class="ds-helper-cell-number">
                         ${formatNumber(totalMerchants)}
                     </th>
 
@@ -1937,23 +1919,23 @@ im Spiel ausgeführt.
             .map(function (flow) {
                 return `
                 <tr>
-                    <td style="text-align:center;">
+                    <td class="ds-helper-cell-center">
                         ${flow.fromGroup}
                     </td>
 
-                    <td style="text-align:center;">
+                    <td class="ds-helper-cell-center">
                         ${flow.toGroup}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(flow.wood)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(flow.clay)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(flow.iron)}
                     </td>
                 </tr>
@@ -1974,19 +1956,19 @@ im Spiel ausgeführt.
             .map(function (group) {
                 return `
                 <tr>
-                    <td style="text-align:center;">
+                    <td class="ds-helper-cell-center">
                         ${group.id}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(group.woodNeed)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(group.clayNeed)}
                     </td>
 
-                    <td style="text-align:right;">
+                    <td class="ds-helper-cell-number">
                         ${formatNumber(group.ironNeed)}
                     </td>
                 </tr>
@@ -1995,13 +1977,10 @@ im Spiel ausgeführt.
             .join('');
 
         return `
-        <table class="vis" style="
-            width:100%;
-            margin-bottom:10px;
-        ">
+        <table class="vis ds-helper-table ds-helper-stat-table">
             <thead>
                 <tr>
-                    <th colspan="5">
+                    <th colspan="5" class="ds-helper-section-title">
                         Geplante Gruppenflüsse
                     </th>
                 </tr>
@@ -2019,7 +1998,7 @@ im Spiel ausgeführt.
                 ${flowRows ||
             `
                         <tr>
-                            <td colspan="5">
+                            <td colspan="5" class="ds-helper-empty-row">
                                 Keine Gruppenflüsse erforderlich
                             </td>
                         </tr>
@@ -2028,14 +2007,11 @@ im Spiel ausgeführt.
             </tbody>
         </table>
 
-        <table class="vis" style="
-            width:100%;
-            margin-bottom:10px;
-        ">
+        <table class="vis ds-helper-table ds-helper-stat-table">
             <thead>
                 <tr>
-                    <th colspan="4">
-                        Verbleibender Bedarf
+                    <th colspan="4" class="ds-helper-section-title">
+                        Offener Bedarf
                     </th>
                 </tr>
 
@@ -2051,7 +2027,7 @@ im Spiel ausgeführt.
                 ${remainingRows ||
             `
                         <tr>
-                            <td colspan="4">
+                            <td colspan="4" class="ds-helper-empty-row">
                                 Alle Gruppen können vollständig versorgt werden
                             </td>
                         </tr>
@@ -2163,87 +2139,107 @@ im Spiel ausgeführt.
     }
 
     function buildVillageRows(villages) {
-        return villages
-            .map(function (village, index) {
-                const rowColor = getFillRowColor(
-                    village
-                );
+        let lastGroupId = null;
+        const rows = [];
 
-                const finalRowColor = village.parseError
-                    ? '#ffb3b3'
-                    : rowColor;
+        villages.forEach(function (village, index) {
+            const rowColor = getFillRowColor(
+                village
+            );
 
-                return `
-                <tr style="background:${finalRowColor};">
-                    <td style="text-align:right;">
-                        ${index + 1}
-                    </td>
+            const finalRowColor = village.parseError
+                ? '#ffb3b3'
+                : rowColor;
 
-                    <td style="white-space:nowrap;">
-                        ${escapeHtml(village.name)}
-                    </td>
+            const groupId =
+                village.simulation.distanceGroupId;
 
-                    <td style="text-align:right;background:${rowColor} !important;">
-                        ${village.distanceToCoinVillage.toFixed(2)}
-                    </td>
-
-                    <td style="text-align:center;white-space:nowrap;">
-                        ${village.simulation.distanceGroupId}
-                        –
-                        ${escapeHtml(
+            if (groupId !== lastGroupId) {
+                rows.push(`
+                <tr class="ds-helper-group-separator">
+                    <td colspan="13">
+                        Gruppe ${groupId} – ${escapeHtml(
                     village.simulation.distanceGroupName
                 )}
                     </td>
+                </tr>
+            `);
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                lastGroupId = groupId;
+            }
+
+            rows.push(`
+                <tr style="background:${finalRowColor};">
+                    <td class="ds-helper-cell-number ds-helper-rank-cell">
+                        ${index + 1}
+                    </td>
+
+                    <td class="ds-helper-village-name-cell">
+                        ${escapeHtml(village.name)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${village.distanceToCoinVillage.toFixed(2)}
+                    </td>
+
+                    <td class="ds-helper-cell-center" style="background:${rowColor} !important;">
+                        ${groupId}
+                        –
+                        ${escapeHtml(
+                village.simulation.distanceGroupName
+            )}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(village.wood)}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(village.clay)}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(village.iron)}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(village.storage)}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(
-                    village.simulation.targetAmount
-                )}
+                village.simulation.targetAmount
+            )}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(
-                    village.simulation.needWood
-                )}
+                village.simulation.needWood
+            )}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(
-                    village.simulation.needClay
-                )}
+                village.simulation.needClay
+            )}
                     </td>
 
-                    <td style="text-align:right;background:${rowColor} !important;">
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(
-                    village.simulation.needIron
-                )}
+                village.simulation.needIron
+            )}
                     </td>
 
-                    <td style="text-align:center;white-space:nowrap;">
+                    <td class="ds-helper-cell-center" style="background:${rowColor} !important;">
                         ${formatNumber(village.merchantsFree)}
                         /
                         ${formatNumber(village.merchantsTotal)}
                     </td>
                 </tr>
-            `;
-            })
-            .join('');
+            `);
+        });
+
+        return rows.join('');
     }
 
     function showPopup(allVillages, sortedVillages) {
@@ -2400,290 +2396,126 @@ im Spiel ausgeführt.
             font-size:12px;
             color:#000;
         ">
+            <style>
+                #${POPUP_ID} .ds-helper-content { padding:10px; }
+                #${POPUP_ID} .ds-helper-table { width:100%; margin-bottom:10px; border-collapse:collapse; }
+                #${POPUP_ID} .ds-helper-table th,
+                #${POPUP_ID} .ds-helper-table td { padding:5px 7px; vertical-align:middle; }
+                #${POPUP_ID} .ds-helper-table thead th,
+                #${POPUP_ID} .ds-helper-section-title { background:#c1a264; color:#000; font-weight:bold; text-align:center; border:1px solid #8f6f32; }
+                #${POPUP_ID} .ds-helper-sticky-head th { position:sticky; top:0; z-index:2; }
+                #${POPUP_ID} .ds-helper-overview th { width:150px; text-align:left; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-overview td { min-width:110px; }
+                #${POPUP_ID} .ds-helper-cell-number { text-align:right; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-cell-center,
+                #${POPUP_ID} .ds-helper-cell-action,
+                #${POPUP_ID} .ds-helper-cell-coord { text-align:center; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-village-name-cell { text-align:left; white-space:nowrap; padding-left:10px; }
+                #${POPUP_ID} .ds-helper-rank-cell { border-right:1px solid #b59a64; padding-right:10px; }
+                #${POPUP_ID} .ds-helper-group-separator td { background:#b89452 !important; color:#000; font-weight:bold; text-align:left; border-top:2px solid #804000; border-bottom:1px solid #804000; padding:6px 8px; }
+                #${POPUP_ID} .ds-helper-scroll-box { overflow:auto; border:1px solid #c1a264; margin-bottom:10px; background:#f7edcf; }
+                #${POPUP_ID} .ds-helper-village-scroll { max-height:calc(100vh - 520px); }
+                #${POPUP_ID} .ds-helper-transport-scroll { max-height:300px; }
+                #${POPUP_ID} .ds-helper-button-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+                #${POPUP_ID} .ds-helper-btn { min-height:27px; border:1px solid #8f6f32; border-radius:3px; background:#f4e4bc; color:#000; cursor:pointer; font-family:Verdana,Arial,sans-serif; font-size:12px; font-weight:bold; line-height:1.2; padding:5px 10px; }
+                #${POPUP_ID} .ds-helper-btn:hover:not(:disabled) { background:#e6c982; border-color:#804000; }
+                #${POPUP_ID} .ds-helper-btn:disabled { cursor:default; opacity:0.55; }
+                #${POPUP_ID} .ds-helper-btn-primary { background:#ead39a; border-color:#804000; }
+                #${POPUP_ID} .ds-helper-btn-small { min-height:24px; padding:3px 8px; font-size:11px; }
+                #${POPUP_ID} .ds-helper-close-btn { border-color:#fff; background:#b22222; color:#fff; padding:2px 8px; }
+                #${POPUP_ID} .ds-helper-close-btn:hover { background:#8f1a1a; }
+                #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin-bottom:6px; }
+                #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-total-row th { background:#d2b778; font-weight:bold; border-top:2px solid #804000; }
+                #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:8px; }
+            </style>
 
-            <div style="
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                padding:8px 10px;
-                background:#804000;
-                color:#fff;
-                font-weight:bold;
-                font-size:14px;
-            ">
-                <span>
-                    DS Helper – Prägevorbereitung ${VERSION}
-                </span>
-
-                <button
-                    type="button"
-                    id="${POPUP_ID}-close"
-                    style="
-                        border:1px solid #fff;
-                        background:#b22222;
-                        color:#fff;
-                        cursor:pointer;
-                        font-weight:bold;
-                        padding:2px 8px;
-                    "
-                >
-                    X
-                </button>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#804000; color:#fff; font-weight:bold; font-size:14px;">
+                <span>DS Helper – Prägevorbereitung ${VERSION}</span>
+                <button type="button" id="${POPUP_ID}-close" class="ds-helper-btn ds-helper-close-btn">X</button>
             </div>
 
-            <div style="padding:10px;">
-                <table class="vis" style="
-                    width:100%;
-                    margin-bottom:10px;
-                ">
+            <div class="ds-helper-content">
+                <table class="vis ds-helper-table ds-helper-overview">
                     <tr>
                         <th>Münzdorf</th>
-<td>
-    <input
-        type="text"
-        id="${POPUP_ID}-coin-village"
-        value="${COIN_VILLAGE.coord}"
-        maxlength="7"
-        style="
-            width:75px;
-            text-align:center;
-        "
-    >
-
-    <button
-        type="button"
-        id="${POPUP_ID}-save-coin-village"
-        style="
-            margin-left:5px;
-            cursor:pointer;
-        "
-    >
-        Übernehmen
-    </button>
-</td>
-
-                        <th>Status</th>
                         <td>
-                            ${coinVillageFound
-                ? 'gefunden und ausgeschlossen'
-                : 'nicht gefunden'
-            }
+                            <input type="text" id="${POPUP_ID}-coin-village" value="${COIN_VILLAGE.coord}" maxlength="7" style="width:75px; text-align:center;">
+                            <button type="button" id="${POPUP_ID}-save-coin-village" class="ds-helper-btn">Übernehmen</button>
                         </td>
-                    </tr>
-
-                    <tr>
                         <th>Dörfer erkannt</th>
                         <td>${allVillages.length}</td>
-
+                    </tr>
+                    <tr>
                         <th>Dörfer ausgewertet</th>
                         <td>${sortedVillages.length}</td>
-                    </tr>
-
-                    <tr>
                         <th>Ungenutzte Dörfer</th>
                         <td>${parseErrors}</td>
-
-                        <th>Simulationsmodus</th>
-                        <td>aktiv – keine Transporte</td>
                     </tr>
                 </table>
 
-<div style="
-    max-height:calc(100vh - 520px);
-                    overflow:auto;
-                    border:1px solid #c1a264;
-                    margin-bottom:10px;
-                ">
-                    <table class="vis" style="
-                        width:100%;
-                        border-collapse:collapse;
-                    ">
-                        <thead>
+                <div class="ds-helper-scroll-box ds-helper-village-scroll">
+                    <table class="vis ds-helper-table ds-helper-village-table">
+                        <thead class="ds-helper-sticky-head">
                             <tr>
-                                <th style="width:45px;">
-                                    Rang
-                                </th>
-
-                                <th>
-                                    Dorf
-                                </th>
-
-                                <th style="width:75px;">
-                                    Distanz
-                                </th>
-
-                                <th style="width:110px;">
-                                    Gruppe
-                                </th>
-
-                                <th style="width:95px;">
-                                    Holz
-                                </th>
-
-                                <th style="width:95px;">
-                                    Lehm
-                                </th>
-
-                                <th style="width:95px;">
-                                    Eisen
-                                </th>
-
-                                <th style="width:95px;">
-                                    Lager
-                                </th>
-
-                                <th style="width:95px;">
-                                    Soll
-                                </th>
-
-                                <th style="width:95px;">
-                                    Bedarf Holz
-                                </th>
-
-                                <th style="width:95px;">
-                                    Bedarf Lehm
-                                </th>
-
-                                <th style="width:95px;">
-                                    Bedarf Eisen
-                                </th>
-
-                                <th style="width:85px;">
-                                    Händler
-                                </th>
+                                <th style="width:45px;">Rang</th>
+                                <th>Dorf</th>
+                                <th style="width:75px;">Distanz</th>
+                                <th style="width:110px;">Gruppe</th>
+                                <th style="width:95px;">Holz</th>
+                                <th style="width:95px;">Lehm</th>
+                                <th style="width:95px;">Eisen</th>
+                                <th style="width:95px;">Lager</th>
+                                <th style="width:95px;">Soll</th>
+                                <th style="width:95px;">Bedarf Holz</th>
+                                <th style="width:95px;">Bedarf Lehm</th>
+                                <th style="width:95px;">Bedarf Eisen</th>
+                                <th style="width:85px;">Händler</th>
                             </tr>
                         </thead>
-
-                        <tbody>
-                            ${buildVillageRows(sortedVillages)}
-                        </tbody>
+                        <tbody>${buildVillageRows(sortedVillages)}</tbody>
                     </table>
                 </div>
 
+                <button type="button" id="${POPUP_ID}-transport-toggle" class="ds-helper-btn ds-helper-transport-toggle">▼ Transportliste (${formatNumber(allVillageFlows.length)} Transporte)</button>
 
-<div style="
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin-bottom:6px;
-">
-    <button
-        type="button"
-        id="${POPUP_ID}-copy-transports"
-        style="
-            border:1px solid #804000;
-            background:#f4e4bc;
-            color:#000;
-            cursor:pointer;
-            font-weight:bold;
-            padding:5px 10px;
-        "
-    >
-        Transportliste kopieren
-    </button>
+                <div class="ds-helper-button-row">
+                    <button type="button" id="${POPUP_ID}-copy-transports" class="ds-helper-btn ds-helper-btn-primary">Transportliste kopieren</button>
+                    <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="30">Nächste 30 Tabs öffnen</button>
+                    <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="50">Nächste 50 Tabs öffnen</button>
+                    <strong id="${POPUP_ID}-open-progress" class="ds-helper-progress">0 / ${allVillageFlows.length} geöffnet</strong>
+                </div>
 
-    <button
-        type="button"
-        class="ds-helper-open-batch"
-        data-batch-size="30"
-        style="
-            border:1px solid #804000;
-            background:#f4e4bc;
-            color:#000;
-            cursor:pointer;
-            font-weight:bold;
-            padding:5px 10px;
-        "
-    >
-        Nächste 30 Tabs öffnen
-    </button>
+                <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
+                    ${transportOutput}
+                </div>
 
-    <button
-        type="button"
-        class="ds-helper-open-batch"
-        data-batch-size="50"
-        style="
-            border:1px solid #804000;
-            background:#f4e4bc;
-            color:#000;
-            cursor:pointer;
-            font-weight:bold;
-            padding:5px 10px;
-        "
-    >
-        Nächste 50 Tabs öffnen
-    </button>
-
-    <strong
-        id="${POPUP_ID}-open-progress"
-        style="margin-left:auto;"
-    >
-        0 / ${allVillageFlows.length} geöffnet
-    </strong>
-</div>
-
-<div style="
-    max-height:300px;
-    overflow:auto;
-    border:1px solid #c1a264;
-    margin-bottom:10px;
-">
-    ${transportOutput}
-</div>
-
-                <table class="vis" style="
-                    width:100%;
-                    margin-bottom:10px;
-                ">
+                <table class="vis ds-helper-table ds-helper-stat-table">
                     <thead>
-    <tr>
-        <th rowspan="2">
-            Gruppe
-        </th>
-
-        <th rowspan="2">
-            Bezeichnung
-        </th>
-
-        <th rowspan="2">
-            Dörfer
-        </th>
-
-        <th colspan="3">
-            Bedarf
-        </th>
-
-        <th colspan="3">
-            Überschuss
-        </th>
-
-        <th colspan="3">
-            Saldo
-        </th>
-    </tr>
-
-    <tr>
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
-
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
-
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
-    </tr>
-</thead>
-
-                    <tbody>
-                        ${groupSummaryRows}
-                    </tbody>
+                        <tr>
+                            <th rowspan="2">Gruppe</th>
+                            <th rowspan="2">Bezeichnung</th>
+                            <th rowspan="2">Dörfer</th>
+                            <th colspan="3">Bedarf</th>
+                            <th colspan="3">Überschuss</th>
+                            <th colspan="3">Saldo</th>
+                        </tr>
+                        <tr>
+                            <th>Holz</th>
+                            <th>Lehm</th>
+                            <th>Eisen</th>
+                            <th>Holz</th>
+                            <th>Lehm</th>
+                            <th>Eisen</th>
+                            <th>Holz</th>
+                            <th>Lehm</th>
+                            <th>Eisen</th>
+                        </tr>
+                    </thead>
+                    <tbody>${groupSummaryRows}</tbody>
                 </table>
 
 ${groupFlowOutput}
-
 
             </div>
         </div>
@@ -2777,6 +2609,23 @@ ${groupFlowOutput}
             }
         );
 
+        $('#' + POPUP_ID + '-transport-toggle').on(
+            'click',
+            function () {
+                const transportPanel =
+                    $('#' + POPUP_ID + '-transport-panel');
+                const isOpen = transportPanel.is(':visible');
+
+                transportPanel.toggle(!isOpen);
+
+                $(this).text(
+                    (isOpen ? '▶' : '▼') +
+                    ' Transportliste (' +
+                    formatNumber(allVillageFlows.length) +
+                    ' Transporte)'
+                );
+            }
+        );
         updateTransportOpenProgress(
             allVillageFlows.length
         );
