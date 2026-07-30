@@ -2088,7 +2088,7 @@ im Spiel ausgeführt.
             ) / village.storage * 100;
 
         if (fillPercent >= 95) {
-            return '#e57373';
+            return '#ba68c8';
         }
 
         if (fillPercent >= 85) {
