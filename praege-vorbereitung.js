@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.0
+Version: 0.8.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.0';
+    const VERSION = '0.8.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1775,6 +1775,292 @@ im Spiel ausgeführt.
         );
     }
 
+    function checkTransportForDirectSend(
+        transport,
+        villages
+    ) {
+        const coordinatePattern =
+            /^\d{1,3}\|\d{1,3}$/;
+
+        const sourceCoordinateValid =
+            coordinatePattern.test(
+                String(transport.from || '')
+            );
+
+        const targetCoordinateValid =
+            coordinatePattern.test(
+                String(transport.to || '')
+            );
+
+        const sourceVillage = sourceCoordinateValid
+            ? villages.find(function (village) {
+                return village.coord === transport.from;
+            })
+            : null;
+
+        const targetVillage = targetCoordinateValid
+            ? villages.find(function (village) {
+                return village.coord === transport.to;
+            })
+            : null;
+
+        const sourceVillageIdValid =
+            /^\d+$/.test(
+                String(transport.fromVillageId || '')
+            );
+
+        const targetVillageIdValid =
+            Boolean(targetVillage) &&
+            /^\d+$/.test(
+                String(targetVillage.id || '')
+            );
+
+        const resourceNames = [
+            'wood',
+            'clay',
+            'iron'
+        ];
+
+        const resourceChecks = {};
+
+        resourceNames.forEach(function (resourceName) {
+            const resourceValue =
+                transport[resourceName];
+
+            resourceChecks[resourceName] =
+                Object.prototype.hasOwnProperty.call(
+                    transport,
+                    resourceName
+                ) &&
+                Number.isFinite(resourceValue) &&
+                Number.isInteger(resourceValue) &&
+                resourceValue >= 0;
+        });
+
+        const resourcesValid =
+            resourceChecks.wood &&
+            resourceChecks.clay &&
+            resourceChecks.iron;
+
+        const resourceTotal = resourcesValid
+            ? transport.wood +
+                transport.clay +
+                transport.iron
+            : 0;
+
+        const calculatedMerchants =
+            resourcesValid &&
+            resourceTotal > 0 &&
+            Number.isFinite(MERCHANT_CAPACITY) &&
+            MERCHANT_CAPACITY > 0
+                ? Math.ceil(
+                    resourceTotal /
+                    MERCHANT_CAPACITY
+                )
+                : 0;
+
+        const merchantCalculationValid =
+            Number.isFinite(calculatedMerchants) &&
+            Number.isInteger(calculatedMerchants) &&
+            calculatedMerchants > 0;
+
+        const checks = {
+            source:
+                sourceCoordinateValid &&
+                Boolean(sourceVillage),
+
+            target:
+                targetCoordinateValid &&
+                Boolean(targetVillage),
+
+            villageIds:
+                sourceVillageIdValid &&
+                targetVillageIdValid,
+
+            resources:
+                resourcesValid &&
+                resourceTotal > 0,
+
+            merchants:
+                merchantCalculationValid,
+
+            tribalWarsPost:
+                Boolean(window.TribalWars) &&
+                typeof window.TribalWars.post ===
+                    'function',
+
+            csrfToken:
+                typeof window.csrf_token ===
+                    'string' &&
+                window.csrf_token.trim() !== ''
+        };
+
+        const errors = [];
+
+        if (!checks.source) {
+            errors.push(
+                'Ausgangsdorf fehlt oder wurde nicht erkannt.'
+            );
+        }
+
+        if (!checks.target) {
+            errors.push(
+                'Zieldorf fehlt oder wurde nicht erkannt.'
+            );
+        }
+
+        if (!sourceVillageIdValid) {
+            errors.push(
+                'Ausgangsdorf-ID fehlt oder ist ung\u00fcltig.'
+            );
+        }
+
+        if (!targetVillageIdValid) {
+            errors.push(
+                'Zieldorf-ID fehlt oder ist ung\u00fcltig.'
+            );
+        }
+
+        const resourceLabels = {
+            wood: 'Holzmenge',
+            clay: 'Lehmmenge',
+            iron: 'Eisenmenge'
+        };
+
+        resourceNames.forEach(function (resourceName) {
+            if (!resourceChecks[resourceName]) {
+                errors.push(
+                    resourceLabels[resourceName] +
+                    ' fehlt oder ist ung\u00fcltig.'
+                );
+            }
+        });
+
+        if (resourcesValid && resourceTotal <= 0) {
+            errors.push(
+                'Die Ressourcen-Gesamtmenge muss gr\u00f6\u00dfer als 0 sein.'
+            );
+        }
+
+        if (!checks.merchants) {
+            errors.push(
+                'H\u00e4ndlerbedarf kann nicht berechnet werden.'
+            );
+        }
+
+        if (!checks.tribalWarsPost) {
+            errors.push(
+                'TribalWars.post ist nicht verf\u00fcgbar.'
+            );
+        }
+
+        if (!checks.csrfToken) {
+            errors.push(
+                'CSRF-Token fehlt.'
+            );
+        }
+
+        return {
+            success:
+                Object.values(checks).every(
+                    function (checkPassed) {
+                        return checkPassed;
+                    }
+                ),
+
+            checks: checks,
+            errors: errors
+        };
+    }
+
+    function renderTransportCheckResult(
+        transportIndex,
+        result
+    ) {
+        const checkLabels = [
+            ['source', 'Quelle'],
+            ['target', 'Ziel'],
+            ['villageIds', 'Dorf-IDs'],
+            ['resources', 'Rohstoffe'],
+            ['merchants', 'H\u00e4ndler'],
+            ['tribalWarsPost', 'TribalWars.post'],
+            ['csrfToken', 'CSRF-Token']
+        ];
+
+        const checkOutput = checkLabels
+            .map(function (checkLabel) {
+                const checkPassed =
+                    result.checks[checkLabel[0]];
+
+                return `
+                    <li>
+                        ${escapeHtml(checkLabel[1])}:
+                        <strong>
+                            ${checkPassed ? 'OK' : 'Fehler'}
+                        </strong>
+                    </li>
+                `;
+            })
+            .join('');
+
+        const errorOutput = result.errors.length
+            ? `
+                <ul class="ds-helper-check-errors">
+                    ${result.errors
+                        .map(function (errorMessage) {
+                            return `
+                                <li>
+                                    ${escapeHtml(errorMessage)}
+                                </li>
+                            `;
+                        })
+                        .join('')}
+                </ul>
+            `
+            : '';
+
+        const statusRow =
+            $('#' + POPUP_ID).find(
+                '.ds-helper-transport-check-row' +
+                '[data-check-index="' +
+                transportIndex +
+                '"]'
+            );
+
+        statusRow
+            .find(
+                '.ds-helper-transport-check-content'
+            )
+            .html(`
+                <div class="ds-helper-check-result ${
+                    result.success
+                        ? 'is-success'
+                        : 'is-error'
+                }">
+                    <div class="ds-helper-check-title">
+                        ${result.success ? '\u2714' : '\u2716'}
+                        Versandpr\u00fcfung ${
+                            result.success
+                                ? 'erfolgreich'
+                                : 'fehlgeschlagen'
+                        }
+                    </div>
+
+                    <ul class="ds-helper-check-list">
+                        ${checkOutput}
+                    </ul>
+
+                    ${errorOutput}
+
+                    <strong class="ds-helper-check-notice">
+                        Es wurde kein Transport versendet.
+                    </strong>
+                </div>
+            `);
+
+        statusRow.show();
+    }
+
     function buildTransportOutput(transports) {
         const totalWood = transports.reduce(
             function (sum, transport) {
@@ -1807,7 +2093,10 @@ im Spiel ausgeführt.
         const transportRows = transports
             .map(function (transport, index) {
                 return `
-                <tr data-transport-index="${index}">
+                <tr
+                    class="${index % 2 ? 'ds-helper-transport-row-even' : ''}"
+                    data-transport-index="${index}"
+                >
                     <td class="ds-helper-cell-number">
                         ${index + 1}
                     </td>
@@ -1852,7 +2141,26 @@ im Spiel ausgeführt.
                         >
                             Öffnen
                         </button>
+
+                        <button
+                            type="button"
+                            class="ds-helper-btn ds-helper-btn-small ds-helper-check-transport"
+                            data-transport-index="${index}"
+                        >
+                            Versand prüfen
+                        </button>
                     </td>
+                </tr>
+
+                <tr
+                    class="ds-helper-transport-check-row"
+                    data-check-index="${index}"
+                    style="display:none;"
+                >
+                    <td
+                        colspan="10"
+                        class="ds-helper-transport-check-content"
+                    ></td>
                 </tr>
             `;
             })
@@ -2423,6 +2731,7 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-cell-center,
                 #${POPUP_ID} .ds-helper-cell-action,
                 #${POPUP_ID} .ds-helper-cell-coord { text-align:center; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-cell-action .ds-helper-btn + .ds-helper-btn { margin-left:4px; }
                 #${POPUP_ID} .ds-helper-village-name-cell { text-align:left; white-space:nowrap; padding-left:10px; }
                 #${POPUP_ID} .ds-helper-rank-cell { border-right:1px solid var(--ds-helper-border); padding-right:10px; }
                 #${POPUP_ID} .ds-helper-village-table tbody tr:not(.ds-helper-group-separator):hover td { outline:1px solid rgba(36,36,36,0.18); outline-offset:-1px; font-weight:600; }
@@ -2446,10 +2755,19 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin:14px 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-transport-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; color:var(--ds-helper-text); font-weight:700; }
-                #${POPUP_ID} .ds-helper-transport-table tbody tr:nth-child(even),
+                #${POPUP_ID} .ds-helper-transport-table tbody tr.ds-helper-transport-row-even,
                 #${POPUP_ID} .ds-helper-stat-table tbody tr:nth-child(even) { background:var(--ds-helper-muted); }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr:hover,
                 #${POPUP_ID} .ds-helper-stat-table tbody tr:hover { background:var(--ds-helper-soft); }
+                #${POPUP_ID} .ds-helper-transport-check-row:hover { background:var(--ds-helper-bg); }
+                #${POPUP_ID} .ds-helper-transport-check-row td { padding:0 10px 10px; background:var(--ds-helper-bg) !important; border-bottom:1px solid var(--ds-helper-border); }
+                #${POPUP_ID} .ds-helper-check-result { padding:9px 11px; border:1px solid var(--ds-helper-border); border-left:4px solid var(--ds-helper-accent); border-radius:4px; background:var(--ds-helper-muted); text-align:left; }
+                #${POPUP_ID} .ds-helper-check-title { margin-bottom:6px; color:var(--ds-helper-text); font-size:12px; font-weight:700; }
+                #${POPUP_ID} .ds-helper-check-result.is-error .ds-helper-check-title { color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-check-list { display:flex; flex-wrap:wrap; gap:4px 18px; margin:0 0 7px; padding:0; list-style:none; }
+                #${POPUP_ID} .ds-helper-check-list li { white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-check-errors { margin:0 0 7px; padding-left:18px; color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-check-notice { display:block; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-total-row th { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; border-top:3px solid var(--ds-helper-accent); }
                 #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:9px; color:var(--ds-helper-text); background:var(--ds-helper-bg); }
             </style>
@@ -2593,6 +2911,41 @@ ${groupFlowOutput}
             function () {
                 copyTransportData(
                     allVillageFlows
+                );
+            }
+        );
+        $('#' + POPUP_ID + ' .ds-helper-check-transport').on(
+            'click',
+            function () {
+                const transportIndex = Number(
+                    $(this).attr(
+                        'data-transport-index'
+                    )
+                );
+
+                const transport =
+                    allVillageFlows[
+                    transportIndex
+                    ];
+
+                if (!transport) {
+                    UI.ErrorMessage(
+                        'Der Transport wurde nicht gefunden.',
+                        5000
+                    );
+
+                    return;
+                }
+
+                const checkResult =
+                    checkTransportForDirectSend(
+                        transport,
+                        sortedVillages
+                    );
+
+                renderTransportCheckResult(
+                    transportIndex,
+                    checkResult
                 );
             }
         );

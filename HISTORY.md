@@ -13,6 +13,22 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-30 - praege-vorbereitung.js v0.8.1
+
+- Pro Transportzeile eine rein lokale Versandpruefung ergaenzt, die Quelle,
+  Ziel, Dorf-IDs, Rohstoffmengen, Haendlerbedarf, `TribalWars.post` und
+  CSRF-Token kontrolliert.
+- Das Pruefergebnis wird direkt unter der ausgewaehlten Transportzeile
+  angezeigt und bestaetigt ausdruecklich, dass kein Transport versendet wurde.
+- Keine HTTP-Anfrage, kein Formularversand und keine automatische
+  Weiterverarbeitung weiterer Transportzeilen ergaenzt.
+- Transportberechnung, Simulation, Sortierung, Reservelogik und bestehende
+  Transportobjekte unveraendert gelassen.
+- Version von `praege-vorbereitung.js` auf `0.8.1` angehoben.
+- Pruefung: `git diff --check` ohne Whitespace-Fehler; `node --check`
+  versucht, aber `node` ist auf diesem System nicht im PATH verfuegbar.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.7.2
 
 - Finales modernes Design der Praegevorbereitung nachgeschaerft: flaches
