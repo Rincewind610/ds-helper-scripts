@@ -13,6 +13,14 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-30 - Anzeige Ungenutzte Doerfer
+
+- In `praege-vorbereitung.js` die sichtbare Popup-Beschriftung
+  `Lesefehler` zu `Ungenutzte Doerfer` geaendert.
+- Interne Variablennamen und Berechnungslogik unveraendert gelassen.
+- Pruefung: Anzeige-Treffer kontrolliert; kein `node --check`, da nur Text im
+  HTML-Template geaendert wurde.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.6.11
 
 - Popup-Reihenfolge fuer den Live-Test umgebaut: Infotabelle, farbige

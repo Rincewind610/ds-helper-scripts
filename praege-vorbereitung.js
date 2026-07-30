@@ -2480,7 +2480,7 @@ im Spiel ausgeführt.
                     </tr>
 
                     <tr>
-                        <th>Lesefehler</th>
+                        <th>Ungenutzte Dörfer</th>
                         <td>${parseErrors}</td>
 
                         <th>Simulationsmodus</th>
