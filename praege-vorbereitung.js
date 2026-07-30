@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.6.10.3
+Version: 0.6.11
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.6.10.3';
+    const VERSION = '0.6.11';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2488,58 +2488,78 @@ im Spiel ausgeführt.
                     </tr>
                 </table>
 
-                <table class="vis" style="
-                    width:100%;
+<div style="
+    max-height:calc(100vh - 520px);
+                    overflow:auto;
+                    border:1px solid #c1a264;
                     margin-bottom:10px;
                 ">
-                    <thead>
-    <tr>
-        <th rowspan="2">
-            Gruppe
-        </th>
+                    <table class="vis" style="
+                        width:100%;
+                        border-collapse:collapse;
+                    ">
+                        <thead>
+                            <tr>
+                                <th style="width:45px;">
+                                    Rang
+                                </th>
 
-        <th rowspan="2">
-            Bezeichnung
-        </th>
+                                <th>
+                                    Dorf
+                                </th>
 
-        <th rowspan="2">
-            Dörfer
-        </th>
+                                <th style="width:75px;">
+                                    Distanz
+                                </th>
 
-        <th colspan="3">
-            Bedarf
-        </th>
+                                <th style="width:110px;">
+                                    Gruppe
+                                </th>
 
-        <th colspan="3">
-            Überschuss
-        </th>
+                                <th style="width:95px;">
+                                    Holz
+                                </th>
 
-        <th colspan="3">
-            Saldo
-        </th>
-    </tr>
+                                <th style="width:95px;">
+                                    Lehm
+                                </th>
 
-    <tr>
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
+                                <th style="width:95px;">
+                                    Eisen
+                                </th>
 
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
+                                <th style="width:95px;">
+                                    Lager
+                                </th>
 
-        <th>Holz</th>
-        <th>Lehm</th>
-        <th>Eisen</th>
-    </tr>
-</thead>
+                                <th style="width:95px;">
+                                    Soll
+                                </th>
 
-                    <tbody>
-                        ${groupSummaryRows}
-                    </tbody>
-                </table>
+                                <th style="width:95px;">
+                                    Bedarf Holz
+                                </th>
 
-${groupFlowOutput}
+                                <th style="width:95px;">
+                                    Bedarf Lehm
+                                </th>
+
+                                <th style="width:95px;">
+                                    Bedarf Eisen
+                                </th>
+
+                                <th style="width:85px;">
+                                    Händler
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            ${buildVillageRows(sortedVillages)}
+                        </tbody>
+                    </table>
+                </div>
+
 
 <div style="
     display:flex;
@@ -2611,76 +2631,60 @@ ${groupFlowOutput}
     ${transportOutput}
 </div>
 
-<div style="
-    max-height:calc(100vh - 520px);
-                    overflow:auto;
-                    border:1px solid #c1a264;
+                <table class="vis" style="
+                    width:100%;
+                    margin-bottom:10px;
                 ">
-                    <table class="vis" style="
-                        width:100%;
-                        border-collapse:collapse;
-                    ">
-                        <thead>
-                            <tr>
-                                <th style="width:45px;">
-                                    Rang
-                                </th>
+                    <thead>
+    <tr>
+        <th rowspan="2">
+            Gruppe
+        </th>
 
-                                <th>
-                                    Dorf
-                                </th>
+        <th rowspan="2">
+            Bezeichnung
+        </th>
 
-                                <th style="width:75px;">
-                                    Distanz
-                                </th>
+        <th rowspan="2">
+            Dörfer
+        </th>
 
-                                <th style="width:110px;">
-                                    Gruppe
-                                </th>
+        <th colspan="3">
+            Bedarf
+        </th>
 
-                                <th style="width:95px;">
-                                    Holz
-                                </th>
+        <th colspan="3">
+            Überschuss
+        </th>
 
-                                <th style="width:95px;">
-                                    Lehm
-                                </th>
+        <th colspan="3">
+            Saldo
+        </th>
+    </tr>
 
-                                <th style="width:95px;">
-                                    Eisen
-                                </th>
+    <tr>
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
 
-                                <th style="width:95px;">
-                                    Lager
-                                </th>
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
 
-                                <th style="width:95px;">
-                                    Soll
-                                </th>
+        <th>Holz</th>
+        <th>Lehm</th>
+        <th>Eisen</th>
+    </tr>
+</thead>
 
-                                <th style="width:95px;">
-                                    Bedarf Holz
-                                </th>
+                    <tbody>
+                        ${groupSummaryRows}
+                    </tbody>
+                </table>
 
-                                <th style="width:95px;">
-                                    Bedarf Lehm
-                                </th>
+${groupFlowOutput}
 
-                                <th style="width:95px;">
-                                    Bedarf Eisen
-                                </th>
 
-                                <th style="width:85px;">
-                                    Händler
-                                </th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            ${buildVillageRows(sortedVillages)}
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
     `;
