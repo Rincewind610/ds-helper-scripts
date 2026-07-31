@@ -13,6 +13,30 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-31 - praege-vorbereitung.js v0.8.6
+
+- Erfolgreich gesendete Einzeltransporte werden nach bestaetigter
+  Spielantwort aus der sichtbaren Transportliste entfernt.
+- Der entfernte Transport wird intern als erledigt markiert, ohne die
+  Transportliste neu zu berechnen oder DOM-Indizes zu verschieben.
+- Transportzaehler und Oeffnen-Fortschritt werden aus den verbleibenden
+  offenen Transporten aktualisiert; bei leerer Liste erscheint ein kompakter
+  Hinweis.
+- `Transportliste kopieren`, `Naechste 30 Tabs oeffnen` und `Naechste 50 Tabs
+  oeffnen` beruecksichtigen erledigte Transporte nicht mehr.
+- Fehlerpfade lassen die Zeile sichtbar und geben den Button wie bisher wieder
+  frei; keine Warteschlange, kein Timer und kein automatischer Folgetransport
+  ergaenzt.
+- Version von `praege-vorbereitung.js` auf `0.8.6` angehoben.
+- Pruefung: `git diff --check` ohne Whitespace-Fehler, nur CRLF-Hinweis;
+  statisch genau eine `TribalWars.post`-Aufrufstelle, Entfernen nur im
+  Erfolgspfad nach negativer Fehlerpruefung und Filterung erledigter
+  Transporte fuer Kopieren/Oeffnen bestaetigt.
+- `node --check` versucht, aber `node` ist auf diesem System nicht im PATH
+  verfuegbar; es wurde kein echter Transport als automatisierter Test
+  ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-31 - praege-vorbereitung.js v0.8.5
 
 - Bestehenden Browser-Bestaetigungsdialog fuer `Transport senden` entfernt.

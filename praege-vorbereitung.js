@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.5
+Version: 0.8.6
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.5';
+    const VERSION = '0.8.6';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1382,12 +1382,27 @@ im Spiel ausgeführt.
             });
     }
 
+    function isTransportCompleted(transport) {
+        return Boolean(
+            transport && transport.isSent
+        );
+    }
+
+    function getActiveTransports(transports) {
+        return transports.filter(function (transport) {
+            return !isTransportCompleted(transport);
+        });
+    }
+
     function copyTransportData(transports) {
+        const activeTransports =
+            getActiveTransports(transports);
+
         const exportData = {
             version: VERSION,
             coinVillage: COIN_VILLAGE.coord,
 
-            transports: transports.map(function (transport) {
+            transports: activeTransports.map(function (transport) {
                 return {
                     from: transport.from,
                     to: transport.to,
@@ -1620,18 +1635,38 @@ im Spiel ausgeführt.
         });
     }
 
+    function getActiveTransportCount(transports) {
+        return getActiveTransports(transports).length;
+    }
+
+    function getOpenedActiveTransportCount(transports) {
+        let opened = 0;
+
+        transportOpenState.openedIndexes.forEach(function (transportIndex) {
+            if (
+                transports[transportIndex] &&
+                !isTransportCompleted(transports[transportIndex])
+            ) {
+                opened++;
+            }
+        });
+
+        return opened;
+    }
+
     function getNextUnopenedTransportIndexes(
-        totalTransports,
+        transports,
         amount
     ) {
         const indexes = [];
 
         for (
             let index = 0;
-            index < totalTransports;
+            index < transports.length;
             index++
         ) {
             if (
+                isTransportCompleted(transports[index]) ||
                 transportOpenState.openedIndexes.has(index)
             ) {
                 continue;
@@ -1648,10 +1683,13 @@ im Spiel ausgeführt.
     }
 
     function updateTransportOpenProgress(
-        totalTransports
+        transports
     ) {
+        const totalTransports =
+            getActiveTransportCount(transports);
+
         const opened =
-            transportOpenState.openedIndexes.size;
+            getOpenedActiveTransportCount(transports);
 
         const allOpened =
             opened >= totalTransports;
@@ -1660,7 +1698,7 @@ im Spiel ausgeführt.
             opened +
             ' / ' +
             totalTransports +
-            ' geöffnet'
+            ' ge\u00f6ffnet'
         );
 
         $('#' + POPUP_ID + ' .ds-helper-open-batch')
@@ -1673,7 +1711,7 @@ im Spiel ausgeführt.
 
     function markTransportOpened(
         transportIndex,
-        totalTransports
+        transports
     ) {
         transportOpenState.openedIndexes.add(
             transportIndex
@@ -1696,7 +1734,7 @@ im Spiel ausgeführt.
             .text('Geöffnet');
 
         updateTransportOpenProgress(
-            totalTransports
+            transports
         );
     }
 
@@ -1710,13 +1748,13 @@ im Spiel ausgeführt.
 
         const transportIndexes =
             getNextUnopenedTransportIndexes(
-                transports.length,
+                transports,
                 amount
             );
 
         if (!transportIndexes.length) {
             updateTransportOpenProgress(
-                transports.length
+                transports
             );
 
             return;
@@ -1725,13 +1763,13 @@ im Spiel ausgeführt.
         transportOpenState.isOpening = true;
 
         updateTransportOpenProgress(
-            transports.length
+            transports
         );
 
         $('#' + POPUP_ID + '-open-progress').text(
-            transportOpenState.openedIndexes.size +
+            getOpenedActiveTransportCount(transports) +
             ' / ' +
-            transports.length +
+            getActiveTransportCount(transports) +
             ' geöffnet – Tabs werden geöffnet …'
         );
 
@@ -1757,7 +1795,7 @@ im Spiel ausgeführt.
 
             markTransportOpened(
                 transportIndex,
-                transports.length
+                transports
             );
 
             if (
@@ -1773,7 +1811,7 @@ im Spiel ausgeführt.
         transportOpenState.isOpening = false;
 
         updateTransportOpenProgress(
-            transports.length
+            transports
         );
     }
 
@@ -2348,9 +2386,100 @@ im Spiel ausgeführt.
         }
     }
 
+    function getVisibleTransportRowCount() {
+        return $('#' + POPUP_ID).find(
+            'tr[data-transport-index]'
+        ).length;
+    }
+
+    function updateTransportListCounter(
+        transports
+    ) {
+        const visibleTransportCount =
+            getVisibleTransportRowCount();
+
+        const transportPanel =
+            $('#' + POPUP_ID + '-transport-panel');
+
+        const isOpen =
+            transportPanel.is(':visible');
+
+        $('#' + POPUP_ID + '-transport-toggle').text(
+            (isOpen ? '\u25bc' : '\u25b6') +
+            ' Transportliste (' +
+            formatNumber(visibleTransportCount) +
+            ' Transporte)'
+        );
+
+        const transportTableBody =
+            transportPanel.find(
+                '.ds-helper-transport-table tbody'
+            );
+
+        transportTableBody.find(
+            '.ds-helper-empty-transport-row'
+        ).remove();
+
+        if (visibleTransportCount === 0) {
+            transportTableBody.append(`
+                <tr class="ds-helper-empty-transport-row">
+                    <td colspan="10" class="ds-helper-empty-row">
+                        Keine offenen Transporte mehr vorhanden.
+                    </td>
+                </tr>
+            `);
+        }
+
+        updateTransportOpenProgress(
+            transports
+        );
+    }
+
+    function removeSentTransportRow(
+        transportIndex,
+        transport,
+        transportRow,
+        transports
+    ) {
+        transport.isSent = true;
+
+        transportSendState.delete(
+            transportIndex
+        );
+
+        transportOpenState.openedIndexes.delete(
+            transportIndex
+        );
+
+        const popup = $('#' + POPUP_ID);
+
+        const row = transportRow && transportRow.length
+            ? transportRow
+            : popup.find(
+                'tr[data-transport-index="' +
+                transportIndex +
+                '"]'
+            );
+
+        popup.find(
+            '.ds-helper-transport-check-row' +
+            '[data-check-index="' +
+            transportIndex +
+            '"]'
+        ).remove();
+
+        row.remove();
+
+        updateTransportListCounter(
+            transports
+        );
+    }
+
     function sendSingleTransport(
         transportIndex,
-        transport
+        transport,
+        transportRow,
+        transports
     ) {
         const sendState =
             transportSendState.get(
@@ -2444,6 +2573,13 @@ im Spiel ausgeführt.
 
             updateTransportSendUi(
                 transportIndex
+            );
+
+            removeSentTransportRow(
+                transportIndex,
+                transport,
+                transportRow,
+                transports
             );
         };
 
@@ -3420,13 +3556,13 @@ im Spiel ausgeführt.
                     </table>
                 </div>
 
-                <button type="button" id="${POPUP_ID}-transport-toggle" class="ds-helper-btn ds-helper-transport-toggle">▼ Transportliste (${formatNumber(allVillageFlows.length)} Transporte)</button>
+                <button type="button" id="${POPUP_ID}-transport-toggle" class="ds-helper-btn ds-helper-transport-toggle">▼ Transportliste (${formatNumber(getActiveTransportCount(allVillageFlows))} Transporte)</button>
 
                 <div class="ds-helper-button-row">
                     <button type="button" id="${POPUP_ID}-copy-transports" class="ds-helper-btn ds-helper-btn-primary">Transportliste kopieren</button>
                     <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="30">Nächste 30 Tabs öffnen</button>
                     <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="50">Nächste 50 Tabs öffnen</button>
-                    <strong id="${POPUP_ID}-open-progress" class="ds-helper-progress">0 / ${allVillageFlows.length} geöffnet</strong>
+                    <strong id="${POPUP_ID}-open-progress" class="ds-helper-progress">0 / ${getActiveTransportCount(allVillageFlows)} geöffnet</strong>
                 </div>
 
                 <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
@@ -3563,7 +3699,9 @@ ${groupFlowOutput}
 
                 sendSingleTransport(
                     transportIndex,
-                    transport
+                    transport,
+                    $(this).closest('tr'),
+                    allVillageFlows
                 );
             }
         );
@@ -3593,7 +3731,13 @@ ${groupFlowOutput}
 
                 sendSingleTransport(
                     transportIndex,
-                    transport
+                    transport,
+                    $('#' + POPUP_ID).find(
+                        'tr[data-transport-index="' +
+                        transportIndex +
+                        '"]'
+                    ),
+                    allVillageFlows
                 );
             }
         );
@@ -3628,7 +3772,7 @@ ${groupFlowOutput}
                 if (opened) {
                     markTransportOpened(
                         transportIndex,
-                        allVillageFlows.length
+                        allVillageFlows
                     );
                 }
             }
@@ -3661,13 +3805,13 @@ ${groupFlowOutput}
                 $(this).text(
                     (isOpen ? '▶' : '▼') +
                     ' Transportliste (' +
-                    formatNumber(allVillageFlows.length) +
+                    formatNumber(getVisibleTransportRowCount()) +
                     ' Transporte)'
                 );
             }
         );
         updateTransportOpenProgress(
-            allVillageFlows.length
+            allVillageFlows
         );
 
         $('#' + POPUP_ID + '-save-coin-village').on(
