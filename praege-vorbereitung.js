@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.3
+Version: 0.8.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.3';
+    const VERSION = '0.8.4';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2254,9 +2254,20 @@ im Spiel ausgeführt.
             '"]'
         );
 
-        const sendButton = checkRow.find(
-            '.ds-helper-send-transport'
-        );
+        const sendButton = transportRow
+            .find(
+                '.ds-helper-check-transport'
+            )
+            .add(
+                checkRow.find(
+                    '.ds-helper-send-transport'
+                )
+            );
+
+        const sendButtonText =
+            getTransportSendButtonText(
+                sendState.status
+            );
 
         sendButton
             .prop(
@@ -2264,10 +2275,15 @@ im Spiel ausgeführt.
                 sendState.status !== 'ready'
             )
             .text(
-                getTransportSendButtonText(
-                    sendState.status
-                )
+                sendButtonText
             );
+
+        transportRow.find(
+            '.ds-helper-check-transport'
+        ).attr(
+            'title',
+            sendButtonText
+        );
 
         transportRow.toggleClass(
             'ds-helper-transport-sent',
@@ -2766,7 +2782,7 @@ im Spiel ausgeführt.
                             class="ds-helper-btn ds-helper-btn-small ds-helper-check-transport"
                             data-transport-index="${index}"
                         >
-                            Versand prüfen
+                            Transport senden
                         </button>
                     </td>
                 </tr>
@@ -3571,14 +3587,25 @@ ${groupFlowOutput}
                         sortedVillages
                     );
 
-                prepareTransportSendState(
-                    transportIndex,
-                    checkResult.sendData
-                );
+                const sendState =
+                    prepareTransportSendState(
+                        transportIndex,
+                        checkResult.sendData
+                    );
 
-                renderTransportCheckResult(
+                if (!sendState) {
+                    UI.ErrorMessage(
+                        checkResult.errors.join(' ') ||
+                        'Transport konnte nicht vorbereitet werden.',
+                        5000
+                    );
+
+                    return;
+                }
+
+                sendSingleTransport(
                     transportIndex,
-                    checkResult
+                    transport
                 );
             }
         );
