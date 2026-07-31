@@ -13,6 +13,27 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-07-31 - praege-vorbereitung.js v0.8.5
+
+- Bestehenden Browser-Bestaetigungsdialog fuer `Transport senden` entfernt.
+- Ein Klick startet nach den internen Zeilenpruefungen unmittelbar den
+  bestehenden Einzelversand mit `TribalWars.post` und `ajaxaction: map_send`.
+- Button wird vor dem Request auf `Wird gesendet ...` gesetzt und deaktiviert,
+  damit schnelle Doppelklicks keinen zweiten Request ausloesen.
+- Kompakte Erfolgs- und Fehlermeldungen werden direkt in der Transportzeile
+  angezeigt, ohne die alte sichtbare Versandpruefung aufzuklappen.
+- Keine Warteschlange, kein Timer, kein automatischer Folgetransport, keine
+  Neuberechnung und kein Entfernen erfolgreich gesendeter Zeilen ergaenzt.
+- Version von `praege-vorbereitung.js` auf `0.8.5` angehoben.
+- Pruefung: `git diff --check` ohne Whitespace-Fehler, nur CRLF-Hinweis;
+  statisch keine `window.confirm`-/`confirming`-Logik, genau eine
+  `TribalWars.post`-Aufrufstelle und kein Aufruf von
+  `renderTransportCheckResult` im direkten Buttonpfad bestaetigt.
+- `node --check` versucht, aber `node` ist auf diesem System nicht im PATH
+  verfuegbar; es wurde kein echter Transport als automatisierter Test
+  ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-31 - praege-vorbereitung.js v0.8.4
 
 - Einstieg in den Einzelversand vereinfacht: Der Zeilenbutton heisst nun

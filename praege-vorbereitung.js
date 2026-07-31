@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.4
+Version: 0.8.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.4';
+    const VERSION = '0.8.5';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -2021,7 +2021,6 @@ im Spiel ausgeführt.
         if (
             currentState &&
             (
-                currentState.status === 'confirming' ||
                 currentState.status === 'sending' ||
                 currentState.status === 'sent'
             )
@@ -2214,10 +2213,6 @@ im Spiel ausgeführt.
     }
 
     function getTransportSendButtonText(status) {
-        if (status === 'confirming') {
-            return 'Best\u00e4tigung ...';
-        }
-
         if (status === 'sending') {
             return 'Wird gesendet \u2026';
         }
@@ -2290,9 +2285,15 @@ im Spiel ausgeführt.
             sendState.status === 'sent'
         );
 
-        const feedbackElement = checkRow.find(
-            '.ds-helper-send-feedback'
-        );
+        const feedbackElement = checkRow
+            .find(
+                '.ds-helper-send-feedback'
+            )
+            .add(
+                transportRow.find(
+                    '.ds-helper-transport-feedback'
+                )
+            );
 
         if (sendState.feedback) {
             const feedbackSymbol =
@@ -2363,69 +2364,19 @@ im Spiel ausgeführt.
             return;
         }
 
-        sendState.status = 'confirming';
-        sendState.feedback = null;
+        const sendPayload =
+            sendState.sendPayload;
+
+        sendState.status = 'sending';
+        sendState.feedback = {
+            type: 'info',
+            message: 'Transport wird gesendet \u2026',
+            detail: ''
+        };
 
         updateTransportSendUi(
             transportIndex
         );
-
-        const sendPayload =
-            sendState.sendPayload;
-
-        const confirmationText = [
-            'Diesen Transport wirklich senden?',
-            '',
-            'Von: ' + transport.from,
-            'Nach: ' + transport.to,
-            '',
-            'Holz: ' + formatNumber(sendPayload.wood),
-            'Lehm: ' + formatNumber(sendPayload.stone),
-            'Eisen: ' + formatNumber(sendPayload.iron),
-            'H\u00e4ndler: ' +
-                formatNumber(
-                    sendPayload.merchantsRequired
-                )
-        ].join('\n');
-
-        let confirmed = false;
-
-        try {
-            confirmed = window.confirm(
-                confirmationText
-            );
-        } catch (error) {
-            sendState.status = 'ready';
-            sendState.feedback = {
-                type: 'error',
-                message:
-                    'Best\u00e4tigungsdialog konnte nicht ge\u00f6ffnet werden.',
-                detail:
-                    getTransportResponseMessage(error)
-            };
-
-            updateTransportSendUi(
-                transportIndex
-            );
-
-            return;
-        }
-
-        if (!confirmed) {
-            sendState.status = 'ready';
-            sendState.feedback = {
-                type: 'info',
-                message:
-                    'Versand abgebrochen. Es wurde kein Transport versendet.',
-                detail: ''
-            };
-
-            updateTransportSendUi(
-                transportIndex
-            );
-
-            return;
-        }
 
         const validation =
             validateSingleTransportPayload(
@@ -2448,17 +2399,6 @@ im Spiel ausgeführt.
 
             return;
         }
-
-        sendState.status = 'sending';
-        sendState.feedback = {
-            type: 'info',
-            message: 'Transport wird gesendet \u2026',
-            detail: ''
-        };
-
-        updateTransportSendUi(
-            transportIndex
-        );
 
         const handleSendError = function (response) {
             if (sendState.status !== 'sending') {
@@ -2784,6 +2724,8 @@ im Spiel ausgeführt.
                         >
                             Transport senden
                         </button>
+
+                        <div class="ds-helper-transport-feedback"></div>
                     </td>
                 </tr>
 
@@ -3367,6 +3309,8 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-cell-action,
                 #${POPUP_ID} .ds-helper-cell-coord { text-align:center; white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-cell-action .ds-helper-btn + .ds-helper-btn { margin-left:4px; }
+                #${POPUP_ID} .ds-helper-transport-feedback { margin-top:4px; min-height:14px; max-width:230px; white-space:normal; text-align:left; font-size:11px; line-height:1.35; }
+                #${POPUP_ID} .ds-helper-transport-feedback .ds-helper-send-feedback-message { padding-top:0; }
                 #${POPUP_ID} .ds-helper-village-name-cell { text-align:left; white-space:nowrap; padding-left:10px; }
                 #${POPUP_ID} .ds-helper-rank-cell { border-right:1px solid var(--ds-helper-border); padding-right:10px; }
                 #${POPUP_ID} .ds-helper-village-table tbody tr:not(.ds-helper-group-separator):hover td { outline:1px solid rgba(36,36,36,0.18); outline-offset:-1px; font-weight:600; }
@@ -3594,9 +3538,23 @@ ${groupFlowOutput}
                     );
 
                 if (!sendState) {
-                    UI.ErrorMessage(
+                    const errorMessage =
                         checkResult.errors.join(' ') ||
-                        'Transport konnte nicht vorbereitet werden.',
+                        'Transport konnte nicht vorbereitet werden.';
+
+                    $(this)
+                        .closest('tr')
+                        .find(
+                            '.ds-helper-transport-feedback'
+                        )
+                        .html(`
+                            <div class="ds-helper-send-feedback-message is-error">
+                                \u2716 ${escapeHtml(errorMessage)}
+                            </div>
+                        `);
+
+                    UI.ErrorMessage(
+                        errorMessage,
                         5000
                     );
 
