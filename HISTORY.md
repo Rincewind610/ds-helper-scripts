@@ -13,6 +13,14 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-02 - ressourcen-balancing-voll-zu-leer.js v1.1.0
+
+- Version von `ressourcen-balancing-voll-zu-leer.js` auf `1.1.0` angehoben.
+- Keine Funktionslogik, keine Direktversand-Funktion und keine Formatierung
+  geaendert.
+- Offen: Fachlicher Feature-Prompt und manueller Spieltest als
+  Schnellleistenskript.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.7.2
 
 - Finales modernes Design der Praegevorbereitung nachgeschaerft: flaches
