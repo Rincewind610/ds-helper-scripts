@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 1.1.3
+Version: 1.1.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -21,7 +21,7 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '1.1.3';
+    const VERSION = '1.1.4';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
@@ -1984,15 +1984,30 @@ function loadSavedNumber(key, fallbackValue) {
         $('head').append(`
             <style id="${STYLE_ID}">
                 #${WINDOW_ID} {
+                    --ds-helper-bg: #ffffff;
+                    --ds-helper-surface: #f7f7f7;
+                    --ds-helper-soft: #f4f4f4;
+                    --ds-helper-text: #242424;
+                    --ds-helper-muted: #666666;
+                    --ds-helper-border: #d9d9d9;
+                    --ds-helper-border-strong: #b8b8b8;
+                    --ds-helper-accent: #E14165;
+                    --ds-helper-accent-hover: #c83255;
+                    --ds-helper-success-bg: #edf8ef;
+                    --ds-helper-success-border: #4f8f5c;
+                    --ds-helper-error-bg: #fdecec;
+                    --ds-helper-error-border: #b94a48;
                     position: fixed;
                     top: 55px;
                     left: 2%;
                     width: 96%;
                     max-height: calc(100vh - 75px);
-                    background: #f4e4bc;
-                    border: 2px solid #6b4b1b;
-                    box-shadow: 0 0 18px rgba(0, 0, 0, .55);
-                    color: #222;
+                    background: var(--ds-helper-bg);
+                    border: 1px solid var(--ds-helper-border);
+                    border-radius: 5px;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+                    color: var(--ds-helper-text);
+                    font-family: Verdana, Arial, sans-serif;
                     font-size: 12px;
                     z-index: 999999;
                 }
@@ -2001,50 +2016,98 @@ function loadSavedNumber(key, fallbackValue) {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 9px 12px;
-                    background: #6b4b1b;
-                    color: #fff;
+                    padding: 10px 12px;
+                    background: var(--ds-helper-text);
+                    border-bottom: 3px solid var(--ds-helper-accent);
+                    color: var(--ds-helper-bg);
                     cursor: move;
                     font-weight: bold;
                 }
 
                 #${WINDOW_ID} .dshelper-close {
-                    padding: 0;
-                    border: 0;
+                    min-width: 28px;
+                    min-height: 26px;
+                    padding: 0 7px;
+                    border: 1px solid rgba(255, 255, 255, .35);
+                    border-radius: 4px;
                     background: transparent;
-                    color: #fff;
+                    color: var(--ds-helper-bg);
                     cursor: pointer;
-                    font-size: 17px;
+                    font-size: 16px;
+                    line-height: 1;
+                }
+
+                #${WINDOW_ID} .dshelper-close:hover {
+                    border-color: var(--ds-helper-accent);
+                    background: var(--ds-helper-accent);
+                    color: var(--ds-helper-bg);
                 }
 
                 #${WINDOW_ID} .dshelper-content {
                     padding: 12px;
+                    background: var(--ds-helper-bg);
                 }
 
                 #${WINDOW_ID} .dshelper-toolbar {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                    gap: 10px;
                     margin-bottom: 10px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid var(--ds-helper-border);
                 }
 
                 #${WINDOW_ID} .dshelper-version {
-                    color: #666;
+                    color: var(--ds-helper-muted);
                     font-size: 11px;
+                }
+
+                #${WINDOW_ID} .btn {
+                    min-height: 28px;
+                    padding: 6px 11px;
+                    border: 1px solid var(--ds-helper-accent);
+                    border-radius: 5px;
+                    background: var(--ds-helper-accent);
+                    box-shadow: none;
+                    color: var(--ds-helper-bg);
+                    cursor: pointer;
+                    font-family: Verdana, Arial, sans-serif;
+                    font-size: 12px;
+                    font-weight: bold;
+                    line-height: 1.2;
+                }
+
+                #${WINDOW_ID} .btn:hover:not(:disabled) {
+                    border-color: var(--ds-helper-accent-hover);
+                    background: var(--ds-helper-accent-hover);
+                    color: var(--ds-helper-bg);
+                }
+
+                #${WINDOW_ID} .btn:active:not(:disabled) {
+                    transform: translateY(1px);
+                }
+
+                #${WINDOW_ID} .btn:disabled {
+                    border-color: var(--ds-helper-border-strong);
+                    background: var(--ds-helper-soft);
+                    color: #777777;
+                    cursor: default;
                 }
 
                 #${WINDOW_ID} .dshelper-summary {
                     display: grid;
                     grid-template-columns: repeat(3, 1fr);
-                    gap: 1px;
+                    gap: 8px;
                     margin-bottom: 10px;
-                    background: #8d6c34;
-                    border: 1px solid #8d6c34;
                 }
 
                 #${WINDOW_ID} .dshelper-summary div {
-                    padding: 8px;
-                    background: #ead5a3;
+                    padding: 9px 8px;
+                    background: var(--ds-helper-bg);
+                    border: 1px solid var(--ds-helper-border);
+                    border-left: 3px solid var(--ds-helper-accent);
+                    border-radius: 5px;
                     text-align: center;
                 }
 
@@ -2053,38 +2116,113 @@ function loadSavedNumber(key, fallbackValue) {
                     display: block;
                 }
 
+                #${WINDOW_ID} .dshelper-summary span {
+                    color: var(--ds-helper-muted);
+                    font-weight: bold;
+                }
+
                 #${WINDOW_ID} .dshelper-summary strong {
                     margin-top: 3px;
+                    color: var(--ds-helper-text);
                     font-size: 16px;
+                }
+
+                #${WINDOW_ID} .dshelper-batch-manager {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 10px;
+                    padding: 10px;
+                    background: var(--ds-helper-surface);
+                    border: 1px solid var(--ds-helper-border);
+                    border-radius: 5px;
+                    color: var(--ds-helper-text);
+                }
+
+                #${WINDOW_ID} .dshelper-batch-manager label {
+                    color: var(--ds-helper-text);
+                    font-weight: bold;
+                }
+
+                #${WINDOW_ID} .dshelper-batch-manager input {
+                    width: 70px;
+                    min-height: 28px;
+                    box-sizing: border-box;
+                    padding: 4px 7px;
+                    border: 1px solid var(--ds-helper-border);
+                    border-radius: 4px;
+                    background: var(--ds-helper-bg);
+                    box-shadow: none;
+                    color: var(--ds-helper-text);
+                    font-family: Verdana, Arial, sans-serif;
+                    font-size: 12px;
+                    text-align: center;
+                    outline: none;
+                }
+
+                #${WINDOW_ID} .dshelper-batch-manager input:focus {
+                    border-color: var(--ds-helper-accent);
+                    box-shadow: 0 0 0 2px rgba(225, 65, 101, .18);
+                }
+
+                #${WINDOW_ID} .dshelper-batch-manager strong {
+                    margin-left: auto;
+                    color: var(--ds-helper-text);
+                    white-space: nowrap;
                 }
 
                 #${WINDOW_ID} .dshelper-status {
                     margin-bottom: 10px;
-                    padding: 9px;
-                    background: #fff;
-                    border: 1px solid #c2b28c;
+                    padding: 9px 10px;
+                    background: var(--ds-helper-bg);
+                    border: 1px solid var(--ds-helper-border);
+                    border-left: 3px solid var(--ds-helper-accent);
+                    border-radius: 5px;
+                    color: var(--ds-helper-text);
                 }
 
                 #${WINDOW_ID} .dshelper-status.success {
-                    background: #dff0d8;
-                    border-color: #75a66a;
+                    background: var(--ds-helper-success-bg);
+                    border-color: var(--ds-helper-success-border);
                 }
 
                 #${WINDOW_ID} .dshelper-status.error {
-                    background: #f2dede;
-                    border-color: #b96b6b;
+                    background: var(--ds-helper-error-bg);
+                    border-color: var(--ds-helper-error-border);
                 }
 
                 #${WINDOW_ID} .dshelper-table-wrapper {
                     max-height: calc(100vh - 265px);
                     overflow: auto;
-                    border: 1px solid #8d6c34;
+                    border: 1px solid var(--ds-helper-border);
+                    border-radius: 5px;
+                    background: var(--ds-helper-bg);
+                }
+
+                #${WINDOW_ID} .dshelper-table-wrapper::-webkit-scrollbar {
+                    width: 11px;
+                    height: 11px;
+                }
+
+                #${WINDOW_ID} .dshelper-table-wrapper::-webkit-scrollbar-track {
+                    background: var(--ds-helper-surface);
+                }
+
+                #${WINDOW_ID} .dshelper-table-wrapper::-webkit-scrollbar-thumb {
+                    background: var(--ds-helper-border-strong);
+                    border: 2px solid var(--ds-helper-surface);
+                    border-radius: 5px;
+                }
+
+                #${WINDOW_ID} .dshelper-table-wrapper::-webkit-scrollbar-thumb:hover {
+                    background: var(--ds-helper-accent);
                 }
 
                 #${WINDOW_ID} .dshelper-table {
                     width: 100%;
                     border-collapse: collapse;
-                    background: #fff8df;
+                    background: var(--ds-helper-bg);
+                    color: var(--ds-helper-text);
                 }
 
                 #${WINDOW_ID} .dshelper-table th {
@@ -2092,14 +2230,19 @@ function loadSavedNumber(key, fallbackValue) {
                     top: 0;
                     z-index: 2;
                     padding: 7px 5px;
-                    background: #c1a264;
-                    border: 1px solid #8f743f;
+                    background: var(--ds-helper-text);
+                    border: 1px solid var(--ds-helper-text);
+                    border-bottom: 3px solid var(--ds-helper-accent);
+                    color: var(--ds-helper-bg);
+                    font-weight: bold;
                     white-space: nowrap;
                 }
 
                 #${WINDOW_ID} .dshelper-table td {
                     padding: 6px 5px;
-                    border: 1px solid #c7b58a;
+                    border: 1px solid var(--ds-helper-border);
+                    background: var(--ds-helper-bg);
+                    color: var(--ds-helper-text);
                     text-align: right;
                     white-space: nowrap;
                 }
@@ -2109,12 +2252,12 @@ function loadSavedNumber(key, fallbackValue) {
                     text-align: left;
                 }
 
-                #${WINDOW_ID} .dshelper-table tbody tr:nth-child(even) {
-                    background: #f2e6c8;
+                #${WINDOW_ID} .dshelper-table tbody tr:nth-child(even) td {
+                    background: var(--ds-helper-surface);
                 }
 
-                #${WINDOW_ID} .dshelper-table tbody tr:hover {
-                    background: #ddd0aa;
+                #${WINDOW_ID} .dshelper-table tbody tr:hover td {
+                    background: #fff3f6;
                 }
 
                 #${WINDOW_ID} .dshelper-village small {
@@ -2122,41 +2265,50 @@ function loadSavedNumber(key, fallbackValue) {
                     max-width: 260px;
                     margin-top: 2px;
                     overflow: hidden;
-                    color: #666;
+                    color: var(--ds-helper-muted);
                     text-overflow: ellipsis;
                     white-space: nowrap;
                     font-size: 10px;
                 }
-                #dshelper-resource-balancing .dshelper-batch-manager {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    padding: 10px;
-    background: #ead5a3;
-    border: 1px solid #b99a5d;
-}
 
-#dshelper-resource-balancing .dshelper-batch-manager input {
-    width: 70px;
-    text-align: center;
-}
+                #${WINDOW_ID} .dshelper-action-buttons {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 6px;
+                }
 
-#dshelper-resource-balancing .dshelper-batch-manager strong {
-    margin-left: auto;
-}
+                #${WINDOW_ID} .dshelper-action-buttons .btn {
+                    min-height: 26px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                }
 
+                #${WINDOW_ID} .dshelper-open-transport {
+                    border-color: var(--ds-helper-border-strong);
+                    background: var(--ds-helper-bg);
+                    color: var(--ds-helper-text);
+                }
 
-#dshelper-resource-balancing .dshelper-action-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-}
+                #${WINDOW_ID} .dshelper-open-transport:hover:not(:disabled) {
+                    border-color: var(--ds-helper-accent);
+                    background: #fff3f6;
+                    color: var(--ds-helper-accent);
+                }
 
-#dshelper-resource-balancing .dshelper-transport-opened {
-    opacity: 0.45;
-    background: #ddd0aa !important;
-}
+                #${WINDOW_ID} .dshelper-send-transport {
+                    border-color: var(--ds-helper-accent);
+                    background: var(--ds-helper-accent);
+                    color: var(--ds-helper-bg);
+                }
+
+                #${WINDOW_ID} .dshelper-transport-opened td {
+                    background: var(--ds-helper-soft) !important;
+                    opacity: .58;
+                }
+
+                #${WINDOW_ID} .dshelper-transport-opened td:first-child {
+                    border-left: 3px solid var(--ds-helper-border-strong);
+                }
             </style>
         `);
     }

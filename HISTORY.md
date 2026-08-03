@@ -13,6 +13,19 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-03 - ressourcen-balancing-voll-zu-leer.js v1.1.4
+
+- Version von `ressourcen-balancing-voll-zu-leer.js` auf `1.1.4`
+  angehoben.
+- Optik auf modernes DS-Helper-Webdesign mit Weiss, Dunkelgrau und Pink
+  umgestellt; braun-goldene Flaechen im Skriptfenster entfernt.
+- Nur Versionsnummern und CSS in `injectStyles()` geaendert; Funktionslogik,
+  Versand, Batch und Transportberechnung unveraendert gelassen.
+- Pruefung: `node --check ressourcen-balancing-voll-zu-leer.js` versucht, aber
+  `node` ist auf diesem System nicht im PATH verfuegbar; `git diff --check`
+  ohne Whitespace-Fehler.
+- Offen: Test im Spiel als Schnellleistenskript.
+
 ### 2026-08-03 - ressourcen-balancing-voll-zu-leer.js v1.1.3
 
 - Version von `ressourcen-balancing-voll-zu-leer.js` auf `1.1.3`
