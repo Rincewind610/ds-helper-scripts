@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 1.1.1
+Version: 1.1.2
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -21,7 +21,7 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '1.1.1';
+    const VERSION = '1.1.2';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
@@ -47,7 +47,8 @@ Lagerfüllstand absteigend sortiert.
     ),
 
     nextTransportIndex: 0,
-    openedTransports: new Set()
+    openedTransports: new Set(),
+    sendingTransports: new Set()
 };
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -988,29 +989,118 @@ function validateTransportSendPayload(sendPayload) {
         );
     }
 
+    if (
+        !window.TribalWars ||
+        typeof window.TribalWars.post !== 'function'
+    ) {
+        errors.push(
+            'TribalWars.post ist nicht verfügbar.'
+        );
+    }
+
     return {
         valid: errors.length === 0,
         errors
     };
 }
 
-function checkTransportSendPayload(transport) {
+function getTransportResponseMessage(response) {
+    if (typeof response === 'string') {
+        return response.trim();
+    }
+
+    if (!response || typeof response !== 'object') {
+        return '';
+    }
+
+    const responseJson = response.responseJSON;
+
+    const messageCandidates = [
+        response.error,
+        response.message,
+        response.success,
+        responseJson && responseJson.error,
+        responseJson && responseJson.message
+    ];
+
+    for (
+        let index = 0;
+        index < messageCandidates.length;
+        index++
+    ) {
+        if (
+            typeof messageCandidates[index] === 'string' &&
+            messageCandidates[index].trim() !== ''
+        ) {
+            return messageCandidates[index].trim();
+        }
+    }
+
+    return '';
+}
+
+function transportResponseHasError(response) {
+    if (!response || typeof response !== 'object') {
+        return false;
+    }
+
+    return Boolean(
+        response.error ||
+        response.success === false ||
+        (
+            response.responseJSON &&
+            response.responseJSON.error
+        )
+    );
+}
+
+function resetTransportSendButton(
+    transportIndex,
+    button
+) {
+    state.sendingTransports.delete(
+        transportIndex
+    );
+
+    button.disabled = false;
+    button.textContent = 'Transport senden';
+}
+
+function sendSingleTransportDirectly(
+    transportIndex,
+    transport,
+    button
+) {
+    if (state.sendingTransports.has(transportIndex)) {
+        return;
+    }
+
+    state.sendingTransports.add(
+        transportIndex
+    );
+
+    button.disabled = true;
+    button.textContent = 'Wird gesendet …';
+
     const sendPayload = transport && transport.sendPayload;
     const validation = validateTransportSendPayload(
         sendPayload
     );
 
     if (!validation.valid) {
-        const errorMessage =
-            validation.errors.join(' ');
+        resetTransportSendButton(
+            transportIndex,
+            button
+        );
 
         setStatus(
-            `Versanddaten ungültig: ${errorMessage}`,
+            'Transport konnte nicht gesendet werden: ' +
+            validation.errors.join(' '),
             'error'
         );
 
         console.error(
-            'Versanddaten ungültig:',
+            'Transport konnte nicht gesendet werden:',
             {
                 sendPayload,
                 errors: validation.errors
@@ -1020,27 +1110,117 @@ function checkTransportSendPayload(transport) {
         return;
     }
 
-    setStatus(
-        'Versanddaten gültig: ' +
-        sendPayload.sourceVillageId +
-        ' → ' +
-        sendPayload.targetVillageId +
-        ', Holz ' +
-        formatNumber(sendPayload.wood) +
-        ', Lehm ' +
-        formatNumber(sendPayload.stone) +
-        ', Eisen ' +
-        formatNumber(sendPayload.iron) +
-        ', Händler ' +
-        formatNumber(sendPayload.merchantsRequired) +
-        '.',
-        'success'
-    );
+    let settled = false;
 
-    console.log(
-        'Versanddaten gültig:',
-        sendPayload
-    );
+    const handleSendError = function (response) {
+        if (settled) {
+            return;
+        }
+
+        settled = true;
+
+        resetTransportSendButton(
+            transportIndex,
+            button
+        );
+
+        const responseMessage =
+            getTransportResponseMessage(response);
+
+        setStatus(
+            'Transport konnte nicht gesendet werden.' +
+            (responseMessage ? ' ' + responseMessage : ''),
+            'error'
+        );
+
+        console.error(
+            'Transport konnte nicht gesendet werden:',
+            {
+                sendPayload,
+                response
+            }
+        );
+    };
+
+    const handleSendSuccess = function (response) {
+        if (settled) {
+            return;
+        }
+
+        if (transportResponseHasError(response)) {
+            handleSendError(response);
+            return;
+        }
+
+        settled = true;
+
+        resetTransportSendButton(
+            transportIndex,
+            button
+        );
+
+        setStatus(
+            'Transport erfolgreich gesendet: ' +
+            sendPayload.sourceVillageId +
+            ' → ' +
+            sendPayload.targetVillageId +
+            ', Holz ' +
+            formatNumber(sendPayload.wood) +
+            ', Lehm ' +
+            formatNumber(sendPayload.stone) +
+            ', Eisen ' +
+            formatNumber(sendPayload.iron) +
+            '.',
+            'success'
+        );
+
+        console.log(
+            'Transport erfolgreich gesendet:',
+            {
+                sendPayload,
+                response
+            }
+        );
+    };
+
+    try {
+        const postResult = TribalWars.post(
+            'market',
+            {
+                ajaxaction: 'map_send',
+                village: sendPayload.sourceVillageId
+            },
+            {
+                target_id: sendPayload.targetVillageId,
+                wood: sendPayload.wood,
+                stone: sendPayload.stone,
+                iron: sendPayload.iron
+            },
+            handleSendSuccess,
+            handleSendError
+        );
+
+        if (postResult && typeof postResult.done === 'function') {
+            postResult.done(handleSendSuccess);
+        }
+
+        if (postResult && typeof postResult.fail === 'function') {
+            postResult.fail(handleSendError);
+        }
+
+        if (postResult && typeof postResult.then === 'function') {
+            postResult.then(
+                handleSendSuccess,
+                handleSendError
+            );
+        }
+
+        if (postResult && typeof postResult.catch === 'function') {
+            postResult.catch(handleSendError);
+        }
+    } catch (error) {
+        handleSendError(error);
+    }
 }
 
 function renderTransportTable(transports) {
@@ -1156,10 +1336,10 @@ function renderTransportTable(transports) {
 
                             <button
                                 type="button"
-                                class="btn dshelper-check-transport"
+                                class="btn dshelper-send-transport"
                                 data-transport-index="${index}"
                             >
-                                Versand prüfen
+                                Transport senden
                             </button>
                         </div>
                     </td>
@@ -1190,7 +1370,7 @@ function renderTransportTable(transports) {
 
     tableBody
         .querySelectorAll(
-            '.dshelper-check-transport'
+            '.dshelper-send-transport'
         )
         .forEach(button => {
             button.addEventListener(
@@ -1203,7 +1383,11 @@ function renderTransportTable(transports) {
                     const transport =
                         transports[transportIndex];
 
-                    checkTransportSendPayload(transport);
+                    sendSingleTransportDirectly(
+                        transportIndex,
+                        transport,
+                        this
+                    );
                 }
             );
         });
