@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 1.1.0
+Version: 1.1.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -21,7 +21,7 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '1.1.0';
+    const VERSION = '1.1.1';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
@@ -371,6 +371,9 @@ function calculateTransportForPair(pair) {
         receiver.totalResources +
         transferredTotal;
 
+    const merchantsRequired = Math.ceil(
+        transferredTotal / CONFIG.merchantCapacity
+    );
     return {
         sender,
         receiver,
@@ -381,9 +384,16 @@ function calculateTransportForPair(pair) {
 
         total: transferredTotal,
 
-        merchants: Math.ceil(
-            transferredTotal / CONFIG.merchantCapacity
-        ),
+        merchants: merchantsRequired,
+
+        sendPayload: {
+            sourceVillageId: sender.id,
+            targetVillageId: receiver.id,
+            wood: transfer.wood,
+            stone: transfer.stone,
+            iron: transfer.iron,
+            merchantsRequired
+        },
 
         senderFillBefore: sender.fill,
         receiverFillBefore: receiver.fill,
@@ -913,6 +923,126 @@ localStorage.setItem(
  * Zeigt alle berechneten Transporte an.
  */
 
+function validateTransportSendPayload(sendPayload) {
+    const errors = [];
+
+    if (!sendPayload) {
+        errors.push(
+            'Versanddatensatz fehlt.'
+        );
+
+        return {
+            valid: false,
+            errors
+        };
+    }
+
+    if (
+        sendPayload.sourceVillageId === undefined ||
+        sendPayload.sourceVillageId === null ||
+        String(sendPayload.sourceVillageId).trim() === ''
+    ) {
+        errors.push(
+            'Ausgangsdorf-ID fehlt.'
+        );
+    }
+
+    if (
+        sendPayload.targetVillageId === undefined ||
+        sendPayload.targetVillageId === null ||
+        String(sendPayload.targetVillageId).trim() === ''
+    ) {
+        errors.push(
+            'Zieldorf-ID fehlt.'
+        );
+    }
+
+    const resourcesValid =
+        Number.isFinite(sendPayload.wood) &&
+        sendPayload.wood >= 0 &&
+        Number.isFinite(sendPayload.stone) &&
+        sendPayload.stone >= 0 &&
+        Number.isFinite(sendPayload.iron) &&
+        sendPayload.iron >= 0;
+
+    if (!resourcesValid) {
+        errors.push(
+            'Rohstoffmengen sind ungültig.'
+        );
+    } else if (
+        sendPayload.wood +
+        sendPayload.stone +
+        sendPayload.iron <= 0
+    ) {
+        errors.push(
+            'Mindestens eine Rohstoffmenge muss größer als 0 sein.'
+        );
+    }
+
+    if (
+        !Number.isFinite(sendPayload.merchantsRequired) ||
+        sendPayload.merchantsRequired <= 0
+    ) {
+        errors.push(
+            'Händlerbedarf ist ungültig.'
+        );
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+}
+
+function checkTransportSendPayload(transport) {
+    const sendPayload = transport && transport.sendPayload;
+    const validation = validateTransportSendPayload(
+        sendPayload
+    );
+
+    if (!validation.valid) {
+        const errorMessage =
+            validation.errors.join(' ');
+
+        setStatus(
+            `Versanddaten ungültig: ${errorMessage}`,
+            'error'
+        );
+
+        console.error(
+            'Versanddaten ungültig:',
+            {
+                sendPayload,
+                errors: validation.errors
+            }
+        );
+
+        return;
+    }
+
+    setStatus(
+        'Versanddaten gültig: ' +
+        sendPayload.sourceVillageId +
+        ' → ' +
+        sendPayload.targetVillageId +
+        ', Holz ' +
+        formatNumber(sendPayload.wood) +
+        ', Lehm ' +
+        formatNumber(sendPayload.stone) +
+        ', Eisen ' +
+        formatNumber(sendPayload.iron) +
+        ', Händler ' +
+        formatNumber(sendPayload.merchantsRequired) +
+        '.',
+        'success'
+    );
+
+    console.log(
+        'Versanddaten gültig:',
+        sendPayload
+    );
+}
+
 function renderTransportTable(transports) {
     const tableBody =
         document.getElementById(
@@ -1015,13 +1145,23 @@ function renderTransportTable(transports) {
                     </td>
 
                     <td>
-                        <button
-                            type="button"
-                            class="btn dshelper-open-transport"
-                            data-transport-index="${index}"
-                        >
-                            Öffnen
-                        </button>
+                        <div class="dshelper-action-buttons">
+                            <button
+                                type="button"
+                                class="btn dshelper-open-transport"
+                                data-transport-index="${index}"
+                            >
+                                Öffnen
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn dshelper-check-transport"
+                                data-transport-index="${index}"
+                            >
+                                Versand prüfen
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1047,6 +1187,27 @@ function renderTransportTable(transports) {
                 }
             );
         });
+
+    tableBody
+        .querySelectorAll(
+            '.dshelper-check-transport'
+        )
+        .forEach(button => {
+            button.addEventListener(
+                'click',
+                function () {
+                    const transportIndex = Number(
+                        this.dataset.transportIndex
+                    );
+
+                    const transport =
+                        transports[transportIndex];
+
+                    checkTransportSendPayload(transport);
+                }
+            );
+        });
+
         updateBatchControls();
 }
     /**
@@ -1634,6 +1795,13 @@ function loadSavedNumber(key, fallbackValue) {
 
 #dshelper-resource-balancing .dshelper-batch-manager strong {
     margin-left: auto;
+}
+
+
+#dshelper-resource-balancing .dshelper-action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
 }
 
 #dshelper-resource-balancing .dshelper-transport-opened {
