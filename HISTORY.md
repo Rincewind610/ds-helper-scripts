@@ -13,6 +13,21 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-03 - ressourcen-balancing-voll-zu-leer.js v1.1.3
+
+- Version von `ressourcen-balancing-voll-zu-leer.js` auf `1.1.3`
+  angehoben.
+- Direkt gesendete Transporte erhalten nach bestaetigter erfolgreicher
+  Spielantwort den Status `sent`; offene Transporte bleiben intern stabil in
+  `state.transports` erhalten.
+- Nach Erfolg wird nur die angeklickte Tabellenzeile entfernt, Batch- und
+  Einzeloeffnung ueberspringen gesendete Transporte, und
+  `resetBatchProgress` reaktiviert sie nicht.
+- Pruefung: `node --check ressourcen-balancing-voll-zu-leer.js` versucht, aber
+  `node` ist auf diesem System nicht im PATH verfuegbar; `git diff --check`
+  ohne Whitespace-Fehler.
+- Offen: Test im Spiel als Schnellleistenskript.
+
 ### 2026-08-02 - ressourcen-balancing-voll-zu-leer.js v1.1.0
 
 - Version von `ressourcen-balancing-voll-zu-leer.js` auf `1.1.0` angehoben.

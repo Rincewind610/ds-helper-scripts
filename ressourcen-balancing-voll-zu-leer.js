@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 1.1.2
+Version: 1.1.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -21,7 +21,7 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '1.1.2';
+    const VERSION = '1.1.3';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
@@ -109,7 +109,12 @@ async function readVillages() {
 
         state.transports = state.pairs
         .map(calculateTransportForPair)
-        .filter(transport => transport.total > 0);
+        .filter(transport => transport.total > 0)
+        .map(transport => {
+            transport.status = 'open';
+
+            return transport;
+        });
 
         updateSummary(state.villages);
         renderTransportTable(state.transports);
@@ -1054,6 +1059,72 @@ function transportResponseHasError(response) {
     );
 }
 
+function isTransportSent(transport) {
+    return Boolean(
+        transport && transport.status === 'sent'
+    );
+}
+
+function getOpenTransportCount() {
+    return state.transports.filter(transport => {
+        return !isTransportSent(transport);
+    }).length;
+}
+
+function getOpenedOpenTransportCount() {
+    let opened = 0;
+
+    state.openedTransports.forEach(transportIndex => {
+        if (!isTransportSent(state.transports[transportIndex])) {
+            opened++;
+        }
+    });
+
+    return opened;
+}
+
+function getNextOpenTransportCount() {
+    let nextAmount = 0;
+
+    for (
+        let index = state.nextTransportIndex;
+        index < state.transports.length &&
+        nextAmount < state.batchSize;
+        index++
+    ) {
+        const transport = state.transports[index];
+
+        if (
+            isTransportSent(transport) ||
+            state.openedTransports.has(index)
+        ) {
+            continue;
+        }
+
+        nextAmount++;
+    }
+
+    return nextAmount;
+}
+
+function showNoOpenTransportsRow() {
+    const tableBody =
+        document.getElementById(
+            'dshelper-village-table'
+        );
+
+    if (!tableBody || getOpenTransportCount() > 0) {
+        return;
+    }
+
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="11">
+                Keine offenen Transporte mehr vorhanden.
+            </td>
+        </tr>
+    `;
+}
 function resetTransportSendButton(
     transportIndex,
     button
@@ -1071,6 +1142,20 @@ function sendSingleTransportDirectly(
     transport,
     button
 ) {
+    if (isTransportSent(transport)) {
+        setStatus(
+            'Dieser Transport wurde bereits erfolgreich gesendet.',
+            'error'
+        );
+
+        console.warn(
+            'Gesendeter Transport wird nicht erneut gesendet:',
+            transport
+        );
+
+        return;
+    }
+
     if (state.sendingTransports.has(transportIndex)) {
         return;
     }
@@ -1082,6 +1167,7 @@ function sendSingleTransportDirectly(
     button.disabled = true;
     button.textContent = 'Wird gesendet …';
 
+    const tableRow = button.closest('tr');
     const sendPayload = transport && transport.sendPayload;
     const validation = validateTransportSendPayload(
         sendPayload
@@ -1154,10 +1240,21 @@ function sendSingleTransportDirectly(
 
         settled = true;
 
-        resetTransportSendButton(
-            transportIndex,
-            button
+        state.sendingTransports.delete(
+            transportIndex
         );
+
+        transport.status = 'sent';
+        state.openedTransports.delete(
+            transportIndex
+        );
+
+        if (tableRow && tableRow.parentNode) {
+            tableRow.remove();
+        }
+
+        showNoOpenTransportsRow();
+        updateBatchControls();
 
         setStatus(
             'Transport erfolgreich gesendet: ' +
@@ -1170,7 +1267,9 @@ function sendSingleTransportDirectly(
             formatNumber(sendPayload.stone) +
             ', Eisen ' +
             formatNumber(sendPayload.iron) +
-            '.',
+            '. Noch ' +
+            formatNumber(getOpenTransportCount()) +
+            ' offene Transporte.',
             'success'
         );
 
@@ -1222,7 +1321,6 @@ function sendSingleTransportDirectly(
         handleSendError(error);
     }
 }
-
 function renderTransportTable(transports) {
     const tableBody =
         document.getElementById(
@@ -1245,8 +1343,35 @@ function renderTransportTable(transports) {
         return;
     }
 
-    tableBody.innerHTML = transports
-        .map((transport, index) => {
+    const openTransports = transports
+        .map((transport, originalIndex) => {
+            return {
+                transport,
+                originalIndex
+            };
+        })
+        .filter(item => {
+            return !isTransportSent(item.transport);
+        });
+
+    if (openTransports.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="11">
+                    Keine offenen Transporte mehr vorhanden.
+                </td>
+            </tr>
+        `;
+
+        updateBatchControls();
+        return;
+    }
+
+    tableBody.innerHTML = openTransports
+        .map(item => {
+            const transport = item.transport;
+            const index = item.originalIndex;
+
             return `
                 <tr
                     data-transport-index="${index}"
@@ -1361,7 +1486,21 @@ function renderTransportTable(transports) {
                     );
 
                     const transport =
-                        transports[transportIndex];
+                        state.transports[transportIndex];
+
+                    if (isTransportSent(transport)) {
+                        setStatus(
+                            'Dieser Transport wurde bereits erfolgreich gesendet.',
+                            'error'
+                        );
+
+                        console.warn(
+                            'Gesendeter Transport wird nicht geöffnet:',
+                            transport
+                        );
+
+                        return;
+                    }
 
                     openTransportInMarket(transport);
                 }
@@ -1381,7 +1520,7 @@ function renderTransportTable(transports) {
                     );
 
                     const transport =
-                        transports[transportIndex];
+                        state.transports[transportIndex];
 
                     sendSingleTransportDirectly(
                         transportIndex,
@@ -1408,36 +1547,41 @@ function renderTransportTable(transports) {
  * mit 250 Millisekunden Abstand pro Tab.
  */
 async function openNextTransportBatch() {
-    if (state.transports.length === 0) {
+    if (getOpenTransportCount() === 0) {
+        updateBatchControls();
+        showNoOpenTransportsRow();
         return;
     }
 
     const button =
         $(`#${WINDOW_ID} .dshelper-open-batch`);
 
-    const startIndex =
-        state.nextTransportIndex;
-
-    const endIndex = Math.min(
-        startIndex + state.batchSize,
-        state.transports.length
-    );
+    let openedInBatch = 0;
 
     button
         .prop('disabled', true)
         .text('Transporte werden geöffnet …');
 
-    for (
-        let index = startIndex;
-        index < endIndex;
-        index++
+    while (
+        state.nextTransportIndex < state.transports.length &&
+        openedInBatch < state.batchSize
     ) {
-        openTransportInMarket(
-            state.transports[index]
-        );
+        const index = state.nextTransportIndex;
+        const transport = state.transports[index];
+
+        state.nextTransportIndex = index + 1;
+
+        if (
+            isTransportSent(transport) ||
+            state.openedTransports.has(index)
+        ) {
+            continue;
+        }
+
+        openTransportInMarket(transport);
 
         state.openedTransports.add(index);
-        state.nextTransportIndex = index + 1;
+        openedInBatch++;
 
         const tableRow =
             document.querySelector(
@@ -1451,13 +1595,23 @@ async function openNextTransportBatch() {
         }
 
         $('#dshelper-batch-progress').text(
-            `${state.openedTransports.size} / ` +
-            `${state.transports.length} geöffnet`
+            `${getOpenedOpenTransportCount()} / ` +
+            `${getOpenTransportCount()} geöffnet`
         );
 
-        if (index < endIndex - 1) {
+        if (
+            openedInBatch < state.batchSize &&
+            getNextOpenTransportCount() > 0
+        ) {
             await wait(state.openDelay);
         }
+    }
+
+    if (openedInBatch === 0) {
+        setStatus(
+            'Keine offenen Transporte mehr zum Öffnen vorhanden.',
+            'success'
+        );
     }
 
     updateBatchControls();
@@ -1482,22 +1636,13 @@ function resetBatchProgress() {
  */
 function updateBatchControls() {
     const total =
-        state.transports.length;
+        getOpenTransportCount();
 
     const opened =
-        state.openedTransports.size;
-
-    const remaining =
-        Math.max(
-            0,
-            total - state.nextTransportIndex
-        );
+        getOpenedOpenTransportCount();
 
     const nextAmount =
-        Math.min(
-            state.batchSize,
-            remaining
-        );
+        getNextOpenTransportCount();
 
     const button =
         $(`#${WINDOW_ID} .dshelper-open-batch`);
@@ -1510,10 +1655,18 @@ function updateBatchControls() {
         state.batchSize
     );
 
-    if (remaining <= 0) {
+    if (total <= 0) {
         button
             .prop('disabled', true)
-            .text('Alle Transporte geöffnet');
+            .text('Keine offenen Transporte mehr');
+
+        return;
+    }
+
+    if (nextAmount <= 0) {
+        button
+            .prop('disabled', true)
+            .text('Alle offenen Transporte geöffnet');
 
         return;
     }
@@ -1524,8 +1677,20 @@ function updateBatchControls() {
             `Nächste ${nextAmount} Transporte öffnen`
         );
 }
-
 function openTransportInMarket(transport) {
+    if (isTransportSent(transport)) {
+        setStatus(
+            'Dieser Transport wurde bereits erfolgreich gesendet.',
+            'error'
+        );
+
+        console.warn(
+            'Gesendeter Transport wird nicht geöffnet:',
+            transport
+        );
+
+        return;
+    }
     const marketUrl =
         `${window.location.origin}/game.php` +
         `?village=${transport.sender.id}` +
