@@ -13,6 +13,26 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.9
+
+- Version von `praege-vorbereitung.js` auf `0.8.9` angehoben.
+- Haendlerlaufzeit wird vorerst als feste Konstante mit `150` Sekunden pro
+  Feld fuer den Hinweg und intern `300` Sekunden pro Feld fuer Hin- und
+  Rueckweg bereitgestellt.
+- Automatische Erkennung ueber `game_data` und die Weltkonfiguration
+  `/interface.php?func=get_config` entfernt, damit keine unnoetige Anfrage und
+  keine Diagnose zur nicht eindeutig erkannten Haendlergeschwindigkeit mehr
+  erfolgt.
+- Gruppe 1 bleibt bei `targetFill: 0.90`; Transportberechnung,
+  Distanzgruppen, Sortierung, Transportliste, Direktversand und Batchlogik
+  unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler, nur LF/CRLF-Hinweis. Die statische Suche nach
+  entfernten Weltkonfigurations-/Fehlerpfaden blieb ohne Treffer. Es wurde
+  kein echter Transport als automatisierter Test ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-04 - praege-vorbereitung.js v0.8.8
 
 - Version von `praege-vorbereitung.js` auf `0.8.8` angehoben.
