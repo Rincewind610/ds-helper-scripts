@@ -13,6 +13,27 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.1
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.1` angehoben.
+- Sichtbare Verdrahtung der vorhandenen Leerungsanalyse repariert: Toggle,
+  eingeklappter Analysebereich und sicherer Renderpfad werden nun in das
+  Hauptfenster unterhalb der Laufzeituebersicht eingefuegt.
+- Gruppenuebersicht zeigt alle Distanzgruppen 1 bis 8 mit Gruppennamen,
+  Gesamtwerten und vorhandenen Detaildaten als Momentaufnahme.
+- Fehler beim Rendern der Leerungsanalyse werden mit `[DS Helper]` in der
+  Konsole protokolliert und als kompakter Hinweis in der Analysebox angezeigt.
+- Gruppe 1 bleibt bei `targetFill: 0.90`; Transportberechnung,
+  Laufzeituebersicht, Direktversand und Transportreihenfolge unveraendert
+  gelassen.
+- Pruefung: statische Suche auf entfernte Haendler-Erkennungspfade ohne
+  Treffer; `git diff --check` ohne Whitespace-Fehler, nur LF/CRLF-Hinweis;
+  `node --check praege-vorbereitung.js` versucht, aber `node` ist auf diesem
+  System nicht im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12
 
 - Version von `praege-vorbereitung.js` auf `0.8.12` angehoben.

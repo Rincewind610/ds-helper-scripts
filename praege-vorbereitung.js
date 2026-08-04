@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12
+Version: 0.8.12.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12';
+    const VERSION = '0.8.12.1';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -872,7 +872,7 @@ Status: Produktiv Beta
         return `
             <details class="ds-helper-emptying-group">
                 <summary>
-                    Gruppe ${group.id}: ${formatNumber(group.villages)} Dörfer ·
+                    Gruppe ${group.id} – ${escapeHtml(group.name)}: ${formatNumber(group.villages)} Dörfer ·
                     ${formatNumber(group.aboveTargetVillages)} über Ziel ·
                     ${formatNumber(group.totalToRemove)} Rohstoffe ·
                     ${formatNumber(group.estimatedRounds)} theoretische Umläufe ·
@@ -929,6 +929,25 @@ Status: Produktiv Beta
             </div>
             ${groupsOutput}
         `;
+    }
+
+    function renderEmptyingAnalysisSafe(villages, transports) {
+        try {
+            return renderEmptyingAnalysis(
+                calculateEmptyingAnalysis(villages, transports)
+            );
+        } catch (error) {
+            console.error(
+                '[DS Helper] Leerungsanalyse konnte nicht gerendert werden',
+                error
+            );
+
+            return `
+                <div class="ds-helper-emptying-note">
+                    Leerungsanalyse konnte nicht vollständig erstellt werden.
+                </div>
+            `;
+        }
     }
 
     function calculateDistance(x1, y1, x2, y2) {
@@ -1239,7 +1258,6 @@ Status: Produktiv Beta
             targetFill: 0.25
         };
     }
-
 
     function prepareSimulation(villages) {
         return villages.map(function (village) {
@@ -1727,7 +1745,6 @@ Status: Produktiv Beta
 
         return transports;
     }
-
 
     /*
 =======================================
@@ -4119,7 +4136,6 @@ im Spiel ausgeführt.
                 villagePools
             );
 
-
         const senderStatistics =
             buildSenderStatistics(
                 allVillageFlows,
@@ -4286,6 +4302,15 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-timing-line { margin-top:2px; }
                 #${POPUP_ID} .ds-helper-timing-groups { display:flex; flex-wrap:wrap; gap:4px 18px; margin-top:3px; }
                 #${POPUP_ID} .ds-helper-timing-groups span { white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-emptying-toggle { width:100%; text-align:left; margin:0 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-emptying-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-emptying-panel { display:none; margin:0 0 10px; padding:9px 11px; border:1px solid var(--ds-helper-border); border-left:4px solid var(--ds-helper-accent); border-radius:4px; background:var(--ds-helper-muted); color:var(--ds-helper-text); font-size:12px; line-height:1.45; }
+                #${POPUP_ID} .ds-helper-emptying-note { margin-bottom:5px; font-weight:700; }
+                #${POPUP_ID} .ds-helper-emptying-total { margin-bottom:8px; }
+                #${POPUP_ID} .ds-helper-emptying-group { margin-top:6px; }
+                #${POPUP_ID} .ds-helper-emptying-group summary { cursor:pointer; font-weight:700; }
+                #${POPUP_ID} .ds-helper-emptying-table { margin-top:6px; font-size:11px; }
+                #${POPUP_ID} .ds-helper-emptying-table td { vertical-align:top; }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr.ds-helper-transport-row-even,
                 #${POPUP_ID} .ds-helper-stat-table tbody tr:nth-child(even) { background:var(--ds-helper-muted); }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr:hover,
@@ -4389,6 +4414,11 @@ im Spiel ausgeführt.
                     ${renderTransportTimingSummary(calculateTransportTimingSummary(allVillageFlows))}
                 </div>
 
+                <button type="button" id="${POPUP_ID}-emptying-toggle" class="ds-helper-btn ds-helper-emptying-toggle">▶ Leerungsanalyse auf 25 %</button>
+
+                <div id="${POPUP_ID}-emptying-panel" class="ds-helper-emptying-panel">
+                    ${renderEmptyingAnalysisSafe(allVillages, allVillageFlows)}
+                </div>
                 <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
                     ${transportOutput}
                 </div>
@@ -4617,6 +4647,21 @@ ${groupFlowOutput}
             }
         );
 
+        $('#' + POPUP_ID + '-emptying-toggle').on(
+            'click',
+            function () {
+                const emptyingPanel =
+                    $('#' + POPUP_ID + '-emptying-panel');
+                const isOpen = emptyingPanel.is(':visible');
+
+                emptyingPanel.toggle(!isOpen);
+
+                $(this).text(
+                    (isOpen ? '▶' : '▼') +
+                    ' Leerungsanalyse auf 25 %'
+                );
+            }
+        );
         $('#' + POPUP_ID + '-transport-toggle').on(
             'click',
             function () {
@@ -4637,7 +4682,6 @@ ${groupFlowOutput}
         updateTransportOpenProgress(
             allVillageFlows
         );
-
 
         $('#' + POPUP_ID + '-save-coin-village').on(
             'click',
@@ -4664,7 +4708,6 @@ ${groupFlowOutput}
             }
         );
     }
-
 
     function init() {
         const allVillages = readVillages();
