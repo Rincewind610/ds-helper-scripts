@@ -13,6 +13,27 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12
+
+- Version von `praege-vorbereitung.js` auf `0.8.12` angehoben.
+- Theoretische Leerungsanalyse auf 25 Prozent als separate Momentaufnahme
+  ergaenzt, ohne normale Transportplanung oder Zielwerte zu veraendern.
+- Alle Distanzgruppen 1 bis 8 werden mit Gruppen- und Dorfdetails betrachtet:
+  herauszuschaffende Rohstoffe, freie Haendlerkapazitaet, theoretische Umlaeufe
+  und vorhandene Senderroute mit geschaetzter Dauer, falls verfuegbar.
+- Analysebox ist standardmaessig eingeklappt und steht getrennt unter der
+  bestehenden Laufzeituebersicht.
+- Gruppe 1 bleibt bei `targetFill: 0.90`; Transportmengen, Zielwerte,
+  Laufzeituebersicht, Direktversand und Transportreihenfolge unveraendert
+  gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler, nur LF/CRLF-Hinweis. Statisch bestaetigt: keine
+  Weltkonfiguration, keine neuen Timer/Intervalle und keine Aenderung der
+  bestehenden Distanzgruppen-Zielwerte. Es wurde kein echter Transport als
+  automatisierter Test ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.11
 
 - Version von `praege-vorbereitung.js` auf `0.8.11` angehoben.

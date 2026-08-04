@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.11
+Version: 0.8.12
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.11';
+    const VERSION = '0.8.12';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -79,6 +79,10 @@ Status: Produktiv Beta
     const MERCHANT_SECONDS_PER_FIELD = 150;
     const MERCHANT_ROUND_TRIP_SECONDS_PER_FIELD =
         MERCHANT_SECONDS_PER_FIELD * 2;
+
+    // Nur fuer die theoretische Leerungsanalyse.
+    // Veraendert nicht die normale Transportplanung.
+    const EMPTYING_ANALYSIS_TARGET_FILL = 0.25;
 
     // Mindestbestand, den ein sendendes Dorf nach allen Transporten behält.
     const SENDER_RESERVE = {
@@ -526,6 +530,405 @@ Status: Produktiv Beta
                     calculateTransportTimingSummary(transports)
                 )
             );
+    }
+
+    function formatPercent(value) {
+        if (!Number.isFinite(value)) {
+            return '-';
+        }
+
+        return value.toLocaleString(
+            'de-DE',
+            {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            }
+        ) + ' %';
+    }
+
+    function buildSenderRouteTimingMap(transports) {
+        const routeByVillageId = {};
+        const routeByCoord = {};
+
+        transports.forEach(function (transport) {
+            if (!isValidTransportTiming(transport)) {
+                return;
+            }
+
+            const routeTiming = {
+                roundTripSeconds:
+                    transport.merchantTiming.roundTripSeconds
+            };
+
+            const villageId = String(
+                transport.fromVillageId || ''
+            );
+
+            if (
+                villageId &&
+                (
+                    !routeByVillageId[villageId] ||
+                    routeTiming.roundTripSeconds >
+                    routeByVillageId[villageId].roundTripSeconds
+                )
+            ) {
+                routeByVillageId[villageId] = routeTiming;
+            }
+
+            const coord = String(transport.from || '');
+
+            if (
+                coord &&
+                (
+                    !routeByCoord[coord] ||
+                    routeTiming.roundTripSeconds >
+                    routeByCoord[coord].roundTripSeconds
+                )
+            ) {
+                routeByCoord[coord] = routeTiming;
+            }
+        });
+
+        return {
+            byVillageId: routeByVillageId,
+            byCoord: routeByCoord
+        };
+    }
+
+    function findSenderRouteTiming(village, routeTimingMap) {
+        const villageId = String(village.id || '');
+
+        if (
+            villageId &&
+            routeTimingMap.byVillageId[villageId]
+        ) {
+            return routeTimingMap.byVillageId[villageId];
+        }
+
+        return routeTimingMap.byCoord[village.coord] || null;
+    }
+
+    function createEmptyingGroupStats(group) {
+        return {
+            id: group.id,
+            name: group.name,
+            villages: 0,
+            aboveTargetVillages: 0,
+            totalToRemove: 0,
+            estimatedRounds: 0,
+            noFreeMerchants: 0,
+            noSenderRoute: 0,
+            villagesData: []
+        };
+    }
+
+    function addEmptyingStats(target, villageAnalysis) {
+        target.villages++;
+
+        if (villageAnalysis.totalToRemove > 0) {
+            target.aboveTargetVillages++;
+            target.totalToRemove +=
+                villageAnalysis.totalToRemove;
+
+            if (villageAnalysis.estimatedRounds !== null) {
+                target.estimatedRounds +=
+                    villageAnalysis.estimatedRounds;
+            }
+
+            if (villageAnalysis.noFreeMerchants) {
+                target.noFreeMerchants++;
+            }
+
+            if (!villageAnalysis.routeTiming) {
+                target.noSenderRoute++;
+            }
+        }
+    }
+
+    function analyzeVillageEmptying(village, routeTimingMap) {
+        const storageValid =
+            Number.isFinite(village.storage) &&
+            village.storage > 0;
+
+        const targetAmount = storageValid
+            ? Math.floor(
+                village.storage * EMPTYING_ANALYSIS_TARGET_FILL
+            )
+            : null;
+
+        const woodToRemove = storageValid
+            ? Math.max(0, village.wood - targetAmount)
+            : 0;
+
+        const clayToRemove = storageValid
+            ? Math.max(0, village.clay - targetAmount)
+            : 0;
+
+        const ironToRemove = storageValid
+            ? Math.max(0, village.iron - targetAmount)
+            : 0;
+
+        const totalToRemove =
+            woodToRemove + clayToRemove + ironToRemove;
+
+        const fillPercent = storageValid
+            ? Math.max(
+                village.wood,
+                village.clay,
+                village.iron
+            ) / village.storage * 100
+            : null;
+
+        const merchantsValid = Number.isFinite(
+            village.merchantsFree
+        );
+
+        const capacityPerRound = merchantsValid
+            ? village.merchantsFree * MERCHANT_CAPACITY
+            : null;
+
+        const estimatedRounds = totalToRemove === 0
+            ? 0
+            : capacityPerRound > 0
+                ? Math.ceil(totalToRemove / capacityPerRound)
+                : null;
+
+        const routeTiming = findSenderRouteTiming(
+            village,
+            routeTimingMap
+        );
+
+        const estimatedTotalRoundTripSeconds =
+            estimatedRounds !== null &&
+            estimatedRounds > 0 &&
+            routeTiming
+                ? estimatedRounds * routeTiming.roundTripSeconds
+                : null;
+
+        const warnings = [];
+
+        if (!storageValid) {
+            warnings.push('Lagergroesse fehlt');
+        }
+
+        if (!merchantsValid) {
+            warnings.push('Freie Haendler nicht verfuegbar');
+        }
+
+        if (totalToRemove > 0 && !routeTiming) {
+            warnings.push('Keine aktuelle Senderroute');
+        }
+
+        return {
+            village: village,
+            groupId: village.simulation.distanceGroupId,
+            groupName: village.simulation.distanceGroupName,
+            storageValid: storageValid,
+            targetAmount: targetAmount,
+            fillPercent: fillPercent,
+            woodToRemove: woodToRemove,
+            clayToRemove: clayToRemove,
+            ironToRemove: ironToRemove,
+            totalToRemove: totalToRemove,
+            merchantsValid: merchantsValid,
+            capacityPerRound: capacityPerRound,
+            estimatedRounds: estimatedRounds,
+            noFreeMerchants:
+                totalToRemove > 0 &&
+                (!capacityPerRound || capacityPerRound <= 0),
+            routeTiming: routeTiming,
+            estimatedTotalRoundTripSeconds:
+                estimatedTotalRoundTripSeconds,
+            warnings: warnings
+        };
+    }
+
+    function calculateEmptyingAnalysis(villages, transports) {
+        const routeTimingMap = buildSenderRouteTimingMap(
+            transports
+        );
+
+        const groups = {};
+
+        DISTANCE_GROUPS.forEach(function (group) {
+            groups[group.id] = createEmptyingGroupStats(group);
+        });
+
+        const total = {
+            villages: 0,
+            aboveTargetVillages: 0,
+            totalToRemove: 0,
+            estimatedRounds: 0,
+            noFreeMerchants: 0,
+            noSenderRoute: 0
+        };
+
+        villages.forEach(function (village) {
+            if (!village || !village.simulation) {
+                return;
+            }
+
+            const groupId = village.simulation.distanceGroupId;
+            const group = groups[groupId];
+
+            if (!group) {
+                return;
+            }
+
+            const villageAnalysis = analyzeVillageEmptying(
+                village,
+                routeTimingMap
+            );
+
+            group.villagesData.push(villageAnalysis);
+            addEmptyingStats(group, villageAnalysis);
+            addEmptyingStats(total, villageAnalysis);
+        });
+
+        Object.values(groups).forEach(function (group) {
+            group.villagesData.sort(function (a, b) {
+                return b.totalToRemove - a.totalToRemove;
+            });
+        });
+
+        return {
+            targetFill: EMPTYING_ANALYSIS_TARGET_FILL,
+            groups: groups,
+            total: total
+        };
+    }
+
+    function formatOptionalNumber(value) {
+        return value === null || value === undefined
+            ? '-'
+            : formatNumber(value);
+    }
+
+    function formatOptionalDuration(value) {
+        return Number.isFinite(value)
+            ? formatDuration(value)
+            : '-';
+    }
+
+    function renderEmptyingVillageRow(villageAnalysis) {
+        const village = villageAnalysis.village;
+        const statusText = villageAnalysis.totalToRemove === 0
+            ? 'Bereits auf oder unter 25 %'
+            : villageAnalysis.warnings.join(' · ');
+
+        const routeDuration = villageAnalysis.routeTiming
+            ? formatDuration(
+                villageAnalysis.routeTiming.roundTripSeconds
+            )
+            : '-';
+
+        return `
+            <tr>
+                <td class="ds-helper-cell-coord">
+                    ${escapeHtml(village.coord)}<br>
+                    Gruppe ${villageAnalysis.groupId}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatOptionalNumber(village.storage)}<br>
+                    ${formatPercent(villageAnalysis.fillPercent)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    H ${formatNumber(village.wood)}<br>
+                    L ${formatNumber(village.clay)}<br>
+                    E ${formatNumber(village.iron)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatOptionalNumber(villageAnalysis.targetAmount)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    H ${formatNumber(villageAnalysis.woodToRemove)}<br>
+                    L ${formatNumber(villageAnalysis.clayToRemove)}<br>
+                    E ${formatNumber(villageAnalysis.ironToRemove)}<br>
+                    <strong>${formatNumber(villageAnalysis.totalToRemove)}</strong>
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatNumber(village.merchantsFree)} frei<br>
+                    ${formatOptionalNumber(villageAnalysis.capacityPerRound)} je Umlauf<br>
+                    ${villageAnalysis.estimatedRounds === null
+                ? '-'
+                : formatNumber(villageAnalysis.estimatedRounds)} theoretisch
+                </td>
+                <td class="ds-helper-cell-number">
+                    Umlauf ${escapeHtml(routeDuration)}<br>
+                    Dauer ${escapeHtml(formatOptionalDuration(villageAnalysis.estimatedTotalRoundTripSeconds))}
+                </td>
+                <td>
+                    ${escapeHtml(statusText || '-')}
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderEmptyingGroup(group) {
+        const detailRows = group.villagesData
+            .map(renderEmptyingVillageRow)
+            .join('');
+
+        return `
+            <details class="ds-helper-emptying-group">
+                <summary>
+                    Gruppe ${group.id}: ${formatNumber(group.villages)} Dörfer ·
+                    ${formatNumber(group.aboveTargetVillages)} über Ziel ·
+                    ${formatNumber(group.totalToRemove)} Rohstoffe ·
+                    ${formatNumber(group.estimatedRounds)} theoretische Umläufe ·
+                    ${formatNumber(group.noFreeMerchants)} ohne freie Händler ·
+                    ${formatNumber(group.noSenderRoute)} ohne aktuelle Senderroute
+                </summary>
+                <table class="vis ds-helper-table ds-helper-emptying-table">
+                    <thead>
+                        <tr>
+                            <th>Dorf</th>
+                            <th>Lager / Füllung</th>
+                            <th>Aktuell</th>
+                            <th>Ziel je Rohstoff</th>
+                            <th>Herauszuschaffen</th>
+                            <th>Händler / Umläufe</th>
+                            <th>Route / Dauer</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${detailRows || `
+                            <tr>
+                                <td colspan="8" class="ds-helper-empty-row">
+                                    Keine Dörfer in dieser Gruppe
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </details>
+        `;
+    }
+
+    function renderEmptyingAnalysis(analysis) {
+        const groupsOutput = DISTANCE_GROUPS
+            .map(function (group) {
+                return renderEmptyingGroup(
+                    analysis.groups[group.id]
+                );
+            })
+            .join('');
+
+        return `
+            <div class="ds-helper-emptying-note">
+                Momentaufnahme beim Start der Berechnung · Ziel: 25 % je Rohstoff · theoretische Schätzung
+            </div>
+            <div class="ds-helper-emptying-total">
+                Gesamt: ${formatNumber(analysis.total.villages)} Dörfer ·
+                ${formatNumber(analysis.total.aboveTargetVillages)} über 25 % ·
+                ${formatNumber(analysis.total.totalToRemove)} Rohstoffe ·
+                ${formatNumber(analysis.total.estimatedRounds)} theoretische Umläufe ·
+                ${formatNumber(analysis.total.noFreeMerchants)} ohne freie Händler ·
+                ${formatNumber(analysis.total.noSenderRoute)} ohne aktuelle Senderroute
+            </div>
+            ${groupsOutput}
+        `;
     }
 
     function calculateDistance(x1, y1, x2, y2) {
