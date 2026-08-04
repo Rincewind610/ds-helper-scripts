@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.9
+Version: 0.8.10
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.9';
+    const VERSION = '0.8.10';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -210,6 +210,131 @@ Status: Produktiv Beta
             escapeHtml(
                 formatSecondsPerField(
                     merchantSpeedData.roundTripSecondsPerField
+                )
+            )
+        );
+    }
+
+    function formatDuration(totalSeconds) {
+        const roundedSeconds = Math.max(
+            0,
+            Math.round(totalSeconds)
+        );
+
+        const hours = Math.floor(
+            roundedSeconds / 3600
+        );
+
+        const minutes = Math.floor(
+            (roundedSeconds % 3600) / 60
+        );
+
+        const seconds = roundedSeconds % 60;
+
+        if (hours > 0) {
+            return (
+                hours +
+                ':' +
+                String(minutes).padStart(2, '0') +
+                ':' +
+                String(seconds).padStart(2, '0')
+            );
+        }
+
+        return (
+            minutes +
+            ':' +
+            String(seconds).padStart(2, '0')
+        );
+    }
+
+    function parseTransportCoordinate(coord) {
+        const match = String(coord || '')
+            .trim()
+            .match(/^(\d{1,3})\|(\d{1,3})$/);
+
+        if (!match) {
+            return null;
+        }
+
+        return {
+            x: Number(match[1]),
+            y: Number(match[2])
+        };
+    }
+
+    function buildMerchantTiming(transport) {
+        const sourceCoord = parseTransportCoordinate(
+            transport.from
+        );
+
+        const targetCoord = parseTransportCoordinate(
+            transport.to
+        );
+
+        if (!sourceCoord || !targetCoord) {
+            console.warn(
+                '[DS Helper] Laufzeit konnte nicht berechnet werden',
+                {
+                    from: transport.from,
+                    to: transport.to
+                }
+            );
+
+            return null;
+        }
+
+        const distance = calculateDistance(
+            sourceCoord.x,
+            sourceCoord.y,
+            targetCoord.x,
+            targetCoord.y
+        );
+
+        if (!Number.isFinite(distance) || distance < 0) {
+            console.warn(
+                '[DS Helper] Laufzeit konnte nicht berechnet werden',
+                {
+                    from: transport.from,
+                    to: transport.to
+                }
+            );
+
+            return null;
+        }
+
+        const outboundSeconds =
+            distance * MERCHANT_SECONDS_PER_FIELD;
+
+        const returnSeconds = outboundSeconds;
+
+        const roundTripSeconds =
+            outboundSeconds + returnSeconds;
+
+        return {
+            distance: distance,
+            outboundSeconds: outboundSeconds,
+            returnSeconds: returnSeconds,
+            roundTripSeconds: roundTripSeconds
+        };
+    }
+
+    function buildTransportTimingCell(transport) {
+        if (!transport.merchantTiming) {
+            return 'nicht berechenbar';
+        }
+
+        return (
+            'Hin: ' +
+            escapeHtml(
+                formatDuration(
+                    transport.merchantTiming.outboundSeconds
+                )
+            ) +
+            '<br>Umlauf: ' +
+            escapeHtml(
+                formatDuration(
+                    transport.merchantTiming.roundTripSeconds
                 )
             )
         );
@@ -1294,7 +1419,7 @@ im Spiel ausgeführt.
                         MERCHANT_CAPACITY
                     );
 
-                    transports.push({
+                    const transport = {
                         fromGroup:
                             groupFlow.fromGroup,
 
@@ -1316,7 +1441,12 @@ im Spiel ausgeführt.
 
                         merchantsUsed:
                             merchantsUsed
-                    });
+                    };
+
+                    transport.merchantTiming =
+                        buildMerchantTiming(transport);
+
+                    transports.push(transport);
 
                     sender.woodAvailable -= wood;
                     sender.clayAvailable -= clay;
@@ -1468,7 +1598,35 @@ im Spiel ausgeführt.
                         transport.fromGroup,
 
                     toGroup:
-                        transport.toGroup
+                        transport.toGroup,
+
+                    merchantTiming:
+                        transport.merchantTiming
+                            ? {
+                                distance:
+                                    transport.merchantTiming.distance,
+                                outboundSeconds:
+                                    Math.round(
+                                        transport.merchantTiming.outboundSeconds
+                                    ),
+                                returnSeconds:
+                                    Math.round(
+                                        transport.merchantTiming.returnSeconds
+                                    ),
+                                roundTripSeconds:
+                                    Math.round(
+                                        transport.merchantTiming.roundTripSeconds
+                                    ),
+                                outboundDuration:
+                                    formatDuration(
+                                        transport.merchantTiming.outboundSeconds
+                                    ),
+                                roundTripDuration:
+                                    formatDuration(
+                                        transport.merchantTiming.roundTripSeconds
+                                    )
+                            }
+                            : null
                 };
             })
         };
@@ -2473,7 +2631,7 @@ im Spiel ausgeführt.
         if (visibleTransportCount === 0) {
             transportTableBody.append(`
                 <tr class="ds-helper-empty-transport-row">
-                    <td colspan="10" class="ds-helper-empty-row">
+                    <td colspan="11" class="ds-helper-empty-row">
                         Keine offenen Transporte mehr vorhanden.
                     </td>
                 </tr>
@@ -2894,6 +3052,10 @@ im Spiel ausgeführt.
                         ${formatNumber(transport.merchantsUsed)}
                     </td>
 
+                    <td class="ds-helper-cell-center">
+                        ${buildTransportTimingCell(transport)}
+                    </td>
+
                     <td class="ds-helper-cell-action">
                         <button
                             type="button"
@@ -2921,7 +3083,7 @@ im Spiel ausgeführt.
                     style="display:none;"
                 >
                     <td
-                        colspan="10"
+                        colspan="11"
                         class="ds-helper-transport-check-content"
                     ></td>
                 </tr>
@@ -2942,6 +3104,7 @@ im Spiel ausgeführt.
                     <th>Lehm</th>
                     <th>Eisen</th>
                     <th>Händler</th>
+                    <th>Laufzeit</th>
                     <th>Aktion</th>
                 </tr>
             </thead>
@@ -2949,7 +3112,7 @@ im Spiel ausgeführt.
             <tbody>
                 ${transportRows || `
                     <tr>
-                        <td colspan="10" class="ds-helper-empty-row">
+                        <td colspan="11" class="ds-helper-empty-row">
                             Keine Dorftransporte erforderlich
                         </td>
                     </tr>
@@ -2977,6 +3140,8 @@ im Spiel ausgeführt.
                     <th class="ds-helper-cell-number">
                         ${formatNumber(totalMerchants)}
                     </th>
+
+                    <th></th>
 
                     <th></th>
                 </tr>

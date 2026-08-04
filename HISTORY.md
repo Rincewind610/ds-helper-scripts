@@ -13,6 +13,27 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.10
+
+- Version von `praege-vorbereitung.js` auf `0.8.10` angehoben.
+- Fuer jeden berechneten Transport werden Hinweg, Rueckweg und Umlaufzeit aus
+  der festen Haendlerlaufzeit `150` Sekunden pro Feld berechnet und am
+  Transportobjekt als `merchantTiming` bereitgestellt.
+- Transportliste um eine kompakte Laufzeitspalte mit Hinweg und Umlaufzeit
+  ergaenzt; die Kopierfunktion nimmt die Laufzeitdaten ohne Umbau als Teil des
+  bestehenden JSON-Exports auf.
+- Gruppe 1 bleibt bei `targetFill: 0.90`; Transportmengen, Zielwerte,
+  Distanzgruppen, Sortierung, Direktversand und Entfernen gesendeter Zeilen
+  unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler, nur LF/CRLF-Hinweis. Statische Suche bestaetigt,
+  dass keine automatische Weltkonfiguration wieder eingefuehrt wurde. Die
+  Kontrollbeispiele ergeben gerundet `52:44` und `2:55:04` fuer den
+  Hinweg. Es wurde kein echter Transport als automatisierter Test
+  ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.9
 
 - Version von `praege-vorbereitung.js` auf `0.8.9` angehoben.
