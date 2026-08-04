@@ -13,6 +13,21 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-04 - praege-vorbereitung.js v0.8.7
+
+- Version von `praege-vorbereitung.js` auf `0.8.7` angehoben.
+- Weltgeschwindigkeit wird sicher aus vorhandenen Spieldaten gelesen und die
+  Haendlergeschwindigkeit als technische Information im Kopfbereich angezeigt.
+- Bei ungueltiger oder fehlender Weltgeschwindigkeit wird kein Fallbackwert
+  verwendet; stattdessen erscheint eine kompakte Hinweismeldung.
+- Transportberechnung, Distanzgruppen, Zielwerte, Sortierung, Transportliste,
+  Direktversand und Batchlogik unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler. Es wurde kein echter Transport als automatisierter Test
+  ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-31 - praege-vorbereitung.js v0.8.6
 
 - Erfolgreich gesendete Einzeltransporte werden nach bestaetigter

@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.6
+Version: 0.8.7
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Entwicklung / Simulation
 (function () {
     'use strict';
 
-    const VERSION = '0.8.6';
+    const VERSION = '0.8.7';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -89,6 +89,8 @@ Status: Entwicklung / Simulation
     const POPUP_ID = 'ds-helper-praegevorbereitung';
 
     const TRANSPORT_OPEN_DELAY = 250;
+
+    const merchantSpeedData = detectMerchantSpeedData();
 
     const transportOpenState = {
         openedIndexes: new Set(),
@@ -164,6 +166,104 @@ Status: Entwicklung / Simulation
         return Number(value || 0).toLocaleString('de-DE');
     }
 
+    function detectMerchantSpeedData() {
+        const windowGameData =
+            typeof window !== 'undefined' &&
+            window.game_data
+                ? window.game_data
+                : null;
+
+        const globalGameData =
+            typeof game_data !== 'undefined'
+                ? game_data
+                : null;
+
+        const rawWorldSpeed =
+            windowGameData &&
+            windowGameData.speed !== undefined &&
+            windowGameData.speed !== null
+                ? windowGameData.speed
+                : globalGameData
+                    ? globalGameData.speed
+                    : null;
+
+        const worldSpeed = Number(rawWorldSpeed);
+
+        if (
+            !Number.isFinite(worldSpeed) ||
+            worldSpeed <= 0
+        ) {
+            return {
+                valid: false,
+                worldSpeed: null,
+                secondsPerField: null,
+                roundTripSecondsPerField: null
+            };
+        }
+
+        const secondsPerField = 600 / worldSpeed;
+
+        return {
+            valid: true,
+            worldSpeed,
+            secondsPerField,
+            roundTripSecondsPerField:
+                secondsPerField * 2
+        };
+    }
+
+    function formatSecondsPerField(totalSeconds) {
+        const roundedSeconds = Math.round(totalSeconds);
+        const minutes = Math.floor(
+            roundedSeconds / 60
+        );
+
+        const seconds = roundedSeconds % 60;
+
+        return (
+            minutes +
+            ':' +
+            String(seconds).padStart(2, '0') +
+            ' Min.'
+        );
+    }
+
+    function formatWorldSpeed(value) {
+        return Number(value).toLocaleString(
+            'de-DE',
+            {
+                maximumFractionDigits: 3
+            }
+        );
+    }
+
+    function buildMerchantSpeedInfo() {
+        if (!merchantSpeedData.valid) {
+            return 'Händlergeschwindigkeit konnte nicht automatisch erkannt werden.';
+        }
+
+        return (
+            'Weltgeschwindigkeit: ' +
+            escapeHtml(
+                formatWorldSpeed(
+                    merchantSpeedData.worldSpeed
+                )
+            ) +
+            '<br>Händler: ' +
+            escapeHtml(
+                formatSecondsPerField(
+                    merchantSpeedData.secondsPerField
+                )
+            ) +
+            ' pro Feld<br><small>Hin und zurück: ' +
+            escapeHtml(
+                formatSecondsPerField(
+                    merchantSpeedData.roundTripSecondsPerField
+                )
+            ) +
+            ' pro Feld</small>'
+        );
+    }
     function calculateDistance(x1, y1, x2, y2) {
         const deltaX = x2 - x1;
         const deltaY = y2 - y1;
@@ -3527,6 +3627,10 @@ im Spiel ausgeführt.
                         <div class="ds-helper-info-row">
                             <span class="ds-helper-info-label">Ungenutzte Dörfer</span>
                             <span class="ds-helper-info-value">${parseErrors}</span>
+                        </div>
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Händlerlaufzeit</span>
+                            <span class="ds-helper-info-value">${buildMerchantSpeedInfo()}</span>
                         </div>
                     </div>
                 </div>
