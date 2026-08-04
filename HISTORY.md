@@ -13,6 +13,24 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-04 - praege-vorbereitung.js v0.8.8
+
+- Version von `praege-vorbereitung.js` auf `0.8.8` angehoben.
+- Haendlerlaufzeit wird nach direkter `game_data`-Pruefung einmalig aus der
+  Weltkonfiguration `/interface.php?func=get_config` nachgeladen, sicher als
+  XML geparst und nur bei eindeutiger plausibler Grundlage angezeigt.
+- Bei unklarer oder fehlerhafter Weltkonfiguration bleibt die Oberflaeche
+  nutzbar; die UI zeigt eine Diagnose und die Konsole erhaelt kompakte
+  Konfigurationsdaten ohne Accountinformationen.
+- Gruppe 1 bleibt bei `targetFill: 0.90`; Transportberechnung,
+  Distanzgruppen, Sortierung, Transportliste, Direktversand und Batchlogik
+  unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler. Es wurde kein echter Transport als automatisierter Test
+  ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-04 - praege-vorbereitung.js v0.8.7
 
 - Version von `praege-vorbereitung.js` auf `0.8.7` angehoben.

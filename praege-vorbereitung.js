@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.7.1
+Version: 0.8.8
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.7.1';
+    const VERSION = '0.8.8';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -90,7 +90,7 @@ Status: Produktiv Beta
 
     const TRANSPORT_OPEN_DELAY = 250;
 
-    const merchantSpeedData = detectMerchantSpeedData();
+    const merchantSpeedData = createMerchantSpeedData();
 
     const transportOpenState = {
         openedIndexes: new Set(),
@@ -166,7 +166,32 @@ Status: Produktiv Beta
         return Number(value || 0).toLocaleString('de-DE');
     }
 
-    function detectMerchantSpeedData() {
+    function createMerchantSpeedData() {
+        const directSpeedData =
+            detectMerchantSpeedFromGameData();
+
+        if (directSpeedData.isValid) {
+            return directSpeedData;
+        }
+
+        return {
+            source: 'pending',
+            status: 'pending',
+            world: getCurrentWorldIdentifier(),
+            worldSpeed: null,
+            unitSpeed: null,
+            confirmedSpeedFactor: null,
+            secondsPerField: null,
+            roundTripSecondsPerField: null,
+            isValid: false,
+            error: null,
+            availableConfigFields: [],
+            candidates: [],
+            fetchStarted: false
+        };
+    }
+
+    function detectMerchantSpeedFromGameData() {
         const windowGameData =
             typeof window !== 'undefined' &&
             window.game_data
@@ -189,27 +214,90 @@ Status: Produktiv Beta
 
         const worldSpeed = Number(rawWorldSpeed);
 
-        if (
-            !Number.isFinite(worldSpeed) ||
-            worldSpeed <= 0
-        ) {
+        if (!isPositiveFiniteNumber(worldSpeed)) {
             return {
-                valid: false,
+                source: 'game-data',
+                status: 'unavailable',
+                world: getCurrentWorldIdentifier(),
                 worldSpeed: null,
+                unitSpeed: null,
+                confirmedSpeedFactor: null,
                 secondsPerField: null,
-                roundTripSecondsPerField: null
+                roundTripSecondsPerField: null,
+                isValid: false,
+                error: 'game_data.speed fehlt oder ist ungültig.',
+                availableConfigFields: [],
+                candidates: [],
+                fetchStarted: false
             };
         }
 
-        const secondsPerField = 600 / worldSpeed;
+        return buildValidMerchantSpeedData({
+            source: 'game-data',
+            worldSpeed,
+            unitSpeed: null,
+            confirmedSpeedFactor: worldSpeed,
+            availableConfigFields: [],
+            candidates: []
+        });
+    }
+
+    function isPositiveFiniteNumber(value) {
+        return Number.isFinite(value) && value > 0;
+    }
+
+    function buildValidMerchantSpeedData(data) {
+        const secondsPerField =
+            600 / data.confirmedSpeedFactor;
+
+        if (!isPositiveFiniteNumber(secondsPerField)) {
+            return {
+                source: data.source,
+                status: 'error',
+                world: getCurrentWorldIdentifier(),
+                worldSpeed: data.worldSpeed || null,
+                unitSpeed: data.unitSpeed || null,
+                confirmedSpeedFactor: null,
+                secondsPerField: null,
+                roundTripSecondsPerField: null,
+                isValid: false,
+                error: 'Berechnete Händlerlaufzeit ist ungültig.',
+                availableConfigFields:
+                    data.availableConfigFields || [],
+                candidates: data.candidates || [],
+                fetchStarted: false
+            };
+        }
 
         return {
-            valid: true,
-            worldSpeed,
+            source: data.source,
+            status: 'ready',
+            world: getCurrentWorldIdentifier(),
+            worldSpeed: data.worldSpeed || null,
+            unitSpeed: data.unitSpeed || null,
+            confirmedSpeedFactor:
+                data.confirmedSpeedFactor,
             secondsPerField,
             roundTripSecondsPerField:
-                secondsPerField * 2
+                secondsPerField * 2,
+            isValid: true,
+            error: null,
+            availableConfigFields:
+                data.availableConfigFields || [],
+            candidates: data.candidates || [],
+            fetchStarted: false
         };
+    }
+
+    function getCurrentWorldIdentifier() {
+        if (
+            typeof window === 'undefined' ||
+            !window.location
+        ) {
+            return '';
+        }
+
+        return window.location.hostname || '';
     }
 
     function formatSecondsPerField(totalSeconds) {
@@ -228,41 +316,362 @@ Status: Produktiv Beta
         );
     }
 
-    function formatWorldSpeed(value) {
-        return Number(value).toLocaleString(
-            'de-DE',
-            {
-                maximumFractionDigits: 3
-            }
-        );
-    }
-
     function buildMerchantSpeedInfo() {
-        if (!merchantSpeedData.valid) {
-            return 'Händlergeschwindigkeit konnte nicht automatisch erkannt werden.';
+        if (merchantSpeedData.isValid) {
+            return buildMerchantSpeedSuccessText();
         }
 
+        if (merchantSpeedData.status === 'pending') {
+            return 'Wird ermittelt …';
+        }
+
+        return 'Händlergeschwindigkeit konnte aus der Weltkonfiguration nicht eindeutig bestimmt werden.';
+    }
+
+    function buildMerchantSpeedSuccessText() {
         return (
-            'Weltgeschwindigkeit: ' +
-            escapeHtml(
-                formatWorldSpeed(
-                    merchantSpeedData.worldSpeed
-                )
-            ) +
-            '<br>Händler: ' +
             escapeHtml(
                 formatSecondsPerField(
                     merchantSpeedData.secondsPerField
                 )
             ) +
-            ' pro Feld<br><small>Hin und zurück: ' +
+            ' pro Feld · Hin und zurück ' +
             escapeHtml(
                 formatSecondsPerField(
                     merchantSpeedData.roundTripSecondsPerField
                 )
-            ) +
-            ' pro Feld</small>'
+            )
         );
+    }
+
+    function updateMerchantSpeedInfo() {
+        $('#' + POPUP_ID + '-merchant-speed-info')
+            .html(buildMerchantSpeedInfo());
+    }
+
+    function updateMerchantSpeedData(updateData) {
+        Object.keys(updateData).forEach(function (key) {
+            merchantSpeedData[key] = updateData[key];
+        });
+    }
+
+    async function updateMerchantSpeedFromWorldConfig() {
+        if (
+            merchantSpeedData.isValid ||
+            merchantSpeedData.fetchStarted
+        ) {
+            return;
+        }
+
+        merchantSpeedData.fetchStarted = true;
+
+        if (typeof fetch !== 'function') {
+            handleMerchantSpeedFailure(
+                'fetch ist nicht verfügbar.',
+                {}
+            );
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                '/interface.php?func=get_config',
+                {
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    'HTTP ' + response.status
+                );
+            }
+
+            const xmlText = await response.text();
+
+            if (!xmlText || !xmlText.trim()) {
+                throw new Error(
+                    'Weltkonfiguration ist leer.'
+                );
+            }
+
+            const xmlDocument =
+                new DOMParser().parseFromString(
+                    xmlText,
+                    'text/xml'
+                );
+
+            const parserError =
+                xmlDocument.querySelector(
+                    'parsererror'
+                );
+
+            if (parserError) {
+                throw new Error(
+                    'Weltkonfiguration enthält ungültiges XML.'
+                );
+            }
+
+            const configElement =
+                xmlDocument.querySelector('config');
+
+            if (!configElement) {
+                throw new Error(
+                    'Weltkonfiguration enthält kein config-Element.'
+                );
+            }
+
+            const configData =
+                readWorldConfigData(configElement);
+
+            const detectedSpeed =
+                detectMerchantSpeedFromWorldConfig(
+                    configData
+                );
+
+            if (!detectedSpeed.isValid) {
+                handleMerchantSpeedFailure(
+                    detectedSpeed.error,
+                    configData
+                );
+                return;
+            }
+
+            updateMerchantSpeedData(detectedSpeed);
+            updateMerchantSpeedInfo();
+        } catch (error) {
+            handleMerchantSpeedFailure(
+                error.message || String(error),
+                {}
+            );
+        }
+    }
+
+    function readWorldConfigData(configElement) {
+        const availableConfigFields = [];
+        const merchantCandidates = [];
+
+        Array.from(
+            configElement.querySelectorAll('*')
+        ).forEach(function (element) {
+            const fieldPath = getConfigFieldPath(
+                element,
+                configElement
+            );
+
+            availableConfigFields.push(fieldPath);
+
+            const value = Number(
+                element.textContent.trim()
+            );
+
+            if (
+                isMerchantSpeedField(fieldPath) &&
+                isPositiveFiniteNumber(value)
+            ) {
+                merchantCandidates.push({
+                    field: fieldPath,
+                    value
+                });
+            }
+        });
+
+        return {
+            world: getCurrentWorldIdentifier(),
+            speed: readConfigNumber(
+                configElement,
+                'speed'
+            ),
+            unitSpeed: readConfigNumber(
+                configElement,
+                'unit_speed'
+            ),
+            availableConfigFields,
+            merchantCandidates
+        };
+    }
+
+    function getConfigFieldPath(element, rootElement) {
+        const path = [];
+        let currentElement = element;
+
+        while (
+            currentElement &&
+            currentElement !== rootElement
+        ) {
+            path.unshift(
+                currentElement.nodeName
+            );
+            currentElement = currentElement.parentElement;
+        }
+
+        return path.join('.');
+    }
+
+    function readConfigNumber(configElement, fieldName) {
+        const element =
+            configElement.querySelector(fieldName);
+
+        if (!element) {
+            return null;
+        }
+
+        const value = Number(
+            element.textContent.trim()
+        );
+
+        return isPositiveFiniteNumber(value)
+            ? value
+            : null;
+    }
+
+    function isMerchantSpeedField(fieldName) {
+        return /merchant|trade|market/i.test(
+            fieldName
+        );
+    }
+
+    function detectMerchantSpeedFromWorldConfig(configData) {
+        const validCandidates =
+            configData.merchantCandidates
+                .map(function (candidate) {
+                    return {
+                        field: candidate.field,
+                        value: candidate.value,
+                        secondsPerField:
+                            600 / candidate.value
+                    };
+                })
+                .filter(function (candidate) {
+                    return isPositiveFiniteNumber(
+                        candidate.secondsPerField
+                    );
+                });
+
+        if (validCandidates.length === 1) {
+            return buildValidMerchantSpeedData({
+                source: 'world-config',
+                worldSpeed: configData.speed,
+                unitSpeed: configData.unitSpeed,
+                confirmedSpeedFactor:
+                    validCandidates[0].value,
+                availableConfigFields:
+                    configData.availableConfigFields,
+                candidates: validCandidates
+            });
+        }
+
+        if (validCandidates.length > 1) {
+            return buildInvalidWorldConfigSpeedData(
+                configData,
+                validCandidates,
+                'Mehrere mögliche Händlergeschwindigkeiten gefunden.'
+            );
+        }
+
+        const speedCandidate =
+            createSpeedPlausibilityCandidate(
+                configData.speed
+            );
+
+        if (speedCandidate) {
+            return buildValidMerchantSpeedData({
+                source: 'world-config-speed',
+                worldSpeed: configData.speed,
+                unitSpeed: configData.unitSpeed,
+                confirmedSpeedFactor: configData.speed,
+                availableConfigFields:
+                    configData.availableConfigFields,
+                candidates: [speedCandidate]
+            });
+        }
+
+        return buildInvalidWorldConfigSpeedData(
+            configData,
+            validCandidates,
+            'Keine eindeutige Händlergeschwindigkeit gefunden.'
+        );
+    }
+
+    function createSpeedPlausibilityCandidate(speed) {
+        if (!isPositiveFiniteNumber(speed)) {
+            return null;
+        }
+
+        const secondsPerField = 600 / speed;
+
+        if (
+            !isPositiveFiniteNumber(secondsPerField) ||
+            Math.abs(secondsPerField - 150) > 5
+        ) {
+            return null;
+        }
+
+        return {
+            field: 'speed',
+            value: speed,
+            secondsPerField
+        };
+    }
+
+    function buildInvalidWorldConfigSpeedData(
+        configData,
+        candidates,
+        error
+    ) {
+        return {
+            source: 'world-config',
+            status: 'error',
+            world: configData.world,
+            worldSpeed: configData.speed,
+            unitSpeed: configData.unitSpeed,
+            confirmedSpeedFactor: null,
+            secondsPerField: null,
+            roundTripSecondsPerField: null,
+            isValid: false,
+            error,
+            availableConfigFields:
+                configData.availableConfigFields,
+            candidates,
+            fetchStarted: true
+        };
+    }
+
+    function handleMerchantSpeedFailure(
+        message,
+        configData
+    ) {
+        updateMerchantSpeedData({
+            source: 'world-config',
+            status: 'error',
+            isValid: false,
+            error: message,
+            world: configData.world || getCurrentWorldIdentifier(),
+            worldSpeed: configData.speed || null,
+            unitSpeed: configData.unitSpeed || null,
+            availableConfigFields:
+                configData.availableConfigFields || [],
+            candidates:
+                configData.merchantCandidates ||
+                configData.candidates ||
+                []
+        });
+
+        console.warn(
+            '[DS Helper] Händlergeschwindigkeit nicht eindeutig erkannt',
+            {
+                world: merchantSpeedData.world,
+                speed: merchantSpeedData.worldSpeed,
+                unitSpeed: merchantSpeedData.unitSpeed,
+                candidates: merchantSpeedData.candidates,
+                availableConfigFields:
+                    merchantSpeedData.availableConfigFields,
+                error: merchantSpeedData.error
+            }
+        );
+
+        updateMerchantSpeedInfo();
     }
     function calculateDistance(x1, y1, x2, y2) {
         const deltaX = x2 - x1;
@@ -3630,7 +4039,7 @@ im Spiel ausgeführt.
                         </div>
                         <div class="ds-helper-info-row">
                             <span class="ds-helper-info-label">Händlerlaufzeit</span>
-                            <span class="ds-helper-info-value">${buildMerchantSpeedInfo()}</span>
+                            <span id="${POPUP_ID}-merchant-speed-info" class="ds-helper-info-value">${buildMerchantSpeedInfo()}</span>
                         </div>
                     </div>
                 </div>
@@ -3917,6 +4326,8 @@ ${groupFlowOutput}
         updateTransportOpenProgress(
             allVillageFlows
         );
+
+        updateMerchantSpeedFromWorldConfig();
 
         $('#' + POPUP_ID + '-save-coin-village').on(
             'click',
