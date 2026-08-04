@@ -13,6 +13,26 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.11
+
+- Version von `praege-vorbereitung.js` auf `0.8.11` angehoben.
+- Kompakte Laufzeituebersicht fuer aktuell offene Transporte ergaenzt: Anzahl,
+  kuerzester, laengster und durchschnittlicher Hinweg sowie Umlauf.
+- Absendergruppen 6, 7 und 8 zeigen jeweils Anzahl offener Transporte und den
+  laengsten Umlauf aus der Gruppe.
+- Statistik wird initial gerendert und nach erfolgreich entferntem Transport
+  ueber den bestehenden Listen-Zaehler aktualisiert; bei Versandfehlern bleibt
+  sie unveraendert.
+- Gruppe 1 bleibt bei `targetFill: 0.90`; Transportmengen, Zielwerte,
+  Distanzgruppen, Sortierung, Direktversand und Entfernen gesendeter Zeilen
+  unveraendert gelassen.
+- Pruefung: `node --check praege-vorbereitung.js` versucht, aber `node` ist
+  auf diesem System nicht im PATH verfuegbar; `git diff --check` ohne
+  Whitespace-Fehler, nur LF/CRLF-Hinweis. Statisch bestaetigt: keine
+  neue Weltkonfiguration und kein neuer Statistik-Timer; es wurde kein
+  echter Transport als automatisierter Test ausgeloest.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.10
 
 - Version von `praege-vorbereitung.js` auf `0.8.10` angehoben.

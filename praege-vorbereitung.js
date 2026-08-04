@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.10
+Version: 0.8.11
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.10';
+    const VERSION = '0.8.11';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -339,6 +339,195 @@ Status: Produktiv Beta
             )
         );
     }
+
+    function isValidTransportTiming(transport) {
+        return Boolean(
+            transport &&
+            transport.merchantTiming &&
+            Number.isFinite(
+                transport.merchantTiming.outboundSeconds
+            ) &&
+            Number.isFinite(
+                transport.merchantTiming.roundTripSeconds
+            )
+        );
+    }
+
+    function calculateTransportTimingSummary(transports) {
+        const openTransports = getActiveTransports(transports);
+
+        const groupStats = {
+            6: {
+                count: 0,
+                maxRoundTripSeconds: null
+            },
+            7: {
+                count: 0,
+                maxRoundTripSeconds: null
+            },
+            8: {
+                count: 0,
+                maxRoundTripSeconds: null
+            }
+        };
+
+        const validTimings = [];
+
+        openTransports.forEach(function (transport) {
+            const fromGroup = Number(transport.fromGroup);
+            const timingIsValid = isValidTransportTiming(
+                transport
+            );
+
+            if (groupStats[fromGroup]) {
+                groupStats[fromGroup].count++;
+
+                if (timingIsValid) {
+                    const groupMax =
+                        groupStats[fromGroup].maxRoundTripSeconds;
+
+                    groupStats[fromGroup].maxRoundTripSeconds =
+                        groupMax === null
+                            ? transport.merchantTiming.roundTripSeconds
+                            : Math.max(
+                                groupMax,
+                                transport.merchantTiming.roundTripSeconds
+                            );
+                }
+            }
+
+            if (!timingIsValid) {
+                return;
+            }
+
+            validTimings.push(transport.merchantTiming);
+        });
+
+        if (!validTimings.length) {
+            return {
+                openTransportCount: openTransports.length,
+                validTimingCount: 0,
+                outbound: null,
+                roundTrip: null,
+                groupStats: groupStats
+            };
+        }
+
+        const outboundSeconds = validTimings.map(
+            function (timing) {
+                return timing.outboundSeconds;
+            }
+        );
+
+        const roundTripSeconds = validTimings.map(
+            function (timing) {
+                return timing.roundTripSeconds;
+            }
+        );
+
+        const totalOutboundSeconds = outboundSeconds.reduce(
+            function (sum, seconds) {
+                return sum + seconds;
+            },
+            0
+        );
+
+        const totalRoundTripSeconds = roundTripSeconds.reduce(
+            function (sum, seconds) {
+                return sum + seconds;
+            },
+            0
+        );
+
+        return {
+            openTransportCount: openTransports.length,
+            validTimingCount: validTimings.length,
+            outbound: {
+                minSeconds: Math.min.apply(null, outboundSeconds),
+                maxSeconds: Math.max.apply(null, outboundSeconds),
+                averageSeconds:
+                    totalOutboundSeconds / validTimings.length
+            },
+            roundTrip: {
+                minSeconds: Math.min.apply(null, roundTripSeconds),
+                maxSeconds: Math.max.apply(null, roundTripSeconds),
+                averageSeconds:
+                    totalRoundTripSeconds / validTimings.length
+            },
+            groupStats: groupStats
+        };
+    }
+
+    function renderGroupTimingSummary(groupId, groupStat) {
+        const longestRoundTrip =
+            groupStat.maxRoundTripSeconds === null
+                ? '-'
+                : formatDuration(groupStat.maxRoundTripSeconds);
+
+        return (
+            '<span>Gruppe ' +
+            groupId +
+            ': ' +
+            formatNumber(groupStat.count) +
+            ' Transporte · längster Umlauf ' +
+            escapeHtml(longestRoundTrip) +
+            '</span>'
+        );
+    }
+
+    function renderTransportTimingSummary(summary) {
+        const noTimingOutput = summary.validTimingCount
+            ? ''
+            : `
+                <div class="ds-helper-timing-line">
+                    Keine Laufzeitdaten für offene Transporte vorhanden.
+                </div>
+            `;
+
+        const timingOutput = summary.validTimingCount
+            ? `
+                <div class="ds-helper-timing-line">
+                    <strong>Hinweg:</strong>
+                    Kürzester ${escapeHtml(formatDuration(summary.outbound.minSeconds))}
+                    · Durchschnitt ${escapeHtml(formatDuration(summary.outbound.averageSeconds))}
+                    · Längster ${escapeHtml(formatDuration(summary.outbound.maxSeconds))}
+                </div>
+                <div class="ds-helper-timing-line">
+                    <strong>Umlauf:</strong>
+                    Kürzester ${escapeHtml(formatDuration(summary.roundTrip.minSeconds))}
+                    · Durchschnitt ${escapeHtml(formatDuration(summary.roundTrip.averageSeconds))}
+                    · Längster ${escapeHtml(formatDuration(summary.roundTrip.maxSeconds))}
+                </div>
+            `
+            : '';
+
+        return `
+            <div class="ds-helper-timing-title">
+                Laufzeitübersicht
+            </div>
+            <div class="ds-helper-timing-line">
+                <strong>Offene Transporte:</strong>
+                ${formatNumber(summary.openTransportCount)}
+            </div>
+            ${timingOutput}
+            ${noTimingOutput}
+            <div class="ds-helper-timing-groups">
+                ${renderGroupTimingSummary(6, summary.groupStats[6])}
+                ${renderGroupTimingSummary(7, summary.groupStats[7])}
+                ${renderGroupTimingSummary(8, summary.groupStats[8])}
+            </div>
+        `;
+    }
+
+    function updateTransportTimingSummary(transports) {
+        $('#' + POPUP_ID + '-transport-timing-summary')
+            .html(
+                renderTransportTimingSummary(
+                    calculateTransportTimingSummary(transports)
+                )
+            );
+    }
+
     function calculateDistance(x1, y1, x2, y2) {
         const deltaX = x2 - x1;
         const deltaY = y2 - y1;
@@ -2641,6 +2830,10 @@ im Spiel ausgeführt.
         updateTransportOpenProgress(
             transports
         );
+
+        updateTransportTimingSummary(
+            transports
+        );
     }
 
     function removeSentTransportRow(
@@ -3685,6 +3878,11 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin:14px 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-transport-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; color:var(--ds-helper-text); font-weight:700; }
+                #${POPUP_ID} .ds-helper-timing-summary { margin:0 0 8px; padding:9px 11px; border:1px solid var(--ds-helper-border); border-left:4px solid var(--ds-helper-accent); border-radius:4px; background:var(--ds-helper-muted); color:var(--ds-helper-text); font-size:12px; line-height:1.45; }
+                #${POPUP_ID} .ds-helper-timing-title { margin-bottom:3px; font-weight:700; }
+                #${POPUP_ID} .ds-helper-timing-line { margin-top:2px; }
+                #${POPUP_ID} .ds-helper-timing-groups { display:flex; flex-wrap:wrap; gap:4px 18px; margin-top:3px; }
+                #${POPUP_ID} .ds-helper-timing-groups span { white-space:nowrap; }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr.ds-helper-transport-row-even,
                 #${POPUP_ID} .ds-helper-stat-table tbody tr:nth-child(even) { background:var(--ds-helper-muted); }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr:hover,
@@ -3782,6 +3980,10 @@ im Spiel ausgeführt.
                     <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="30">Nächste 30 Tabs öffnen</button>
                     <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="50">Nächste 50 Tabs öffnen</button>
                     <strong id="${POPUP_ID}-open-progress" class="ds-helper-progress">0 / ${getActiveTransportCount(allVillageFlows)} geöffnet</strong>
+                </div>
+
+                <div id="${POPUP_ID}-transport-timing-summary" class="ds-helper-timing-summary">
+                    ${renderTransportTimingSummary(calculateTransportTimingSummary(allVillageFlows))}
                 </div>
 
                 <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
