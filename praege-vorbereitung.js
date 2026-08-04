@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.7
+Version: 0.8.7.1
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -24,7 +24,7 @@ Status: Entwicklung / Simulation
             id: 1,
             name: 'Sehr nah',
             maxDistance: 10,
-            targetFill: 0.95
+            targetFill: 0.90
         },
         {
             id: 2,
