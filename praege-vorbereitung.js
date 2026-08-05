@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.3';
+    const VERSION = '0.8.12.7';
     const DISTANCE_GROUPS = [
         {
             id: 1,
