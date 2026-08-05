@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.8
+Version: 0.8.12.10
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.8';
+    const VERSION = '0.8.12.10';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -82,9 +82,9 @@ Status: Produktiv Beta
 
     // Mindestbestand, den ein sendendes Dorf nach allen Transporten behält.
     const SENDER_RESERVE = {
-        wood: 160000,
-        clay: 180000,
-        iron: 140000
+        wood: 96000,
+        clay: 108000,
+        iron: 84000
     };
 
     const DEFAULT_COIN_VILLAGE_COORD = '538|573';
