@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.4
+Version: 0.8.12.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.4';
+    const VERSION = '0.8.12.5';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1095,22 +1095,29 @@ Status: Produktiv Beta
 
     function renderEmptyingGroup(group) {
         return `
-            <details class="ds-helper-emptying-group" data-emptying-group-id="${group.id}">
-                <summary>
+            <div class="ds-helper-emptying-group" data-emptying-group-id="${group.id}">
+                <button
+                    type="button"
+                    class="ds-helper-emptying-group-toggle"
+                    aria-expanded="false"
+                >
                     <span class="ds-helper-emptying-group-arrow">▶</span>
-                    Gruppe ${group.id} – ${escapeHtml(group.name)} · Ziel ${formatTargetFillPercent(group.targetFill)}<br>
-                    ${formatNumber(group.villages)} Dörfer · ${formatNumber(group.aboveTargetVillages)} über Ziel ·
-                    ${formatNumber(group.totalToRemove)} Rohstoffe ·
-                    ${formatNumber(group.estimatedRounds)} theoretische Umläufe ·
-                    ${formatNumber(group.noFreeMerchants)} ohne freie Händler ·
-                    ${formatNumber(group.noSenderRoute)} ohne aktuelle Senderroute
-                </summary>
+                    <span class="ds-helper-emptying-group-title">
+                        Gruppe ${group.id} – ${escapeHtml(group.name)} · Ziel ${formatTargetFillPercent(group.targetFill)}<br>
+                        ${formatNumber(group.villages)} Dörfer · ${formatNumber(group.aboveTargetVillages)} über Ziel ·
+                        ${formatNumber(group.totalToRemove)} Rohstoffe ·
+                        ${formatNumber(group.estimatedRounds)} theoretische Umläufe ·
+                        ${formatNumber(group.noFreeMerchants)} ohne freie Händler ·
+                        ${formatNumber(group.noSenderRoute)} ohne aktuelle Senderroute
+                    </span>
+                </button>
                 <div
                     class="ds-helper-emptying-group-detail"
                     data-emptying-group-detail="${group.id}"
                     data-rendered="false"
+                    hidden
                 ></div>
-            </details>
+            </div>
         `;
     }
 
@@ -4648,8 +4655,10 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-emptying-note { margin-bottom:5px; font-weight:700; }
                 #${POPUP_ID} .ds-helper-emptying-total { margin-bottom:8px; }
                 #${POPUP_ID} .ds-helper-emptying-group { margin-top:6px; }
-                #${POPUP_ID} .ds-helper-emptying-group summary { cursor:pointer; font-weight:700; }
-                #${POPUP_ID} .ds-helper-emptying-group-arrow { display:inline-block; width:14px; }
+                #${POPUP_ID} .ds-helper-emptying-group-toggle { width:100%; display:flex; align-items:flex-start; gap:4px; border:0; padding:0; background:transparent; color:var(--ds-helper-text); font:inherit; font-weight:700; text-align:left; cursor:pointer; }
+                #${POPUP_ID} .ds-helper-emptying-group-toggle:hover { color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-emptying-group-arrow { flex:0 0 14px; display:inline-block; width:14px; }
+                #${POPUP_ID} .ds-helper-emptying-group-title { flex:1 1 auto; min-width:0; }
                 #${POPUP_ID} .ds-helper-emptying-group-detail { margin-top:7px; }
                 #${POPUP_ID} .ds-helper-emptying-detail-scroll { max-width:100%; overflow:auto; }
                 #${POPUP_ID} .ds-helper-emptying-warning td { background:rgba(225,65,101,0.12) !important; }
@@ -5008,48 +5017,54 @@ ${groupFlowOutput}
                 );
             }
         );
-        $('#' + POPUP_ID + ' .ds-helper-emptying-group').each(
+        $('#' + POPUP_ID).on(
+            'click',
+            '.ds-helper-emptying-group-toggle',
             function () {
-                this.addEventListener(
-                    'toggle',
-                    function () {
-                        const groupDetails = $(this);
-                        const groupId = Number(
-                            groupDetails.attr('data-emptying-group-id')
-                        );
-                        const detailBox = groupDetails.find(
-                            '.ds-helper-emptying-group-detail'
-                        ).first();
-
-                        groupDetails.find(
-                            '.ds-helper-emptying-group-arrow'
-                        ).first().text(this.open ? '▼' : '▶');
-
-                        if (
-                            !this.open ||
-                            detailBox.attr('data-rendered') === 'true'
-                        ) {
-                            return;
-                        }
-
-                        const group =
-                            emptyingAnalysis &&
-                            emptyingAnalysis.groups[groupId];
-
-                        if (!group) {
-                            detailBox
-                                .html(
-                                    '<div class="ds-helper-emptying-note">Detailansicht konnte nicht erstellt werden.</div>'
-                                )
-                                .attr('data-rendered', 'true');
-                            return;
-                        }
-
-                        detailBox
-                            .html(renderEmptyingGroupDetails(group))
-                            .attr('data-rendered', 'true');
-                    }
+                const toggle = $(this);
+                const groupContainer = toggle.closest(
+                    '.ds-helper-emptying-group'
                 );
+                const groupId = Number(
+                    groupContainer.attr('data-emptying-group-id')
+                );
+                const detailBox = groupContainer.find(
+                    '.ds-helper-emptying-group-detail'
+                ).first();
+                const isOpen = toggle.attr('aria-expanded') === 'true';
+                const nextOpen = !isOpen;
+
+                toggle
+                    .attr('aria-expanded', String(nextOpen))
+                    .find('.ds-helper-emptying-group-arrow')
+                    .first()
+                    .text(nextOpen ? '▼' : '▶');
+
+                detailBox.prop('hidden', !nextOpen);
+
+                if (
+                    !nextOpen ||
+                    detailBox.attr('data-rendered') === 'true'
+                ) {
+                    return;
+                }
+
+                const group =
+                    emptyingAnalysis &&
+                    emptyingAnalysis.groups[groupId];
+
+                if (!group) {
+                    detailBox
+                        .html(
+                            '<div class="ds-helper-emptying-note">Detailansicht konnte nicht erstellt werden.</div>'
+                        )
+                        .attr('data-rendered', 'true');
+                    return;
+                }
+
+                detailBox
+                    .html(renderEmptyingGroupDetails(group))
+                    .attr('data-rendered', 'true');
             }
         );
         $('#' + POPUP_ID + '-transport-toggle').on(

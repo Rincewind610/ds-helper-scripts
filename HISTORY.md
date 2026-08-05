@@ -13,6 +13,34 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.5
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.5` angehoben.
+- Gruppen der `Leerungsanalyse nach Gruppen-Zielwerten` von nativen
+  `details`/`summary`-Elementen auf eine eindeutige Button- und
+  Detailcontainer-Struktur umgestellt, damit pro Gruppenzeile genau ein Pfeil
+  sichtbar ist.
+- Auf- und Zuklappen der Gruppen repariert: Der Klick steuert nur den direkt
+  zugehoerigen Detailcontainer, rendert die Dorf-Detailtabelle pro Gruppe nur
+  einmal und verwendet sie danach wieder.
+- Detailcontainer bleiben strikt innerhalb der jeweiligen Analysegruppe; die
+  normale Transporttabelle bleibt ausserhalb der Leerungsanalyse und wird nicht
+  als Detailinhalt verwendet.
+- Routenanzeige der Dorf-Detailansicht bleibt in der Analyse sichtbar; Drag-
+  Funktion des Fensters, Transportlogik, Analyseberechnung, Laufzeituebersicht,
+  Direktversand und Versandlogik unveraendert gelassen.
+- Pruefung: statische Suche bestaetigt keine nativen `details`/`summary`
+  mehr fuer die Analysegruppen, genau einen eigenen Gruppenpfeil je Toggle,
+  direkte Detailcontainer pro Gruppe, `hidden`-Umschaltung und einmaliges
+  Rendern ueber `data-rendered`; alte 25-Prozent-Analysepfade,
+  Weltkonfigurationsabruf und Fetch ohne Treffer. `git diff --check` ohne
+  Whitespace-Fehler, nur LF/CRLF-Hinweis; `node --check
+  praege-vorbereitung.js` versucht, aber `node` ist auf diesem System nicht
+  im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.4
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.4` angehoben.
@@ -41,6 +69,7 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 - Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
   Spielaktionen ausloesen.
 - Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.3
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.3` angehoben.
