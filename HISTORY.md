@@ -13,6 +13,33 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.2
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.2` angehoben.
+- Leerungsanalyse von pauschalem 25-Prozent-Ziel auf die vorhandenen
+  Zielwerte der jeweiligen Distanzgruppe umgestellt; die separate
+  Analysekonstante wurde entfernt.
+- Pro Dorf werden Holz, Lehm und Eisen einzeln gegen den Gruppen-Zielwert
+  geprueft; Gruppe 1 bleibt bei 90 Prozent, Gruppe 8 bei 25 Prozent.
+- Sichtbare Analysebezeichnung auf `Leerungsanalyse nach Gruppen-Zielwerten`
+  geaendert; Gesamtuebersicht zeigt nun `ueber Gruppen-Ziel` statt
+  `ueber 25 %`.
+- Gruppen- und Dorfdetails zeigen den jeweils verwendeten Gruppen-Zielwert;
+  Status fuer bereits passende Doerfer lautet nun `Bereits auf oder unter
+  Gruppen-Zielwert`.
+- Normale Transportplanung, Zielwerte, Transportmengen, Sortierung,
+  Laufzeituebersicht, Direktversand und Versandlogik unveraendert gelassen.
+- Pruefung: statische Suche auf alte pauschale 25-Prozent-Analysepfade ohne
+  Treffer; neue Bezeichnung, Gruppen-Zielwert-Beschreibung,
+  `ueber Gruppen-Ziel`, Dorf-Gruppenziel und gruppenspezifische
+  Zielwertberechnung statisch bestaetigt; `git diff --check` ohne
+  Whitespace-Fehler, nur LF/CRLF-Hinweis; `node --check
+  praege-vorbereitung.js` versucht, aber `node` ist auf diesem System nicht
+  im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.1
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.1` angehoben.

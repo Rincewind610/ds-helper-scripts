@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.1
+Version: 0.8.12.2
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.1';
+    const VERSION = '0.8.12.2';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -79,10 +79,6 @@ Status: Produktiv Beta
     const MERCHANT_SECONDS_PER_FIELD = 150;
     const MERCHANT_ROUND_TRIP_SECONDS_PER_FIELD =
         MERCHANT_SECONDS_PER_FIELD * 2;
-
-    // Nur fuer die theoretische Leerungsanalyse.
-    // Veraendert nicht die normale Transportplanung.
-    const EMPTYING_ANALYSIS_TARGET_FILL = 0.25;
 
     // Mindestbestand, den ein sendendes Dorf nach allen Transporten behält.
     const SENDER_RESERVE = {
@@ -546,6 +542,16 @@ Status: Produktiv Beta
         ) + ' %';
     }
 
+    function formatTargetFillPercent(targetFill) {
+        if (!Number.isFinite(targetFill)) {
+            return '-';
+        }
+
+        return formatNumber(
+            Math.round(targetFill * 100)
+        ) + ' %';
+    }
+
     function buildSenderRouteTimingMap(transports) {
         const routeByVillageId = {};
         const routeByCoord = {};
@@ -618,6 +624,7 @@ Status: Produktiv Beta
             estimatedRounds: 0,
             noFreeMerchants: 0,
             noSenderRoute: 0,
+            targetFill: group.targetFill,
             villagesData: []
         };
     }
@@ -650,21 +657,26 @@ Status: Produktiv Beta
             Number.isFinite(village.storage) &&
             village.storage > 0;
 
-        const targetAmount = storageValid
-            ? Math.floor(
-                village.storage * EMPTYING_ANALYSIS_TARGET_FILL
-            )
+        const targetFill = Number.isFinite(
+            village.simulation.targetFill
+        )
+            ? village.simulation.targetFill
             : null;
 
-        const woodToRemove = storageValid
+        const targetAmount =
+            storageValid && targetFill !== null
+                ? Math.floor(village.storage * targetFill)
+                : null;
+
+        const woodToRemove = targetAmount !== null
             ? Math.max(0, village.wood - targetAmount)
             : 0;
 
-        const clayToRemove = storageValid
+        const clayToRemove = targetAmount !== null
             ? Math.max(0, village.clay - targetAmount)
             : 0;
 
-        const ironToRemove = storageValid
+        const ironToRemove = targetAmount !== null
             ? Math.max(0, village.iron - targetAmount)
             : 0;
 
@@ -711,6 +723,10 @@ Status: Produktiv Beta
             warnings.push('Lagergroesse fehlt');
         }
 
+        if (targetFill === null) {
+            warnings.push('Gruppen-Zielwert fehlt');
+        }
+
         if (!merchantsValid) {
             warnings.push('Freie Haendler nicht verfuegbar');
         }
@@ -723,6 +739,7 @@ Status: Produktiv Beta
             village: village,
             groupId: village.simulation.distanceGroupId,
             groupName: village.simulation.distanceGroupName,
+            targetFill: targetFill,
             storageValid: storageValid,
             targetAmount: targetAmount,
             fillPercent: fillPercent,
@@ -792,7 +809,6 @@ Status: Produktiv Beta
         });
 
         return {
-            targetFill: EMPTYING_ANALYSIS_TARGET_FILL,
             groups: groups,
             total: total
         };
@@ -813,7 +829,7 @@ Status: Produktiv Beta
     function renderEmptyingVillageRow(villageAnalysis) {
         const village = villageAnalysis.village;
         const statusText = villageAnalysis.totalToRemove === 0
-            ? 'Bereits auf oder unter 25 %'
+            ? 'Bereits auf oder unter Gruppen-Zielwert'
             : villageAnalysis.warnings.join(' · ');
 
         const routeDuration = villageAnalysis.routeTiming
@@ -826,7 +842,8 @@ Status: Produktiv Beta
             <tr>
                 <td class="ds-helper-cell-coord">
                     ${escapeHtml(village.coord)}<br>
-                    Gruppe ${villageAnalysis.groupId}
+                    Gruppe ${villageAnalysis.groupId} – ${escapeHtml(villageAnalysis.groupName)}<br>
+                    Gruppenziel ${formatTargetFillPercent(villageAnalysis.targetFill)}
                 </td>
                 <td class="ds-helper-cell-number">
                     ${formatOptionalNumber(village.storage)}<br>
@@ -872,8 +889,8 @@ Status: Produktiv Beta
         return `
             <details class="ds-helper-emptying-group">
                 <summary>
-                    Gruppe ${group.id} – ${escapeHtml(group.name)}: ${formatNumber(group.villages)} Dörfer ·
-                    ${formatNumber(group.aboveTargetVillages)} über Ziel ·
+                    Gruppe ${group.id} – ${escapeHtml(group.name)} · Ziel ${formatTargetFillPercent(group.targetFill)}<br>
+                    ${formatNumber(group.villages)} Dörfer · ${formatNumber(group.aboveTargetVillages)} über Ziel ·
                     ${formatNumber(group.totalToRemove)} Rohstoffe ·
                     ${formatNumber(group.estimatedRounds)} theoretische Umläufe ·
                     ${formatNumber(group.noFreeMerchants)} ohne freie Händler ·
@@ -882,7 +899,7 @@ Status: Produktiv Beta
                 <table class="vis ds-helper-table ds-helper-emptying-table">
                     <thead>
                         <tr>
-                            <th>Dorf</th>
+                            <th>Dorf / Gruppe</th>
                             <th>Lager / Füllung</th>
                             <th>Aktuell</th>
                             <th>Ziel je Rohstoff</th>
@@ -917,11 +934,11 @@ Status: Produktiv Beta
 
         return `
             <div class="ds-helper-emptying-note">
-                Momentaufnahme beim Start der Berechnung · Ziel: 25 % je Rohstoff · theoretische Schätzung
+                Momentaufnahme beim Start der Berechnung · Zielwert je Dorf gemäß Distanzgruppe · theoretische Schätzung
             </div>
             <div class="ds-helper-emptying-total">
                 Gesamt: ${formatNumber(analysis.total.villages)} Dörfer ·
-                ${formatNumber(analysis.total.aboveTargetVillages)} über 25 % ·
+                ${formatNumber(analysis.total.aboveTargetVillages)} über Gruppen-Ziel ·
                 ${formatNumber(analysis.total.totalToRemove)} Rohstoffe ·
                 ${formatNumber(analysis.total.estimatedRounds)} theoretische Umläufe ·
                 ${formatNumber(analysis.total.noFreeMerchants)} ohne freie Händler ·
@@ -4414,7 +4431,7 @@ im Spiel ausgeführt.
                     ${renderTransportTimingSummary(calculateTransportTimingSummary(allVillageFlows))}
                 </div>
 
-                <button type="button" id="${POPUP_ID}-emptying-toggle" class="ds-helper-btn ds-helper-emptying-toggle">▶ Leerungsanalyse auf 25 %</button>
+                <button type="button" id="${POPUP_ID}-emptying-toggle" class="ds-helper-btn ds-helper-emptying-toggle">▶ Leerungsanalyse nach Gruppen-Zielwerten</button>
 
                 <div id="${POPUP_ID}-emptying-panel" class="ds-helper-emptying-panel">
                     ${renderEmptyingAnalysisSafe(allVillages, allVillageFlows)}
@@ -4658,7 +4675,7 @@ ${groupFlowOutput}
 
                 $(this).text(
                     (isOpen ? '▶' : '▼') +
-                    ' Leerungsanalyse auf 25 %'
+                    ' Leerungsanalyse nach Gruppen-Zielwerten'
                 );
             }
         );
