@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.3
+Version: 0.8.12.4
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.3';
+    const VERSION = '0.8.12.4';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -103,6 +103,10 @@ Status: Produktiv Beta
     };
 
     const transportSendState = new Map();
+
+    const popupDragState = {
+        stopDragging: null
+    };
 
     function parseGameNumber(value) {
         if (value === null || value === undefined) {
@@ -927,22 +931,43 @@ Status: Produktiv Beta
         return 'nicht berechenbar';
     }
 
+    function formatEmptyingTotalDuration(villageAnalysis) {
+        if (villageAnalysis.totalToRemove === 0) {
+            return '-';
+        }
+
+        if (!Number.isFinite(
+            villageAnalysis.estimatedTotalRoundTripSeconds
+        )) {
+            return 'nicht berechenbar';
+        }
+
+        return formatDuration(
+            villageAnalysis.estimatedTotalRoundTripSeconds
+        );
+    }
+
     function renderEmptyingRouteDetails(villageAnalysis) {
         const routeTimings = villageAnalysis.routeTimings || [];
+        const durationText = formatEmptyingTotalDuration(
+            villageAnalysis
+        );
 
         if (!routeTimings.length) {
-            return 'Keine aktuelle Senderroute';
+            return `
+                Keine aktuelle Senderroute<br>
+                Dauer nicht berechenbar
+            `;
         }
 
         if (routeTimings.length === 1) {
             const routeTiming = routeTimings[0];
 
             return `
-                Aktuelle Senderroute:<br>
-                ${escapeHtml(villageAnalysis.village.coord)} &rarr; ${escapeHtml(routeTiming.to)}<br>
-                Zielgruppe: ${escapeHtml(routeTiming.toGroup)}<br>
-                Hinweg: ${escapeHtml(formatDuration(routeTiming.outboundSeconds))}<br>
-                Umlauf: ${escapeHtml(formatDuration(routeTiming.roundTripSeconds))}
+                &rarr; ${escapeHtml(routeTiming.to)} · Gruppe ${escapeHtml(routeTiming.toGroup)}<br>
+                Umlauf ${escapeHtml(formatDuration(routeTiming.roundTripSeconds))}<br>
+                Dauer ${escapeHtml(durationText)}<br>
+                Schätzung ohne Produktion und manuelle Verzögerungen
             `;
         }
 
@@ -950,39 +975,18 @@ Status: Produktiv Beta
             .map(function (routeTiming, index) {
                 return `
                     ${index + 1}. &rarr; ${escapeHtml(routeTiming.to)} ·
-                    Zielgruppe ${escapeHtml(routeTiming.toGroup)} ·
-                    Hinweg ${escapeHtml(formatDuration(routeTiming.outboundSeconds))} ·
+                    Gruppe ${escapeHtml(routeTiming.toGroup)} ·
                     Umlauf ${escapeHtml(formatDuration(routeTiming.roundTripSeconds))}
                 `;
             })
             .join('<br>');
 
         return `
-            Aktuelle Senderouten: ${formatNumber(routeTimings.length)}<br>
+            ${formatNumber(routeTimings.length)} aktuelle Senderouten<br>
             ${routeRows}<br>
-            Dauer geschätzt mit längster aktueller Umlaufzeit
-        `;
-    }
-
-    function renderEmptyingTotalDuration(villageAnalysis) {
-        if (villageAnalysis.totalToRemove === 0) {
-            return 'Theoretische Gesamtdauer: -';
-        }
-
-        if (!Number.isFinite(
-            villageAnalysis.estimatedTotalRoundTripSeconds
-        )) {
-            return 'Theoretische Gesamtdauer: nicht berechenbar';
-        }
-
-        const routeNote =
-            villageAnalysis.routeTimings.length > 1
-                ? '<br>Dauer geschätzt mit längster aktueller Umlaufzeit'
-                : '';
-
-        return `
-            Theoretische Gesamtdauer: ${escapeHtml(formatDuration(villageAnalysis.estimatedTotalRoundTripSeconds))}<br>
-            Schätzung ohne Produktion und manuelle Verzögerungen${routeNote}
+            Dauer geschätzt mit längster aktueller Umlaufzeit:<br>
+            ${escapeHtml(durationText)}<br>
+            Schätzung ohne Produktion und manuelle Verzögerungen
         `;
     }
 
@@ -996,11 +1000,6 @@ Status: Produktiv Beta
             ? ''
             : ' class="ds-helper-emptying-warning"';
 
-        const routeDuration = villageAnalysis.routeTiming
-            ? formatDuration(
-                villageAnalysis.routeTiming.roundTripSeconds
-            )
-            : '-';
 
         return `
             <tr${rowClass}>
@@ -1048,12 +1047,6 @@ Status: Produktiv Beta
                 <td>
                     ${renderEmptyingRouteDetails(villageAnalysis)}
                 </td>
-                <td class="ds-helper-cell-number">
-                    ${escapeHtml(routeDuration)}
-                </td>
-                <td>
-                    ${renderEmptyingTotalDuration(villageAnalysis)}
-                </td>
                 <td>
                     ${escapeHtml(statusText || '-')}
                 </td>
@@ -1082,16 +1075,14 @@ Status: Produktiv Beta
                             <th>Händler</th>
                             <th>Kapazität</th>
                             <th>Umläufe</th>
-                            <th>Route</th>
-                            <th>Umlaufzeit</th>
-                            <th>Gesamtdauer</th>
+                            <th>Route / Dauer</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${detailRows || `
                             <tr>
-                                <td colspan="15" class="ds-helper-empty-row">
+                                <td colspan="13" class="ds-helper-empty-row">
                                     Keine Dörfer in dieser Gruppe
                                 </td>
                             </tr>
@@ -4216,7 +4207,113 @@ im Spiel ausgeführt.
     }
 
     function removeExistingPopup() {
+        if (popupDragState.stopDragging) {
+            popupDragState.stopDragging();
+        }
+
         $('#' + POPUP_ID).remove();
+    }
+
+    function isPopupDragStartBlocked(target) {
+        return Boolean(
+            $(target).closest(
+                'button,a,input,select,textarea,table,summary,details,' +
+                '.ds-helper-btn,.ds-helper-scroll-box'
+            ).length
+        );
+    }
+
+    function clampPopupPosition(left, top, popupElement) {
+        const minVisibleWidth = 100;
+        const minLeft = Math.min(
+            0,
+            window.innerWidth - minVisibleWidth
+        );
+        const maxLeft = Math.max(
+            minVisibleWidth - popupElement.offsetWidth,
+            window.innerWidth - minVisibleWidth
+        );
+        const headerHeight = $(popupElement)
+            .find('.ds-helper-header')
+            .outerHeight() || 40;
+        const maxTop = Math.max(
+            0,
+            window.innerHeight - headerHeight
+        );
+
+        return {
+            left: Math.min(
+                Math.max(left, minLeft),
+                maxLeft
+            ),
+            top: Math.min(
+                Math.max(top, 0),
+                maxTop
+            )
+        };
+    }
+
+    function enablePopupDragging() {
+        const popup = document.getElementById(POPUP_ID);
+        const header = popup
+            ? popup.querySelector('.ds-helper-header')
+            : null;
+
+        if (!popup || !header) {
+            return;
+        }
+
+        header.addEventListener(
+            'mousedown',
+            function (event) {
+                if (
+                    event.button !== 0 ||
+                    isPopupDragStartBlocked(event.target)
+                ) {
+                    return;
+                }
+
+                const startRect = popup.getBoundingClientRect();
+                const startMouseX = event.clientX;
+                const startMouseY = event.clientY;
+                const previousUserSelect = document.body.style.userSelect;
+
+                function movePopup(moveEvent) {
+                    const nextPosition = clampPopupPosition(
+                        startRect.left +
+                        moveEvent.clientX - startMouseX,
+                        startRect.top +
+                        moveEvent.clientY - startMouseY,
+                        popup
+                    );
+
+                    popup.style.left = nextPosition.left + 'px';
+                    popup.style.top = nextPosition.top + 'px';
+                    popup.style.right = 'auto';
+                }
+
+                function stopDragging() {
+                    header.classList.remove('ds-helper-header-dragging');
+                    document.body.style.userSelect = previousUserSelect;
+                    document.removeEventListener(
+                        'mousemove',
+                        movePopup
+                    );
+                    document.removeEventListener(
+                        'mouseup',
+                        stopDragging
+                    );
+                    popupDragState.stopDragging = null;
+                }
+
+                event.preventDefault();
+                header.classList.add('ds-helper-header-dragging');
+                document.body.style.userSelect = 'none';
+                popupDragState.stopDragging = stopDragging;
+                document.addEventListener('mousemove', movePopup);
+                document.addEventListener('mouseup', stopDragging);
+            }
+        );
     }
 
     function buildVillageRows(villages) {
@@ -4490,7 +4587,9 @@ im Spiel ausgeführt.
         ">
             <style>
                 #${POPUP_ID} .ds-helper-content { padding:12px; }
-                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); cursor:move; }
+                #${POPUP_ID} .ds-helper-header-dragging { cursor:grabbing; }
+                #${POPUP_ID} .ds-helper-header button { cursor:pointer; }
                 #${POPUP_ID} .ds-helper-title-main { display:block; font-size:18px; line-height:1.15; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-sub { display:block; margin-top:2px; font-size:13px; line-height:1.2; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-version { display:block; margin-top:3px; font-size:11px; line-height:1.2; font-weight:400; color:var(--ds-helper-text); }
@@ -4702,6 +4801,8 @@ ${groupFlowOutput}
     `;
 
         $('body').append(popupHtml);
+
+        enablePopupDragging();
 
         $('#' + POPUP_ID + ' tbody tr').each(
             function () {

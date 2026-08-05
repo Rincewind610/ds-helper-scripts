@@ -13,6 +13,34 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.4
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.4` angehoben.
+- Routendarstellung in der Detailansicht der Leerungsanalyse vervollstaendigt:
+  bei einer Route werden Zielkoordinate, Zielgruppe, Umlaufzeit und
+  theoretische Dauer kompakt angezeigt; bei mehreren Routen werden alle
+  offenen Senderouten mit Umlaufzeit angezeigt.
+- Bei mehreren Senderouten wird die theoretische Dauer sichtbar mit der
+  laengsten aktuellen Umlaufzeit gekennzeichnet; bei fehlender Senderroute
+  wird keine Laufzeit erfunden und `Dauer nicht berechenbar` angezeigt.
+- DS-Helper-Fenster per Maus ueber den Kopfbereich verschiebbar gemacht; Drag
+  startet nicht auf Buttons, Eingaben, Tabellen, Scrollbereichen oder
+  einklappbaren Bereichen.
+- Fensterposition wird nicht gespeichert; beim erneuten Skriptstart gilt wieder
+  die Standardposition. Aktive Drag-Listener werden nur waehrend eines
+  Ziehvorgangs am Dokument registriert und danach entfernt.
+- Normale Transportplanung, Analyseberechnung, Zielwerte, Transportmengen,
+  Laufzeituebersicht, Direktversand und Versandlogik unveraendert gelassen.
+- Pruefung: statische Suche auf alte 25-Prozent-Analysepfade,
+  Weltkonfigurationsabruf, Fetch und Positionsspeicher ohne Treffer; neue
+  Route-/Dauer-Anzeige, Mehrfachrouten-Hinweis, Drag-Handler,
+  Drag-Cleanup, Header-Cursor und Initialisierung statisch bestaetigt;
+  `git diff --check` ohne Whitespace-Fehler, nur LF/CRLF-Hinweis;
+  `node --check praege-vorbereitung.js` versucht, aber `node` ist auf diesem
+  System nicht im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.3
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.3` angehoben.
