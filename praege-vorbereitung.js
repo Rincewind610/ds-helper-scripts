@@ -745,8 +745,8 @@ Status: Produktiv Beta
 
         const estimatedTotalRoundTripSeconds =
             estimatedRounds !== null &&
-            estimatedRounds > 0 &&
-            routeTiming
+                estimatedRounds > 0 &&
+                routeTiming
                 ? estimatedRounds * routeTiming.roundTripSeconds
                 : null;
 
@@ -1591,41 +1591,36 @@ Status: Produktiv Beta
                 village.storage * distanceGroup.targetFill
             );
 
-            const incomingWood = Number.isFinite(
-                village.incomingWood
-            )
-                ? village.incomingWood
-                : 0;
-
-            const incomingClay = Number.isFinite(
-                village.incomingClay
-            )
-                ? village.incomingClay
-                : 0;
-
-            const incomingIron = Number.isFinite(
-                village.incomingIron
-            )
-                ? village.incomingIron
-                : 0;
-
-            const effectiveWood = village.wood + incomingWood;
-            const effectiveClay = village.clay + incomingClay;
-            const effectiveIron = village.iron + incomingIron;
-
             const needWood = Math.max(
                 0,
-                targetAmount - effectiveWood
+                targetAmount -
+                village.wood -
+                (Number.isFinite(village.incomingWood)
+                    ? village.incomingWood
+                    : 0)
             );
 
             const needClay = Math.max(
                 0,
-                targetAmount - effectiveClay
+                targetAmount -
+                village.clay -
+                (Number.isFinite(village.incomingClay)
+                    ? village.incomingClay
+                    : 0)
             );
 
             const needIron = Math.max(
                 0,
-                targetAmount - effectiveIron
+                targetAmount -
+                village.iron -
+                (Number.isFinite(village.incomingIron)
+                    ? village.incomingIron
+                    : 0)
+            );
+
+            const needIron = Math.max(
+                0,
+                targetAmount - village.iron
             );
 
             const surplusWood = Math.max(
@@ -3050,15 +3045,15 @@ im Spiel ausgeführt.
 
         const resourceTotal = resourcesValid
             ? transport.wood +
-                transport.clay +
-                transport.iron
+            transport.clay +
+            transport.iron
             : 0;
 
         const calculatedMerchants =
             resourcesValid &&
-            resourceTotal > 0 &&
-            Number.isFinite(MERCHANT_CAPACITY) &&
-            MERCHANT_CAPACITY > 0
+                resourceTotal > 0 &&
+                Number.isFinite(MERCHANT_CAPACITY) &&
+                MERCHANT_CAPACITY > 0
                 ? Math.ceil(
                     resourceTotal /
                     MERCHANT_CAPACITY
@@ -3093,11 +3088,11 @@ im Spiel ausgeführt.
             tribalWarsPost:
                 Boolean(window.TribalWars) &&
                 typeof window.TribalWars.post ===
-                    'function',
+                'function',
 
             csrfToken:
                 typeof window.csrf_token ===
-                    'string' &&
+                'string' &&
                 window.csrf_token.trim() !== ''
         };
 
@@ -3346,7 +3341,7 @@ im Spiel ausgeführt.
         if (
             !window.TribalWars ||
             typeof window.TribalWars.post !==
-                'function'
+            'function'
         ) {
             errors.push(
                 'TribalWars.post ist nicht verf\u00fcgbar.'
@@ -3386,7 +3381,7 @@ im Spiel ausgeführt.
         ) {
             if (
                 typeof messageCandidates[index] ===
-                    'string' &&
+                'string' &&
                 messageCandidates[index].trim() !== ''
             ) {
                 return messageCandidates[index].trim();
@@ -3507,20 +3502,19 @@ im Spiel ausgeführt.
                     ? `
                         <div class="ds-helper-send-feedback-detail">
                             ${escapeHtml(
-                                sendState.feedback.detail
-                            )}
+                        sendState.feedback.detail
+                    )}
                         </div>
                     `
                     : '';
 
             feedbackElement.html(`
-                <div class="ds-helper-send-feedback-message ${
-                    'is-' + sendState.feedback.type
+                <div class="ds-helper-send-feedback-message ${'is-' + sendState.feedback.type
                 }">
                     ${feedbackSymbol}
                     ${escapeHtml(
-                        sendState.feedback.message
-                    )}
+                    sendState.feedback.message
+                )}
                 </div>
                 ${feedbackDetail}
             `);
@@ -3815,14 +3809,14 @@ im Spiel ausgeführt.
             ? `
                 <ul class="ds-helper-check-errors">
                     ${result.errors
-                        .map(function (errorMessage) {
-                            return `
+                .map(function (errorMessage) {
+                    return `
                                 <li>
                                     ${escapeHtml(errorMessage)}
                                 </li>
                             `;
-                        })
-                        .join('')}
+                })
+                .join('')}
                 </ul>
             `
             : '';
@@ -3831,14 +3825,14 @@ im Spiel ausgeführt.
             ? `
                 <ul class="ds-helper-check-warnings">
                     ${result.warnings
-                        .map(function (warningMessage) {
-                            return `
+                .map(function (warningMessage) {
+                    return `
                                 <li>
                                     ${escapeHtml(warningMessage)}
                                 </li>
                             `;
-                        })
-                        .join('')}
+                })
+                .join('')}
                 </ul>
             `
             : '';
@@ -3849,15 +3843,14 @@ im Spiel ausgeführt.
                     Versanddatensatz
                 </div>
 
-                <pre class="ds-helper-send-data">${
-                    escapeHtml(
-                        JSON.stringify(
-                            result.sendData,
-                            null,
-                            2
-                        )
-                    )
-                }</pre>
+                <pre class="ds-helper-send-data">${escapeHtml(
+                JSON.stringify(
+                    result.sendData,
+                    null,
+                    2
+                )
+            )
+            }</pre>
             `
             : '';
 
@@ -3876,8 +3869,8 @@ im Spiel ausgeführt.
                         ${sendState.status === 'ready' ? '' : 'disabled'}
                     >
                         ${getTransportSendButtonText(
-                            sendState.status
-                        )}
+                sendState.status
+            )}
                     </button>
 
                     <div class="ds-helper-send-feedback"></div>
@@ -3898,18 +3891,16 @@ im Spiel ausgeführt.
                 '.ds-helper-transport-check-content'
             )
             .html(`
-                <div class="ds-helper-check-result ${
-                    result.success
-                        ? 'is-success'
-                        : 'is-error'
+                <div class="ds-helper-check-result ${result.success
+                    ? 'is-success'
+                    : 'is-error'
                 }">
                     <div class="ds-helper-check-title">
                         ${result.success ? '\u2714' : '\u2716'}
-                        Versandpr\u00fcfung ${
-                            result.success
-                                ? 'erfolgreich'
-                                : 'fehlgeschlagen'
-                        }
+                        Versandpr\u00fcfung ${result.success
+                    ? 'erfolgreich'
+                    : 'fehlgeschlagen'
+                }
                     </div>
 
                     <ul class="ds-helper-check-list">
