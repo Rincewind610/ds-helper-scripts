@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.2
+Version: 0.8.12.3
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.2';
+    const VERSION = '0.8.12.3';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -552,47 +552,56 @@ Status: Produktiv Beta
         ) + ' %';
     }
 
+    function createSenderRouteTiming(transport) {
+        return {
+            to: transport.to,
+            toGroup: transport.toGroup,
+            outboundSeconds:
+                transport.merchantTiming.outboundSeconds,
+            roundTripSeconds:
+                transport.merchantTiming.roundTripSeconds
+        };
+    }
+
+    function addSenderRouteTiming(target, key, routeTiming) {
+        if (!key) {
+            return;
+        }
+
+        if (!target[key]) {
+            target[key] = [];
+        }
+
+        target[key].push(routeTiming);
+    }
+
     function buildSenderRouteTimingMap(transports) {
         const routeByVillageId = {};
         const routeByCoord = {};
 
         transports.forEach(function (transport) {
-            if (!isValidTransportTiming(transport)) {
+            if (
+                isTransportCompleted(transport) ||
+                !isValidTransportTiming(transport)
+            ) {
                 return;
             }
 
-            const routeTiming = {
-                roundTripSeconds:
-                    transport.merchantTiming.roundTripSeconds
-            };
-
-            const villageId = String(
-                transport.fromVillageId || ''
+            const routeTiming = createSenderRouteTiming(
+                transport
             );
 
-            if (
-                villageId &&
-                (
-                    !routeByVillageId[villageId] ||
-                    routeTiming.roundTripSeconds >
-                    routeByVillageId[villageId].roundTripSeconds
-                )
-            ) {
-                routeByVillageId[villageId] = routeTiming;
-            }
+            addSenderRouteTiming(
+                routeByVillageId,
+                String(transport.fromVillageId || ''),
+                routeTiming
+            );
 
-            const coord = String(transport.from || '');
-
-            if (
-                coord &&
-                (
-                    !routeByCoord[coord] ||
-                    routeTiming.roundTripSeconds >
-                    routeByCoord[coord].roundTripSeconds
-                )
-            ) {
-                routeByCoord[coord] = routeTiming;
-            }
+            addSenderRouteTiming(
+                routeByCoord,
+                String(transport.from || ''),
+                routeTiming
+            );
         });
 
         return {
@@ -601,7 +610,7 @@ Status: Produktiv Beta
         };
     }
 
-    function findSenderRouteTiming(village, routeTimingMap) {
+    function findSenderRouteTimings(village, routeTimingMap) {
         const villageId = String(village.id || '');
 
         if (
@@ -611,7 +620,52 @@ Status: Produktiv Beta
             return routeTimingMap.byVillageId[villageId];
         }
 
-        return routeTimingMap.byCoord[village.coord] || null;
+        return routeTimingMap.byCoord[village.coord] || [];
+    }
+
+    function findLongestSenderRouteTiming(routeTimings) {
+        if (!routeTimings.length) {
+            return null;
+        }
+
+        return routeTimings.reduce(function (longest, current) {
+            if (
+                !longest ||
+                current.roundTripSeconds > longest.roundTripSeconds
+            ) {
+                return current;
+            }
+
+            return longest;
+        }, null);
+    }
+
+    function isEmptyingRoundCalculationPlausible(
+        totalToRemove,
+        capacityPerRound,
+        estimatedRounds
+    ) {
+        if (totalToRemove <= 0 || estimatedRounds === null) {
+            return true;
+        }
+
+        if (
+            !Number.isFinite(capacityPerRound) ||
+            capacityPerRound <= 0 ||
+            !Number.isFinite(estimatedRounds)
+        ) {
+            return true;
+        }
+
+        if (estimatedRounds * capacityPerRound < totalToRemove) {
+            return false;
+        }
+
+        return !(
+            estimatedRounds > 1 &&
+            (estimatedRounds - 1) * capacityPerRound >=
+            totalToRemove
+        );
     }
 
     function createEmptyingGroupStats(group) {
@@ -705,9 +759,13 @@ Status: Produktiv Beta
                 ? Math.ceil(totalToRemove / capacityPerRound)
                 : null;
 
-        const routeTiming = findSenderRouteTiming(
+        const routeTimings = findSenderRouteTimings(
             village,
             routeTimingMap
+        );
+
+        const routeTiming = findLongestSenderRouteTiming(
+            routeTimings
         );
 
         const estimatedTotalRoundTripSeconds =
@@ -728,11 +786,40 @@ Status: Produktiv Beta
         }
 
         if (!merchantsValid) {
-            warnings.push('Freie Haendler nicht verfuegbar');
+            warnings.push('Haendlerdaten fehlen');
+        }
+
+        if (
+            totalToRemove > 0 &&
+            merchantsValid &&
+            (!capacityPerRound || capacityPerRound <= 0)
+        ) {
+            warnings.push('Keine freien Haendler');
         }
 
         if (totalToRemove > 0 && !routeTiming) {
             warnings.push('Keine aktuelle Senderroute');
+            warnings.push('Laufzeit nicht berechenbar');
+        }
+
+        const roundsPlausible = isEmptyingRoundCalculationPlausible(
+            totalToRemove,
+            capacityPerRound,
+            estimatedRounds
+        );
+
+        if (!roundsPlausible) {
+            warnings.push('Berechnung der Umlaufzahl pruefen');
+
+            console.warn(
+                '[DS Helper] Unplausible Umlaufzahl in Leerungsanalyse',
+                {
+                    coord: village.coord,
+                    totalToRemove: totalToRemove,
+                    capacityPerRound: capacityPerRound,
+                    estimatedRounds: estimatedRounds
+                }
+            );
         }
 
         return {
@@ -750,10 +837,12 @@ Status: Produktiv Beta
             merchantsValid: merchantsValid,
             capacityPerRound: capacityPerRound,
             estimatedRounds: estimatedRounds,
+            roundsPlausible: roundsPlausible,
             noFreeMerchants:
                 totalToRemove > 0 &&
                 (!capacityPerRound || capacityPerRound <= 0),
             routeTiming: routeTiming,
+            routeTimings: routeTimings,
             estimatedTotalRoundTripSeconds:
                 estimatedTotalRoundTripSeconds,
             warnings: warnings
@@ -826,11 +915,86 @@ Status: Produktiv Beta
             : '-';
     }
 
+    function formatEmptyingRounds(villageAnalysis) {
+        if (villageAnalysis.estimatedRounds !== null) {
+            return formatNumber(villageAnalysis.estimatedRounds);
+        }
+
+        if (villageAnalysis.noFreeMerchants) {
+            return 'nicht berechenbar - keine freien Haendler';
+        }
+
+        return 'nicht berechenbar';
+    }
+
+    function renderEmptyingRouteDetails(villageAnalysis) {
+        const routeTimings = villageAnalysis.routeTimings || [];
+
+        if (!routeTimings.length) {
+            return 'Keine aktuelle Senderroute';
+        }
+
+        if (routeTimings.length === 1) {
+            const routeTiming = routeTimings[0];
+
+            return `
+                Aktuelle Senderroute:<br>
+                ${escapeHtml(villageAnalysis.village.coord)} &rarr; ${escapeHtml(routeTiming.to)}<br>
+                Zielgruppe: ${escapeHtml(routeTiming.toGroup)}<br>
+                Hinweg: ${escapeHtml(formatDuration(routeTiming.outboundSeconds))}<br>
+                Umlauf: ${escapeHtml(formatDuration(routeTiming.roundTripSeconds))}
+            `;
+        }
+
+        const routeRows = routeTimings
+            .map(function (routeTiming, index) {
+                return `
+                    ${index + 1}. &rarr; ${escapeHtml(routeTiming.to)} ·
+                    Zielgruppe ${escapeHtml(routeTiming.toGroup)} ·
+                    Hinweg ${escapeHtml(formatDuration(routeTiming.outboundSeconds))} ·
+                    Umlauf ${escapeHtml(formatDuration(routeTiming.roundTripSeconds))}
+                `;
+            })
+            .join('<br>');
+
+        return `
+            Aktuelle Senderouten: ${formatNumber(routeTimings.length)}<br>
+            ${routeRows}<br>
+            Dauer geschätzt mit längster aktueller Umlaufzeit
+        `;
+    }
+
+    function renderEmptyingTotalDuration(villageAnalysis) {
+        if (villageAnalysis.totalToRemove === 0) {
+            return 'Theoretische Gesamtdauer: -';
+        }
+
+        if (!Number.isFinite(
+            villageAnalysis.estimatedTotalRoundTripSeconds
+        )) {
+            return 'Theoretische Gesamtdauer: nicht berechenbar';
+        }
+
+        const routeNote =
+            villageAnalysis.routeTimings.length > 1
+                ? '<br>Dauer geschätzt mit längster aktueller Umlaufzeit'
+                : '';
+
+        return `
+            Theoretische Gesamtdauer: ${escapeHtml(formatDuration(villageAnalysis.estimatedTotalRoundTripSeconds))}<br>
+            Schätzung ohne Produktion und manuelle Verzögerungen${routeNote}
+        `;
+    }
+
     function renderEmptyingVillageRow(villageAnalysis) {
         const village = villageAnalysis.village;
         const statusText = villageAnalysis.totalToRemove === 0
             ? 'Bereits auf oder unter Gruppen-Zielwert'
             : villageAnalysis.warnings.join(' · ');
+
+        const rowClass = villageAnalysis.roundsPlausible
+            ? ''
+            : ' class="ds-helper-emptying-warning"';
 
         const routeDuration = villageAnalysis.routeTiming
             ? formatDuration(
@@ -839,40 +1003,56 @@ Status: Produktiv Beta
             : '-';
 
         return `
-            <tr>
+            <tr${rowClass}>
                 <td class="ds-helper-cell-coord">
                     ${escapeHtml(village.coord)}<br>
-                    Gruppe ${villageAnalysis.groupId} – ${escapeHtml(villageAnalysis.groupName)}<br>
-                    Gruppenziel ${formatTargetFillPercent(villageAnalysis.targetFill)}
+                    Gruppe ${villageAnalysis.groupId} – ${escapeHtml(villageAnalysis.groupName)}
                 </td>
                 <td class="ds-helper-cell-number">
-                    ${formatOptionalNumber(village.storage)}<br>
-                    ${formatPercent(villageAnalysis.fillPercent)}
+                    ${formatDistance(village.distanceToCoinVillage)}
                 </td>
                 <td class="ds-helper-cell-number">
+                    ${formatPercent(villageAnalysis.fillPercent)}<br>
                     H ${formatNumber(village.wood)}<br>
                     L ${formatNumber(village.clay)}<br>
                     E ${formatNumber(village.iron)}
                 </td>
                 <td class="ds-helper-cell-number">
-                    ${formatOptionalNumber(villageAnalysis.targetAmount)}
+                    ${formatTargetFillPercent(villageAnalysis.targetFill)}<br>
+                    ${formatOptionalNumber(village.storage)} Lager<br>
+                    ${formatOptionalNumber(villageAnalysis.targetAmount)} je Rohstoff
                 </td>
                 <td class="ds-helper-cell-number">
-                    H ${formatNumber(villageAnalysis.woodToRemove)}<br>
-                    L ${formatNumber(villageAnalysis.clayToRemove)}<br>
-                    E ${formatNumber(villageAnalysis.ironToRemove)}<br>
+                    ${formatNumber(villageAnalysis.woodToRemove)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatNumber(villageAnalysis.clayToRemove)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatNumber(villageAnalysis.ironToRemove)}
+                </td>
+                <td class="ds-helper-cell-number">
                     <strong>${formatNumber(villageAnalysis.totalToRemove)}</strong>
                 </td>
                 <td class="ds-helper-cell-number">
                     ${formatNumber(village.merchantsFree)} frei<br>
-                    ${formatOptionalNumber(villageAnalysis.capacityPerRound)} je Umlauf<br>
-                    ${villageAnalysis.estimatedRounds === null
-                ? '-'
-                : formatNumber(villageAnalysis.estimatedRounds)} theoretisch
+                    ${formatNumber(village.merchantsTotal)} gesamt
                 </td>
                 <td class="ds-helper-cell-number">
-                    Umlauf ${escapeHtml(routeDuration)}<br>
-                    Dauer ${escapeHtml(formatOptionalDuration(villageAnalysis.estimatedTotalRoundTripSeconds))}
+                    ${formatOptionalNumber(villageAnalysis.capacityPerRound)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${escapeHtml(formatEmptyingRounds(villageAnalysis))}<br>
+                    theoretisch
+                </td>
+                <td>
+                    ${renderEmptyingRouteDetails(villageAnalysis)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${escapeHtml(routeDuration)}
+                </td>
+                <td>
+                    ${renderEmptyingTotalDuration(villageAnalysis)}
                 </td>
                 <td>
                     ${escapeHtml(statusText || '-')}
@@ -881,14 +1061,52 @@ Status: Produktiv Beta
         `;
     }
 
-    function renderEmptyingGroup(group) {
+    function renderEmptyingGroupDetails(group) {
         const detailRows = group.villagesData
             .map(renderEmptyingVillageRow)
             .join('');
 
         return `
-            <details class="ds-helper-emptying-group">
+            <div class="ds-helper-emptying-detail-scroll">
+                <table class="vis ds-helper-table ds-helper-emptying-table">
+                    <thead>
+                        <tr>
+                            <th>Dorf / Gruppe</th>
+                            <th>Distanz</th>
+                            <th>Aktuell</th>
+                            <th>Ziel</th>
+                            <th>Holz raus</th>
+                            <th>Lehm raus</th>
+                            <th>Eisen raus</th>
+                            <th>Gesamt raus</th>
+                            <th>Händler</th>
+                            <th>Kapazität</th>
+                            <th>Umläufe</th>
+                            <th>Route</th>
+                            <th>Umlaufzeit</th>
+                            <th>Gesamtdauer</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${detailRows || `
+                            <tr>
+                                <td colspan="15" class="ds-helper-empty-row">
+                                    Keine Dörfer in dieser Gruppe
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function renderEmptyingGroup(group) {
+        return `
+            <details class="ds-helper-emptying-group" data-emptying-group-id="${group.id}">
                 <summary>
+                    <span class="ds-helper-emptying-group-arrow">▶</span>
                     Gruppe ${group.id} – ${escapeHtml(group.name)} · Ziel ${formatTargetFillPercent(group.targetFill)}<br>
                     ${formatNumber(group.villages)} Dörfer · ${formatNumber(group.aboveTargetVillages)} über Ziel ·
                     ${formatNumber(group.totalToRemove)} Rohstoffe ·
@@ -896,29 +1114,11 @@ Status: Produktiv Beta
                     ${formatNumber(group.noFreeMerchants)} ohne freie Händler ·
                     ${formatNumber(group.noSenderRoute)} ohne aktuelle Senderroute
                 </summary>
-                <table class="vis ds-helper-table ds-helper-emptying-table">
-                    <thead>
-                        <tr>
-                            <th>Dorf / Gruppe</th>
-                            <th>Lager / Füllung</th>
-                            <th>Aktuell</th>
-                            <th>Ziel je Rohstoff</th>
-                            <th>Herauszuschaffen</th>
-                            <th>Händler / Umläufe</th>
-                            <th>Route / Dauer</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${detailRows || `
-                            <tr>
-                                <td colspan="8" class="ds-helper-empty-row">
-                                    Keine Dörfer in dieser Gruppe
-                                </td>
-                            </tr>
-                        `}
-                    </tbody>
-                </table>
+                <div
+                    class="ds-helper-emptying-group-detail"
+                    data-emptying-group-detail="${group.id}"
+                    data-rendered="false"
+                ></div>
             </details>
         `;
     }
@@ -948,11 +1148,30 @@ Status: Produktiv Beta
         `;
     }
 
-    function renderEmptyingAnalysisSafe(villages, transports) {
+    function calculateEmptyingAnalysisSafe(villages, transports) {
         try {
-            return renderEmptyingAnalysis(
-                calculateEmptyingAnalysis(villages, transports)
+            return calculateEmptyingAnalysis(villages, transports);
+        } catch (error) {
+            console.error(
+                '[DS Helper] Leerungsanalyse konnte nicht berechnet werden',
+                error
             );
+
+            return null;
+        }
+    }
+
+    function renderEmptyingAnalysisSafe(analysis) {
+        if (!analysis) {
+            return `
+                <div class="ds-helper-emptying-note">
+                    Leerungsanalyse konnte nicht vollständig erstellt werden.
+                </div>
+            `;
+        }
+
+        try {
+            return renderEmptyingAnalysis(analysis);
         } catch (error) {
             console.error(
                 '[DS Helper] Leerungsanalyse konnte nicht gerendert werden',
@@ -4183,6 +4402,11 @@ im Spiel ausgeführt.
             allVillageFlows
         );
 
+        const emptyingAnalysis = calculateEmptyingAnalysisSafe(
+            allVillages,
+            allVillageFlows
+        );
+
         const groupSummaryRows = groupSummary
             .map(function (group) {
                 return `
@@ -4326,6 +4550,10 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-emptying-total { margin-bottom:8px; }
                 #${POPUP_ID} .ds-helper-emptying-group { margin-top:6px; }
                 #${POPUP_ID} .ds-helper-emptying-group summary { cursor:pointer; font-weight:700; }
+                #${POPUP_ID} .ds-helper-emptying-group-arrow { display:inline-block; width:14px; }
+                #${POPUP_ID} .ds-helper-emptying-group-detail { margin-top:7px; }
+                #${POPUP_ID} .ds-helper-emptying-detail-scroll { max-width:100%; overflow:auto; }
+                #${POPUP_ID} .ds-helper-emptying-warning td { background:rgba(225,65,101,0.12) !important; }
                 #${POPUP_ID} .ds-helper-emptying-table { margin-top:6px; font-size:11px; }
                 #${POPUP_ID} .ds-helper-emptying-table td { vertical-align:top; }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr.ds-helper-transport-row-even,
@@ -4434,7 +4662,7 @@ im Spiel ausgeführt.
                 <button type="button" id="${POPUP_ID}-emptying-toggle" class="ds-helper-btn ds-helper-emptying-toggle">▶ Leerungsanalyse nach Gruppen-Zielwerten</button>
 
                 <div id="${POPUP_ID}-emptying-panel" class="ds-helper-emptying-panel">
-                    ${renderEmptyingAnalysisSafe(allVillages, allVillageFlows)}
+                    ${renderEmptyingAnalysisSafe(emptyingAnalysis)}
                 </div>
                 <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
                     ${transportOutput}
@@ -4676,6 +4904,50 @@ ${groupFlowOutput}
                 $(this).text(
                     (isOpen ? '▶' : '▼') +
                     ' Leerungsanalyse nach Gruppen-Zielwerten'
+                );
+            }
+        );
+        $('#' + POPUP_ID + ' .ds-helper-emptying-group').each(
+            function () {
+                this.addEventListener(
+                    'toggle',
+                    function () {
+                        const groupDetails = $(this);
+                        const groupId = Number(
+                            groupDetails.attr('data-emptying-group-id')
+                        );
+                        const detailBox = groupDetails.find(
+                            '.ds-helper-emptying-group-detail'
+                        ).first();
+
+                        groupDetails.find(
+                            '.ds-helper-emptying-group-arrow'
+                        ).first().text(this.open ? '▼' : '▶');
+
+                        if (
+                            !this.open ||
+                            detailBox.attr('data-rendered') === 'true'
+                        ) {
+                            return;
+                        }
+
+                        const group =
+                            emptyingAnalysis &&
+                            emptyingAnalysis.groups[groupId];
+
+                        if (!group) {
+                            detailBox
+                                .html(
+                                    '<div class="ds-helper-emptying-note">Detailansicht konnte nicht erstellt werden.</div>'
+                                )
+                                .attr('data-rendered', 'true');
+                            return;
+                        }
+
+                        detailBox
+                            .html(renderEmptyingGroupDetails(group))
+                            .attr('data-rendered', 'true');
+                    }
                 );
             }
         );

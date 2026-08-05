@@ -13,6 +13,37 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.3
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.3` angehoben.
+- Detailansicht der Leerungsanalyse vervollstaendigt: pro Dorf werden Distanz,
+  Gruppen-Zielwert, Lager, aktuelle Rohstoffe, Zielmenge je Rohstoff,
+  herauszuschaffende Einzel- und Gesamtmengen, Haendlerdaten, Kapazitaet,
+  theoretische Umlaeufe, Senderouten, Umlaufzeit, theoretische Gesamtdauer
+  und Status angezeigt.
+- Gruppendetails werden erst beim ersten Aufklappen gerendert und danach
+  wiederverwendet; die Gruppenuebersicht und das einklappbare Verhalten der
+  gesamten Leerungsanalyse bleiben erhalten.
+- Vorhandene Senderouten pro Absender werden vollstaendig erfasst; bei mehreren
+  Routen wird die laengste Umlaufzeit als konservative Grundlage der
+  theoretischen Dauer sichtbar gekennzeichnet.
+- Plausibilitaetspruefung fuer theoretische Umlaeufe ergaenzt; auffaellige
+  Doerfer werden markiert und mit `[DS Helper]` kompakt in der Konsole
+  protokolliert.
+- Normale Transportplanung, Zielwerte, Transportmengen, Sortierung der
+  Transportliste, Laufzeituebersicht, Direktversand und Versandlogik
+  unveraendert gelassen.
+- Pruefung: statische Suche auf alte 25-Prozent-Analysepfade,
+  Weltkonfigurationsabruf und Fetch ohne Treffer; neue Detailspalten,
+  Lazy-Rendering, Senderoutenliste, konservative Dauergrundlage,
+  Plausibilitaetswarnung und Haendler-/Routen-Fehlertexte statisch
+  bestaetigt; `git diff --check` ohne Whitespace-Fehler, nur
+  LF/CRLF-Hinweis; `node --check praege-vorbereitung.js` versucht, aber
+  `node` ist auf diesem System nicht im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.2
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.2` angehoben.
