@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.12
+Version: 0.8.12.13
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.12';
+    const VERSION = '0.8.12.13';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1591,19 +1591,41 @@ Status: Produktiv Beta
                 village.storage * distanceGroup.targetFill
             );
 
+            const incomingWood = Number.isFinite(
+                village.incomingWood
+            )
+                ? village.incomingWood
+                : 0;
+
+            const incomingClay = Number.isFinite(
+                village.incomingClay
+            )
+                ? village.incomingClay
+                : 0;
+
+            const incomingIron = Number.isFinite(
+                village.incomingIron
+            )
+                ? village.incomingIron
+                : 0;
+
+            const effectiveWood = village.wood + incomingWood;
+            const effectiveClay = village.clay + incomingClay;
+            const effectiveIron = village.iron + incomingIron;
+
             const needWood = Math.max(
                 0,
-                targetAmount - village.wood
+                targetAmount - effectiveWood
             );
 
             const needClay = Math.max(
                 0,
-                targetAmount - village.clay
+                targetAmount - effectiveClay
             );
 
             const needIron = Math.max(
                 0,
-                targetAmount - village.iron
+                targetAmount - effectiveIron
             );
 
             const surplusWood = Math.max(

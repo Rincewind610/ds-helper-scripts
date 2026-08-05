@@ -13,6 +13,30 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.13
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.13` angehoben.
+- Bedarfsberechnung der Empfaenger in `prepareSimulation()` beruecksichtigt
+  laufende eingehende Rohstoffe: `needWood`, `needClay` und `needIron` werden
+  aus aktuellem Bestand plus `incomingWood`/`incomingClay`/`incomingIron`
+  berechnet.
+- Fehlende oder ungueltige `incoming...`-Werte werden defensiv als `0`
+  behandelt; Bedarfe bleiben durch `Math.max(0, ...)` nie negativ.
+- Senderseite bleibt unveraendert: aktuelle Lagerbestaende, Ueberschuesse,
+  Senderauswahl, Sperrbestand und versendbare Rohstoffe werden nicht um
+  laufende Eingaenge erhoeht.
+- Parser und Anzeige laufender Eingaenge, Dorfuebersicht, Leerungsanalyse,
+  Direktversand und Drag-Initialisierung unveraendert beibehalten.
+- Pruefung: statische Suche bestaetigt defensive Incoming-Normalisierung,
+  `effectiveWood`/`effectiveClay`/`effectiveIron` in der Bedarfsermittlung,
+  unveraenderte Senderreserve-Anker und genau einen `enablePopupDragging()`-
+  Aufruf nach dem Popup-Append. `git diff --check` ohne Whitespace-Fehler, nur
+  LF/CRLF-Hinweis; `node --check praege-vorbereitung.js` versucht, aber `node`
+  ist auf diesem System nicht im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.12
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.12` angehoben.
