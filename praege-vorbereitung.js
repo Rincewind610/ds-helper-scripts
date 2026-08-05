@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.10
+Version: 0.8.12.11
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.10';
+    const VERSION = '0.8.12.11';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -103,6 +103,10 @@ Status: Produktiv Beta
     };
 
     const transportSendState = new Map();
+
+    const popupDragState = {
+        stopDragging: null
+    };
 
     function parseGameNumber(value) {
         if (value === null || value === undefined) {
@@ -213,6 +217,31 @@ Status: Produktiv Beta
                 )
             )
         );
+    }
+
+    function normalizeFreeMerchantCount(value) {
+        if (value === null || value === undefined) {
+            return {
+                isValid: false,
+                value: null
+            };
+        }
+
+        const normalized = Number(
+            String(value).trim()
+        );
+
+        if (!Number.isFinite(normalized)) {
+            return {
+                isValid: false,
+                value: null
+            };
+        }
+
+        return {
+            isValid: true,
+            value: normalized
+        };
     }
 
     function formatDuration(totalSeconds) {
@@ -632,6 +661,10 @@ Status: Produktiv Beta
     function addEmptyingStats(target, villageAnalysis) {
         target.villages++;
 
+        if (villageAnalysis.noFreeMerchants) {
+            target.noFreeMerchants++;
+        }
+
         if (villageAnalysis.totalToRemove > 0) {
             target.aboveTargetVillages++;
             target.totalToRemove +=
@@ -640,10 +673,6 @@ Status: Produktiv Beta
             if (villageAnalysis.estimatedRounds !== null) {
                 target.estimatedRounds +=
                     villageAnalysis.estimatedRounds;
-            }
-
-            if (villageAnalysis.noFreeMerchants) {
-                target.noFreeMerchants++;
             }
 
             if (!villageAnalysis.routeTiming) {
@@ -690,6 +719,10 @@ Status: Produktiv Beta
                 village.iron
             ) / village.storage * 100
             : null;
+
+        const freeMerchants = normalizeFreeMerchantCount(
+            village.merchantsFree
+        );
 
         const merchantsValid = Number.isFinite(
             village.merchantsFree
@@ -751,8 +784,8 @@ Status: Produktiv Beta
             capacityPerRound: capacityPerRound,
             estimatedRounds: estimatedRounds,
             noFreeMerchants:
-                totalToRemove > 0 &&
-                (!capacityPerRound || capacityPerRound <= 0),
+                freeMerchants.isValid &&
+                freeMerchants.value === 0,
             routeTiming: routeTiming,
             estimatedTotalRoundTripSeconds:
                 estimatedTotalRoundTripSeconds,
@@ -807,6 +840,21 @@ Status: Produktiv Beta
                 return b.totalToRemove - a.totalToRemove;
             });
         });
+
+        const groupedNoFreeMerchants = Object.values(groups)
+            .reduce(function (sum, group) {
+                return sum + group.noFreeMerchants;
+            }, 0);
+
+        if (groupedNoFreeMerchants !== total.noFreeMerchants) {
+            console.warn(
+                '[DS Helper] Inkonsistenter Zaehler ohne freie Haendler',
+                {
+                    gruppenSumme: groupedNoFreeMerchants,
+                    gesamt: total.noFreeMerchants
+                }
+            );
+        }
 
         return {
             groups: groups,
@@ -1180,9 +1228,376 @@ Status: Produktiv Beta
         };
     }
 
-    function readVillages() {
+
+    function createIncomingResourcesResult(status, message) {
+        return {
+            status: status,
+            message: message || null,
+            resourcesByVillageId: {},
+            transportCount: 0,
+            villageCount: 0,
+            totalWood: 0,
+            totalClay: 0,
+            totalIron: 0
+        };
+    }
+
+    function buildIncomingResourcesUrl() {
+        const url = new URL(window.location.href);
+
+        url.pathname = '/game.php';
+        url.searchParams.set('screen', 'overview_villages');
+        url.searchParams.set('mode', 'trader');
+        url.searchParams.set('type', 'inc');
+        url.searchParams.set('page', '-1');
+
+        return url.href;
+    }
+
+    function findVillageIdInElement(element) {
+        const foundVillageIds = new Set();
+
+        $(element).find('a[href]').each(function () {
+            try {
+                const url = new URL(
+                    $(this).attr('href'),
+                    window.location.origin
+                );
+                const foundId = url.searchParams.get('village');
+
+                if (foundId) {
+                    foundVillageIds.add(String(foundId));
+                }
+            } catch (error) {
+                // Ungueltige Links werden ignoriert.
+            }
+        });
+
+        if (foundVillageIds.size === 1) {
+            return Array.from(foundVillageIds)[0];
+        }
+
+        if (foundVillageIds.size > 1) {
+            return null;
+        }
+
+        const foundDataIds = new Set();
+
+        $(element).find('[data-id]').addBack('[data-id]').each(function () {
+            const dataId = String($(this).attr('data-id') || '').trim();
+
+            if (/^\d+$/.test(dataId)) {
+                foundDataIds.add(dataId);
+            }
+        });
+
+        return foundDataIds.size === 1
+            ? Array.from(foundDataIds)[0]
+            : null;
+    }
+
+    function buildIncomingTradeColumnMap(table) {
+        const map = {};
+        const headers = table.find('tr').first().children('th,td');
+
+        headers.each(function (index) {
+            const headerText = $(this)
+                .text()
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+
+            if (!headerText) {
+                return;
+            }
+
+            if (
+                map.target === undefined &&
+                /ziel|empf/.test(headerText)
+            ) {
+                map.target = index;
+            }
+
+            if (map.wood === undefined && /holz|wood/.test(headerText)) {
+                map.wood = index;
+            }
+
+            if (map.clay === undefined && /lehm|stein|stone|clay/.test(headerText)) {
+                map.clay = index;
+            }
+
+            if (map.iron === undefined && /eisen|iron/.test(headerText)) {
+                map.iron = index;
+            }
+        });
+
+        return map;
+    }
+
+    function parseResourceAmountNearIcon(icon) {
+        const iconElement = $(icon);
+        const containers = [
+            iconElement.closest('.nowrap'),
+            iconElement.parent(),
+            iconElement.closest('td')
+        ];
+
+        for (let index = 0; index < containers.length; index++) {
+            const container = containers[index];
+
+            if (!container.length) {
+                continue;
+            }
+
+            const text = container
+                .text()
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (/\d/.test(text)) {
+                return parseGameNumber(text);
+            }
+        }
+
+        return 0;
+    }
+
+    function parseIncomingResourcesFromRow(row, columnMap) {
+        const resources = {
+            wood: 0,
+            clay: 0,
+            iron: 0
+        };
+
+        const iconTypes = [
+            {
+                selector: '.wood, [class*="wood"]',
+                resource: 'wood'
+            },
+            {
+                selector: '.stone, .clay, [class*="stone"], [class*="clay"]',
+                resource: 'clay'
+            },
+            {
+                selector: '.iron, [class*="iron"]',
+                resource: 'iron'
+            }
+        ];
+
+        iconTypes.forEach(function (iconType) {
+            row.find(iconType.selector).each(function () {
+                if (resources[iconType.resource] > 0) {
+                    return;
+                }
+
+                resources[iconType.resource] = parseResourceAmountNearIcon(this);
+            });
+        });
+
+        const cells = row.children('td');
+
+        if (resources.wood === 0 && columnMap.wood !== undefined) {
+            resources.wood = parseGameNumber(
+                cells.eq(columnMap.wood).text()
+            );
+        }
+
+        if (resources.clay === 0 && columnMap.clay !== undefined) {
+            resources.clay = parseGameNumber(
+                cells.eq(columnMap.clay).text()
+            );
+        }
+
+        if (resources.iron === 0 && columnMap.iron !== undefined) {
+            resources.iron = parseGameNumber(
+                cells.eq(columnMap.iron).text()
+            );
+        }
+
+        return resources;
+    }
+
+    function findIncomingTargetVillageId(row, columnMap) {
+        const cells = row.children('td');
+
+        if (columnMap.target !== undefined) {
+            const targetId = findVillageIdInElement(
+                cells.eq(columnMap.target)
+            );
+
+            if (targetId) {
+                return targetId;
+            }
+        }
+
+        return findVillageIdInElement(row);
+    }
+
+    function isIncomingOverviewWithoutTrades(documentObject) {
+        const pageText = documentObject
+            .text()
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return /keine .*transporte|keine .*haendler|keine .*händler|keine .*bewegungen/i.test(
+            pageText
+        );
+    }
+
+    function addIncomingResources(result, villageId, resources) {
+        if (!result.resourcesByVillageId[villageId]) {
+            result.resourcesByVillageId[villageId] = {
+                wood: 0,
+                clay: 0,
+                iron: 0,
+                transportCount: 0
+            };
+        }
+
+        const target = result.resourcesByVillageId[villageId];
+
+        target.wood += resources.wood;
+        target.clay += resources.clay;
+        target.iron += resources.iron;
+        target.transportCount++;
+
+        result.transportCount++;
+        result.totalWood += resources.wood;
+        result.totalClay += resources.clay;
+        result.totalIron += resources.iron;
+    }
+
+    function parseIncomingResources(html) {
+        const documentObject = $('<div>').append(
+            $.parseHTML(html, document, true)
+        );
+        const table = documentObject.find('#trades_table').first();
+        const result = createIncomingResourcesResult('ready');
+
+        if (!table.length) {
+            if (isIncomingOverviewWithoutTrades(documentObject)) {
+                return result;
+            }
+
+            console.warn(
+                '[DS Helper] Eingehende Transporte konnten nicht eindeutig gelesen werden'
+            );
+
+            return createIncomingResourcesResult(
+                'warning',
+                'Eingehende Transporte konnten nicht eindeutig gelesen werden.'
+            );
+        }
+
+        const columnMap = buildIncomingTradeColumnMap(table);
+
+        table.find('tr').each(function () {
+            const row = $(this);
+
+            if (!row.children('td').length) {
+                return;
+            }
+
+            const villageId = findIncomingTargetVillageId(
+                row,
+                columnMap
+            );
+
+            if (!villageId) {
+                console.warn(
+                    '[DS Helper] Eingehender Transport konnte keinem Zieldorf zugeordnet werden',
+                    {
+                        row: row.get(0)
+                    }
+                );
+                return;
+            }
+
+            const resources = parseIncomingResourcesFromRow(
+                row,
+                columnMap
+            );
+
+            if (
+                resources.wood === 0 &&
+                resources.clay === 0 &&
+                resources.iron === 0
+            ) {
+                return;
+            }
+
+            addIncomingResources(result, villageId, resources);
+        });
+
+        result.villageCount = Object.keys(
+            result.resourcesByVillageId
+        ).length;
+
+        return result;
+    }
+
+    async function loadIncomingResources() {
+        try {
+            const html = await $.get(buildIncomingResourcesUrl());
+            const result = parseIncomingResources(html);
+
+            console.log(
+                '[DS Helper | Eingehende Transporte]',
+                {
+                    transportCount: result.transportCount,
+                    villageCount: result.villageCount,
+                    totalWood: result.totalWood,
+                    totalClay: result.totalClay,
+                    totalIron: result.totalIron,
+                    resourcesByVillageId: result.resourcesByVillageId
+                }
+            );
+
+            return result;
+        } catch (error) {
+            console.error(
+                '[DS Helper] Eingehende Transporte konnten nicht geladen werden',
+                error
+            );
+
+            return createIncomingResourcesResult(
+                'error',
+                'Eingehende Transporte konnten nicht geladen werden.'
+            );
+        }
+    }
+
+    function buildIncomingResourcesInfo(incomingResult) {
+        if (!incomingResult || incomingResult.status === 'error') {
+            return 'Eingehende Transporte konnten nicht geladen werden.';
+        }
+
+        if (incomingResult.status === 'warning') {
+            return escapeHtml(incomingResult.message);
+        }
+
+        if (incomingResult.transportCount === 0) {
+            return 'Keine eingehenden Transporte erkannt';
+        }
+
+        return (
+            formatNumber(incomingResult.transportCount) +
+            ' Transporte fuer ' +
+            formatNumber(incomingResult.villageCount) +
+            ' Doerfer<br>' +
+            'Holz ' +
+            formatNumber(incomingResult.totalWood) +
+            ' · Lehm ' +
+            formatNumber(incomingResult.totalClay) +
+            ' · Eisen ' +
+            formatNumber(incomingResult.totalIron)
+        );
+    }
+
+    function readVillages(incomingResourcesByVillageId) {
         const villages = [];
         const foundCoordinates = new Set();
+        const incomingResources = incomingResourcesByVillageId || {};
 
         $('.quickedit-vn').closest('tr').each(function () {
             const row = $(this);
@@ -1222,6 +1637,12 @@ Status: Produktiv Beta
                 coord === COIN_VILLAGE.coord;
 
             const rowData = extractRowData(row);
+            const incoming = incomingResources[villageId] || {
+                wood: 0,
+                clay: 0,
+                iron: 0,
+                transportCount: 0
+            };
 
             villages.push({
                 id: villageId,
@@ -1246,6 +1667,11 @@ Status: Produktiv Beta
                 wood: rowData.wood,
                 clay: rowData.clay,
                 iron: rowData.iron,
+
+                incomingWood: incoming.wood,
+                incomingClay: incoming.clay,
+                incomingIron: incoming.iron,
+                incomingTransportCount: incoming.transportCount,
 
                 storage: rowData.storage,
 
@@ -3997,6 +4423,10 @@ im Spiel ausgeführt.
     }
 
     function removeExistingPopup() {
+        if (popupDragState.stopDragging) {
+            popupDragState.stopDragging();
+        }
+
         $('#' + POPUP_ID).remove();
     }
 
@@ -4019,7 +4449,7 @@ im Spiel ausgeführt.
             if (groupId !== lastGroupId) {
                 rows.push(`
                 <tr class="ds-helper-group-separator">
-                    <td colspan="13">
+                    <td colspan="16">
                         Gruppe ${groupId} – ${escapeHtml(
                     village.simulation.distanceGroupName
                 )}
@@ -4065,6 +4495,18 @@ im Spiel ausgeführt.
                     </td>
 
                     <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${formatNumber(village.incomingWood)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${formatNumber(village.incomingClay)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${formatNumber(village.incomingIron)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(village.storage)}
                     </td>
 
@@ -4104,7 +4546,96 @@ im Spiel ausgeführt.
         return rows.join('');
     }
 
-    function showPopup(allVillages, sortedVillages) {
+    function isPopupDragStartBlocked(target) {
+        return $(target).closest(
+            'button, input, select, textarea, a, table, ' +
+            '.ds-helper-scroll-box, .ds-helper-emptying-panel, ' +
+            '.ds-helper-emptying-group'
+        ).length > 0;
+    }
+
+    function clampPopupPosition(left, top, popup) {
+        const margin = 10;
+        const width = popup.outerWidth();
+        const height = popup.outerHeight();
+        const viewportWidth = $(window).width();
+        const viewportHeight = $(window).height();
+
+        return {
+            left: Math.min(
+                Math.max(margin, left),
+                Math.max(margin, viewportWidth - width - margin)
+            ),
+            top: Math.min(
+                Math.max(margin, top),
+                Math.max(margin, viewportHeight - height - margin)
+            )
+        };
+    }
+
+    function enablePopupDragging() {
+        const popup = $('#' + POPUP_ID);
+        const header = popup.find('.ds-helper-header');
+
+        if (!popup.length || !header.length) {
+            return;
+        }
+
+        header.on('mousedown', function (event) {
+            if (event.button !== 0 || isPopupDragStartBlocked(event.target)) {
+                return;
+            }
+
+            const startOffset = popup.offset();
+            const startX = event.clientX;
+            const startY = event.clientY;
+            let isDragging = true;
+
+            popup.css({
+                left: startOffset.left,
+                top: startOffset.top,
+                transform: 'none'
+            });
+
+            header.addClass('ds-helper-header-dragging');
+            event.preventDefault();
+
+            function stopDragging() {
+                if (!isDragging) {
+                    return;
+                }
+
+                isDragging = false;
+                header.removeClass('ds-helper-header-dragging');
+                $(document)
+                    .off('mousemove.dsHelperPraegeDrag')
+                    .off('mouseup.dsHelperPraegeDrag');
+                popupDragState.stopDragging = null;
+            }
+
+            popupDragState.stopDragging = stopDragging;
+
+            $(document)
+                .on('mousemove.dsHelperPraegeDrag', function (moveEvent) {
+                    if (!isDragging) {
+                        return;
+                    }
+
+                    const nextPosition = clampPopupPosition(
+                        startOffset.left + moveEvent.clientX - startX,
+                        startOffset.top + moveEvent.clientY - startY,
+                        popup
+                    );
+
+                    popup.css({
+                        left: nextPosition.left,
+                        top: nextPosition.top
+                    });
+                })
+                .on('mouseup.dsHelperPraegeDrag', stopDragging);
+        });
+    }
+    function showPopup(allVillages, sortedVillages, incomingResult) {
         removeExistingPopup();
 
         const coinVillageFound = allVillages.some(
@@ -4266,7 +4797,8 @@ im Spiel ausgeführt.
         ">
             <style>
                 #${POPUP_ID} .ds-helper-content { padding:12px; }
-                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); cursor:move; user-select:none; }
+                #${POPUP_ID} .ds-helper-header-dragging { cursor:grabbing; }
                 #${POPUP_ID} .ds-helper-title-main { display:block; font-size:18px; line-height:1.15; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-sub { display:block; margin-top:2px; font-size:13px; line-height:1.2; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-version { display:block; margin-top:3px; font-size:11px; line-height:1.2; font-weight:400; color:var(--ds-helper-text); }
@@ -4390,6 +4922,10 @@ im Spiel ausgeführt.
                             <span class="ds-helper-info-label">Händlerlaufzeit</span>
                             <span id="${POPUP_ID}-merchant-speed-info" class="ds-helper-info-value">${buildMerchantSpeedInfo()}</span>
                         </div>
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Laufende Eingaenge</span>
+                            <span class="ds-helper-info-value">${buildIncomingResourcesInfo(incomingResult)}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -4406,6 +4942,9 @@ im Spiel ausgeführt.
                                 <th style="width:95px;">Holz</th>
                                 <th style="width:95px;">Lehm</th>
                                 <th style="width:95px;">Eisen</th>
+                                <th style="width:105px;">Unterwegs Holz</th>
+                                <th style="width:105px;">Unterwegs Lehm</th>
+                                <th style="width:105px;">Unterwegs Eisen</th>
                                 <th style="width:95px;">Lager</th>
                                 <th style="width:95px;">Soll</th>
                                 <th style="width:95px;">Bedarf Holz</th>
@@ -4474,6 +5013,7 @@ ${groupFlowOutput}
     `;
 
         $('body').append(popupHtml);
+        enablePopupDragging();
 
         $('#' + POPUP_ID + ' tbody tr').each(
             function () {
@@ -4726,8 +5266,11 @@ ${groupFlowOutput}
         );
     }
 
-    function init() {
-        const allVillages = readVillages();
+    async function init() {
+        const incomingResult = await loadIncomingResources();
+        const allVillages = readVillages(
+            incomingResult.resourcesByVillageId
+        );
 
         if (!allVillages.length) {
             UI.ErrorMessage(
@@ -4753,13 +5296,15 @@ ${groupFlowOutput}
 
         showPopup(
             preparedVillages,
-            sortedVillages
+            sortedVillages,
+            incomingResult
         );
 
         console.log(
             '[DS Helper | Prägevorbereitung]',
             {
                 version: VERSION,
+                incomingTransports: incomingResult.transportCount,
                 parseErrors: allVillages.filter(v => v.parseError)
             }
         );

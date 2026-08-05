@@ -13,6 +13,35 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.11
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.11` angehoben.
+- Laufende eingehende Rohstofftransporte werden vor der normalen Berechnung
+  einmalig aus der Haendleruebersicht `overview_villages&mode=trader&type=inc&page=-1`
+  geladen und nach Zieldorf-ID zusammengefasst.
+- Dorfobjekte um `incomingWood`, `incomingClay`, `incomingIron` und
+  `incomingTransportCount` erweitert; Doerfer ohne laufende Eingaenge erhalten
+  ueberall `0`.
+- Dorfuebersicht um die rein informativen Spalten `Unterwegs Holz`,
+  `Unterwegs Lehm` und `Unterwegs Eisen` erweitert; Kopfbereich zeigt eine
+  kompakte Zusammenfassung der laufenden Eingaenge oder einen Ladehinweis.
+- Eingehende Rohstoffe werden noch nicht in Bedarfe, Gruppenbilanz,
+  Gruppenfluesse, Transportplanung, Leerungsanalyse oder Direktversand
+  eingerechnet.
+- Verschiebbarkeit des Pop-ups beibehalten und `enablePopupDragging()` nach dem
+  Erzeugen des Pop-ups genau einmal initialisiert; Position wird nicht
+  gespeichert.
+- Pruefung: statische Suche bestaetigt Loader, `type=inc`, `page=-1`, neue
+  Incoming-Felder, Unterwegs-Spalten und Drag-Initialisierung; Negativsuche auf
+  Incoming-Verrechnung in `needWood`/`needClay`/`needIron` sowie Drag-Speicher
+  ohne Treffer. `SENDER_RESERVE` bleibt `96000`/`108000`/`84000`, Gruppe 1 bei
+  `0.90` und Gruppe 8 bei `0.25`. `git diff --check` ohne Whitespace-Fehler,
+  nur LF/CRLF-Hinweis; `node --check praege-vorbereitung.js` versucht, aber
+  `node` ist auf diesem System nicht im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.5
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.5` angehoben.
