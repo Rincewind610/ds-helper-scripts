@@ -13,6 +13,30 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.12
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.12` angehoben.
+- Parser fuer laufende eingehende Transporte an die echte Struktur von
+  `#trades_table` angepasst: verarbeitet werden nur Transportzeilen mit
+  mindestens 9 `td`-Zellen.
+- Zieldorf-ID wird aus `td[4]` ueber den Link `screen=info_village` und dessen
+  Parameter `id` gelesen; `village` wird nicht mehr als Zieldorf-ID verwendet.
+- Rohstoffe werden getrennt aus `td[8]` ueber `.res.wood`, `.res.stone` und
+  `.res.iron` gelesen, damit Werte nicht zu Zahlenketten zusammenkleben.
+- Eingehende Rohstoffe bleiben weiterhin rein informativ und werden nicht in
+  Bedarfe, Gruppenfluesse, Transportplanung, Leerungsanalyse oder Direktversand
+  eingerechnet. Drag-Initialisierung bleibt unveraendert aktiv.
+- Pruefung: statische Suche bestaetigt Ziel-ID aus `id`, Rohstoffe aus
+  `.res.wood`/`.res.stone`/`.res.iron`, Mindestanzahl 9 `td`-Zellen und genau
+  einen `enablePopupDragging()`-Aufruf nach dem Popup-Append; Negativsuche auf
+  `village` als Zieldorf-ID, Ganzzellen-Rohstoffparser und Incoming-Verrechnung
+  ohne Treffer. `git diff --check` ohne Whitespace-Fehler, nur LF/CRLF-Hinweis;
+  `node --check praege-vorbereitung.js` versucht, aber `node` ist auf diesem
+  System nicht im PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.11
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.11` angehoben.

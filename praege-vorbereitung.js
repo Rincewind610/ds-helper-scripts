@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.11
+Version: 0.8.12.12
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.11';
+    const VERSION = '0.8.12.12';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1254,183 +1254,70 @@ Status: Produktiv Beta
         return url.href;
     }
 
-    function findVillageIdInElement(element) {
-        const foundVillageIds = new Set();
+    function isValidIncomingVillageId(value) {
+        return /^\d+$/.test(String(value || '')) &&
+            Number(value) > 0;
+    }
 
-        $(element).find('a[href]').each(function () {
-            try {
-                const url = new URL(
-                    $(this).attr('href'),
-                    window.location.origin
-                );
-                const foundId = url.searchParams.get('village');
+    function findIncomingTargetVillageId(row) {
+        const cells = row.children('td');
 
-                if (foundId) {
-                    foundVillageIds.add(String(foundId));
-                }
-            } catch (error) {
-                // Ungueltige Links werden ignoriert.
-            }
-        });
-
-        if (foundVillageIds.size === 1) {
-            return Array.from(foundVillageIds)[0];
-        }
-
-        if (foundVillageIds.size > 1) {
+        if (cells.length < 9) {
             return null;
         }
 
-        const foundDataIds = new Set();
+        const targetLink = cells
+            .eq(4)
+            .find('a[href*="screen=info_village"][href*="id="]')
+            .first();
 
-        $(element).find('[data-id]').addBack('[data-id]').each(function () {
-            const dataId = String($(this).attr('data-id') || '').trim();
-
-            if (/^\d+$/.test(dataId)) {
-                foundDataIds.add(dataId);
-            }
-        });
-
-        return foundDataIds.size === 1
-            ? Array.from(foundDataIds)[0]
-            : null;
-    }
-
-    function buildIncomingTradeColumnMap(table) {
-        const map = {};
-        const headers = table.find('tr').first().children('th,td');
-
-        headers.each(function (index) {
-            const headerText = $(this)
-                .text()
-                .replace(/\s+/g, ' ')
-                .trim()
-                .toLowerCase();
-
-            if (!headerText) {
-                return;
-            }
-
-            if (
-                map.target === undefined &&
-                /ziel|empf/.test(headerText)
-            ) {
-                map.target = index;
-            }
-
-            if (map.wood === undefined && /holz|wood/.test(headerText)) {
-                map.wood = index;
-            }
-
-            if (map.clay === undefined && /lehm|stein|stone|clay/.test(headerText)) {
-                map.clay = index;
-            }
-
-            if (map.iron === undefined && /eisen|iron/.test(headerText)) {
-                map.iron = index;
-            }
-        });
-
-        return map;
-    }
-
-    function parseResourceAmountNearIcon(icon) {
-        const iconElement = $(icon);
-        const containers = [
-            iconElement.closest('.nowrap'),
-            iconElement.parent(),
-            iconElement.closest('td')
-        ];
-
-        for (let index = 0; index < containers.length; index++) {
-            const container = containers[index];
-
-            if (!container.length) {
-                continue;
-            }
-
-            const text = container
-                .text()
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            if (/\d/.test(text)) {
-                return parseGameNumber(text);
-            }
+        if (!targetLink.length) {
+            return null;
         }
 
-        return 0;
+        try {
+            const targetUrl = new URL(
+                targetLink.attr('href'),
+                window.location.origin
+            );
+            const targetVillageId = targetUrl.searchParams.get('id');
+
+            return isValidIncomingVillageId(targetVillageId)
+                ? String(targetVillageId)
+                : null;
+        } catch (error) {
+            return null;
+        }
     }
 
-    function parseIncomingResourcesFromRow(row, columnMap) {
-        const resources = {
-            wood: 0,
-            clay: 0,
-            iron: 0
+    function parseIncomingResourceValue(resourceCell, selector) {
+        const resourceElement = resourceCell
+            .find(selector)
+            .first();
+
+        return resourceElement.length
+            ? parseGameNumber(resourceElement.text())
+            : 0;
+    }
+
+    function parseIncomingResourcesFromRow(row) {
+        const cells = row.children('td');
+        const resourceCell = cells.eq(8);
+
+        return {
+            wood: parseIncomingResourceValue(
+                resourceCell,
+                '.res.wood'
+            ),
+            clay: parseIncomingResourceValue(
+                resourceCell,
+                '.res.stone'
+            ),
+            iron: parseIncomingResourceValue(
+                resourceCell,
+                '.res.iron'
+            )
         };
-
-        const iconTypes = [
-            {
-                selector: '.wood, [class*="wood"]',
-                resource: 'wood'
-            },
-            {
-                selector: '.stone, .clay, [class*="stone"], [class*="clay"]',
-                resource: 'clay'
-            },
-            {
-                selector: '.iron, [class*="iron"]',
-                resource: 'iron'
-            }
-        ];
-
-        iconTypes.forEach(function (iconType) {
-            row.find(iconType.selector).each(function () {
-                if (resources[iconType.resource] > 0) {
-                    return;
-                }
-
-                resources[iconType.resource] = parseResourceAmountNearIcon(this);
-            });
-        });
-
-        const cells = row.children('td');
-
-        if (resources.wood === 0 && columnMap.wood !== undefined) {
-            resources.wood = parseGameNumber(
-                cells.eq(columnMap.wood).text()
-            );
-        }
-
-        if (resources.clay === 0 && columnMap.clay !== undefined) {
-            resources.clay = parseGameNumber(
-                cells.eq(columnMap.clay).text()
-            );
-        }
-
-        if (resources.iron === 0 && columnMap.iron !== undefined) {
-            resources.iron = parseGameNumber(
-                cells.eq(columnMap.iron).text()
-            );
-        }
-
-        return resources;
-    }
-
-    function findIncomingTargetVillageId(row, columnMap) {
-        const cells = row.children('td');
-
-        if (columnMap.target !== undefined) {
-            const targetId = findVillageIdInElement(
-                cells.eq(columnMap.target)
-            );
-
-            if (targetId) {
-                return targetId;
-            }
-        }
-
-        return findVillageIdInElement(row);
     }
 
     function isIncomingOverviewWithoutTrades(documentObject) {
@@ -1489,19 +1376,14 @@ Status: Produktiv Beta
             );
         }
 
-        const columnMap = buildIncomingTradeColumnMap(table);
-
         table.find('tr').each(function () {
             const row = $(this);
 
-            if (!row.children('td').length) {
+            if (row.children('td').length < 9) {
                 return;
             }
 
-            const villageId = findIncomingTargetVillageId(
-                row,
-                columnMap
-            );
+            const villageId = findIncomingTargetVillageId(row);
 
             if (!villageId) {
                 console.warn(
@@ -1513,10 +1395,7 @@ Status: Produktiv Beta
                 return;
             }
 
-            const resources = parseIncomingResourcesFromRow(
-                row,
-                columnMap
-            );
+            const resources = parseIncomingResourcesFromRow(row);
 
             if (
                 resources.wood === 0 &&
