@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.8.12.13
+Version: 0.8.12.14
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -18,7 +18,7 @@ Status: Produktiv Beta
 (function () {
     'use strict';
 
-    const VERSION = '0.8.12.13';
+    const VERSION = '0.8.12.14';
     const DISTANCE_GROUPS = [
         {
             id: 1,
@@ -1303,6 +1303,37 @@ Status: Produktiv Beta
     function parseIncomingResourcesFromRow(row) {
         const cells = row.children('td');
         const resourceCell = cells.eq(8);
+        const resourceBlocks = resourceCell.find('.nowrap');
+        const resources = {
+            wood: 0,
+            clay: 0,
+            iron: 0
+        };
+
+        if (resourceBlocks.length) {
+            resourceBlocks.each(function () {
+                const resourceBlock = $(this);
+                const value = parseGameNumber(
+                    resourceBlock.text()
+                );
+
+                if (resourceBlock.find('.icon.wood').length) {
+                    resources.wood += value;
+                    return;
+                }
+
+                if (resourceBlock.find('.icon.stone').length) {
+                    resources.clay += value;
+                    return;
+                }
+
+                if (resourceBlock.find('.icon.iron').length) {
+                    resources.iron += value;
+                }
+            });
+
+            return resources;
+        }
 
         return {
             wood: parseIncomingResourceValue(

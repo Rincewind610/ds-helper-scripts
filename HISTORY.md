@@ -13,6 +13,31 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-05 - praege-vorbereitung.js v0.8.12.14
+
+- Version von `praege-vorbereitung.js` auf `0.8.12.14` angehoben.
+- Rohstoffauslesung laufender eingehender Transporte an die aktuelle Struktur
+  in `td[8]` angepasst: `.nowrap`-Bloecke werden anhand von `.icon.wood`,
+  `.icon.stone` und `.icon.iron` ausgewertet.
+- Rohstoffwerte werden pro `.nowrap`-Block separat mit `parseGameNumber()`
+  gelesen und je Rohstofftyp addiert, damit Holz, Lehm und Eisen nicht zu
+  Zahlenketten zusammenkleben.
+- Alte `.res.wood`/`.res.stone`/`.res.iron`-Struktur bleibt als Fallback
+  erhalten, wenn keine `.nowrap`-Bloecke vorhanden sind, ohne Doppelzaehlung.
+- Ziel-Dorf-ID-Auslesung, Incoming-URL, Bedarfsberechnung, Transportplanung,
+  UI, Leerungsanalyse, Direktversand und Drag-Initialisierung unveraendert
+  gelassen.
+- Pruefung: statische Suche bestaetigt `.nowrap`, `.icon.wood`, `.icon.stone`,
+  `.icon.iron`, Fallback auf `.res.*` und genau einen `enablePopupDragging()`-
+  Aufruf nach dem Popup-Append; Negativsuche auf Ganzzellen-Rohstoffparser,
+  alte `village`-Zieldorf-ID und doppelte Drag-Initialisierung ohne Treffer.
+  `git diff --check` ohne Whitespace-Fehler, nur LF/CRLF-Hinweis; `node --check
+  praege-vorbereitung.js` versucht, aber `node` ist auf diesem System nicht im
+  PATH verfuegbar.
+- Es wurden keine automatisierten Tests ausgefuehrt, die echte Transporte oder
+  Spielaktionen ausloesen.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.13
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.13` angehoben.
