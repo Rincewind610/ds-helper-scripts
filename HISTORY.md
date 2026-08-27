@@ -13,6 +13,25 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-28 - ds-report-overview.user.js v0.1.16
+
+- Version von `ds-report-overview.user.js` auf `0.1.16` angehoben.
+- Scharfe-Erkennung von festen Mischungsverhaeltnissen auf eine Mengenregel
+  umgestellt: kein echter Fake, kein Adelsgeschlecht, maximal 1000 eindeutig
+  gelesene Angreifer-Einheiten und entweder echte Off-Truppen oder mehr als
+  400 schwere Kavallerie.
+- Katapulte zaehlen fuer Scharfe nur noch als Begleitung; reine Spaeher- und
+  Katapult-Angriffe werden dadurch nicht als Scharfe markiert.
+- Orange Markierung um ein sichtbares `Scharf`-Label ergaenzt, damit der
+  Hinweis neben bestehenden rosa und roten/dunkelroten Warnfarben sichtbar
+  bleibt. Echte Fakes werden weiterhin nur nach der getrennten Fake-Regel
+  automatisch angehakt.
+- Parser-, AJAX-, Rate-Limiting- und Linklogik unveraendert gelassen.
+- Pruefung: git diff --check ohne Whitespace-Fehler; node --check versucht,
+  aber node ist auf diesem System nicht im PATH verfuegbar. Neue
+  Klassifizierungsbeispiele per PowerShell-Sanity-Check erfolgreich geprueft.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-28 - ds-report-overview.user.js v0.1.15
 
 - Version von `ds-report-overview.user.js` auf `0.1.15` angehoben.

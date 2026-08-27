@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.15
+// @version      0.1.16
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=report\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.15
+Version: 0.1.16
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,13 +28,15 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.15';
+    const VERSION = '0.1.16';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
     const REQUEST_DELAY_MS = 100;
     const MAX_FAKE_SPIES = 10;
     const MAX_FAKE_CATAPULTS = 14;
+    const MAX_SHARP_ATTACKER_UNITS = 1000;
+    const MIN_SHARP_HEAVY_COUNT = 401;
     const MIN_DEFF_PER_UNIT = 100;
     const ATTACKER_SHARP_CLASS = 'dshelper-report-attacker-sharp';
     const DEFENDER_NO_SPY_CLASS = 'dshelper-report-defender-no-spy';
@@ -602,39 +604,18 @@ Berichtsubersicht an.
     }
 
     function isSharpAttack(counts) {
-        if (!counts || isFakeAttack(counts)) {
+        if (!counts || isFakeAttack(counts) || getTroopCount(counts, 'snob') > 0) {
             return false;
         }
 
-        return isSharpOffVillageAttack(counts) || isSharpDeffVillageAttack(counts);
+        return getTotalAttackerTroopCount(counts) <= MAX_SHARP_ATTACKER_UNITS &&
+            (hasRealOffTroops(counts) || getTroopCount(counts, 'heavy') >= MIN_SHARP_HEAVY_COUNT);
     }
 
-    function isSharpOffVillageAttack(counts) {
-        const axeCount = getTroopCount(counts, 'axe');
-        const spyCount = getTroopCount(counts, 'spy');
-        const lightCount = getTroopCount(counts, 'light');
-        const catapultCount = getTroopCount(counts, 'catapult');
-
-        return axeCount >= 500 &&
-            axeCount <= 600 &&
-            spyCount <= MAX_FAKE_SPIES &&
-            lightCount >= 200 &&
-            lightCount <= 300 &&
-            catapultCount > 0 &&
-            getTotalAttackerTroopCount(counts) <= 999 &&
-            hasOnlyAllowedAttackerUnits(counts, ['axe', 'spy', 'light', 'catapult']);
-    }
-
-    function isSharpDeffVillageAttack(counts) {
-        const spyCount = getTroopCount(counts, 'spy');
-        const heavyCount = getTroopCount(counts, 'heavy');
-        const catapultCount = getTroopCount(counts, 'catapult');
-
-        return heavyCount >= 500 &&
-            heavyCount <= 799 &&
-            spyCount <= MAX_FAKE_SPIES &&
-            catapultCount > 0 &&
-            hasOnlyAllowedAttackerUnits(counts, ['spy', 'heavy', 'catapult']);
+    function hasRealOffTroops(counts) {
+        return ['axe', 'light', 'marcher', 'ram'].some(function (unitKey) {
+            return getTroopCount(counts, unitKey) > 0;
+        });
     }
 
     function getTroopCount(counts, unitKey) {
@@ -888,8 +869,11 @@ Berichtsubersicht an.
             block.classList.add(DEFENDER_NO_DEFF_CLASS);
         } else if (section.markNoSpy) {
             block.classList.add(DEFENDER_NO_SPY_CLASS);
-        } else if (section.markSharp) {
+        }
+
+        if (section.markSharp) {
             block.classList.add(ATTACKER_SHARP_CLASS);
+            section.compactInfo.appendChild(createSharpLabel());
         }
 
         block.appendChild(section.compactInfo);
@@ -905,6 +889,13 @@ Berichtsubersicht an.
         block.appendChild(troops);
 
         return block;
+    }
+
+    function createSharpLabel() {
+        const label = document.createElement('span');
+        label.className = 'dshelper-report-sharp-label';
+        label.textContent = 'Scharf';
+        return label;
     }
 
     function insertReportPreviewRow(reportRow, previewRow) {
@@ -998,7 +989,8 @@ Berichtsubersicht an.
             '.dshelper-report-preview-row > td { padding: 1px 4px 3px 24px; }',
             '.dshelper-report-preview { display: flex; flex-wrap: wrap; gap: 4px; margin: 1px 0 2px; }',
             '.dshelper-report-section { box-sizing: border-box; flex: 1 1 320px; min-width: 280px; border: 1px solid #c1a264; background: #f4e4bc; padding: 3px 4px; color: #3f2f1d; line-height: 15px; }',
-            '.dshelper-report-attacker-sharp { background: #ffd28a; border-color: #d17a00; border-left: 4px solid #d17a00; }',
+            '.dshelper-report-attacker-sharp { background: #ffd28a; border-left: 4px solid #d17a00; }',
+            '.dshelper-report-sharp-label { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid #b86400; background: #f6a623; color: #2f1b00; font-weight: bold; line-height: 13px; }',
             '.dshelper-report-defender-no-spy { background: #f3c7bd; border-color: #b76a5d; }',
             '.dshelper-defender-no-deff { background: #7f1d1d; border-color: #4c0f0f; color: #fff2f2; }',
             '.dshelper-defender-no-deff a { color: #ffffff; }',
