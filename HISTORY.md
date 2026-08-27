@@ -13,6 +13,25 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-28 - ds-report-overview.user.js v0.1.16
+
+- Version von ds-report-overview.user.js auf 0.1.16 angehoben.
+- Sondermarkierung fuer Scharfe von Rincewind610 ergaenzt: hellgruen, wenn
+  alle gelesenen Angreifertruppen laut Verluste-Zeile gefallen sind, sonst
+  dunkelgruen.
+- Angreifer-Verluste werden aus der Angreifer-Truppentabelle ueber die Zeile
+  Verluste gelesen und gegen die Zeile Anzahl verglichen; Einheiten mit Anzahl
+  0 werden ignoriert.
+- Scharfe anderer Spieler bleiben orange; echte Fakes, Verteidiger-Warnfarben,
+  Parserstruktur, AJAX-, Rate-Limiting- und Linklogik bleiben unveraendert,
+  abgesehen vom notwendigen Lesen der Angreifer-Verluste.
+- Pruefung: PowerShell-Sanity-Check erfolgreich fuer Rincewind610-Scharf mit
+  vollstaendigen Verlusten, Rincewind610-Scharf mit Ueberlebenden, fremden
+  Scharf, Fake und Adelsgeschlecht-Ablehnung. node --check versucht, aber
+  node ist auf diesem System nicht im PATH verfuegbar. git diff --check
+  meldet beim Userscript CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-28 - ds-report-overview.user.js v0.1.15
 
 - Version von ds-report-overview.user.js auf 0.1.15 angehoben.
@@ -34,6 +53,7 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
   total=1000 und isSharp=true geprueft. git diff --check meldet beim
   Userscript CRLF-Zeilenenden als trailing whitespace.
 - Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-07-30 - praege-vorbereitung.js v0.7.2
 
 - Finales modernes Design der Praegevorbereitung nachgeschaerft: flaches
