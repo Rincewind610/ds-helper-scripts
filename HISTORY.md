@@ -13,6 +13,23 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-28 - ds-report-overview.user.js v0.1.15
+
+- Version von `ds-report-overview.user.js` auf `0.1.15` angehoben.
+- Echte Fake-Erkennung angepasst: 1 bis 10 Spaeher, maximal 14 Katapulte und
+  keine weiteren Angreifertruppen werden weiterhin automatisch angehakt.
+- Orange Markierung fuer Scharfe ergaenzt: Off-Muster mit Aexten, leichten
+  Reitern, optionalen Spaehern und Katapulten bis maximal 999 Einheiten sowie
+  Deff-Muster mit schwerer Kavallerie, optionalen Spaehern und Katapulten.
+- Bestehende rosa und rote/dunkelrote Warnmarkierungen behalten Vorrang; Parser,
+  AJAX-, Rate-Limiting- und Linklogik bleiben unveraendert.
+- Pruefung: `git diff --check` ohne Whitespace-Fehler; `node --check
+  ds-report-overview.user.js` versucht, aber `node` ist auf diesem System nicht
+  im PATH verfuegbar. Klassifizierungsbeispiele fuer echte Fakes, Off-Scharfe,
+  Deff-Scharfe und Ablehnungen per PowerShell-Sanity-Check erfolgreich
+  geprueft.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-05 - praege-vorbereitung.js v0.8.12.14
 
 - Version von `praege-vorbereitung.js` auf `0.8.12.14` angehoben.
