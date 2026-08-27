@@ -13,6 +13,27 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-28 - ds-report-overview.user.js v0.1.15
+
+- Version von ds-report-overview.user.js auf 0.1.15 angehoben.
+- Scharfe-Erkennung ergaenzt und auf die Angreiferseite begrenzt: kein echter
+  Fake, kein Adelsgeschlecht, maximal 1000 gelesene Angreifer-Einheiten und
+  mindestens eine echte Off-Truppe.
+- Echte Off-Truppen fuer Scharfe sind Axt, leichte Kavallerie, berittener
+  Bogenschuetze und Ramme; Katapulte zaehlen nur zur Gesamtzahl und reichen
+  allein nicht aus.
+- Scharfe werden am Angreifer-Block orange markiert und erhalten ein sichtbares
+  Scharf-Label. Rosa und rote/dunkelrote Verteidiger-Warnungen bleiben
+  unveraendert.
+- DEBUG-Ausgabe fuer die Scharf-Pruefung mit total, hasOffTroops, hasNoble,
+  isFake und isSharp ergaenzt.
+- Parser-, AJAX-, Rate-Limiting- und Linklogik unveraendert gelassen.
+- Pruefung: node --check versucht, aber node ist auf diesem System nicht im
+  PATH verfuegbar. Beispielangriff 600 Aexte, 330 leichte Kavallerie,
+  42 Rammen und 28 Katapulte per PowerShell-Sanity-Check erfolgreich mit
+  total=1000 und isSharp=true geprueft. git diff --check meldet beim
+  Userscript CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
 ### 2026-07-30 - praege-vorbereitung.js v0.7.2
 
 - Finales modernes Design der Praegevorbereitung nachgeschaerft: flaches

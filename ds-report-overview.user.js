@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.14
+// @version      0.1.15
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=report\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.14
+Version: 0.1.15
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,15 +28,33 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.14';
+    const VERSION = '0.1.15';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
     const REQUEST_DELAY_MS = 100;
+    const MAX_FAKE_SPIES = 10;
     const MAX_FAKE_CATAPULTS = 14;
+    const MAX_SHARP_ATTACKER_UNITS = 1000;
     const MIN_DEFF_PER_UNIT = 100;
+    const ATTACKER_SHARP_CLASS = 'dshelper-report-attacker-sharp';
     const DEFENDER_NO_SPY_CLASS = 'dshelper-report-defender-no-spy';
     const DEFENDER_NO_DEFF_CLASS = 'dshelper-defender-no-deff';
+    const ATTACKER_UNIT_KEYS = [
+        'spear',
+        'sword',
+        'axe',
+        'marcher',
+        'archer',
+        'spy',
+        'light',
+        'heavy',
+        'ram',
+        'catapult',
+        'knight',
+        'snob'
+    ];
+    const SHARP_OFF_UNIT_KEYS = ['axe', 'light', 'marcher', 'ram'];
     const SCRIPT_PREFIX = '[DS Helper Berichtsubersicht]';
 
     function initReportOverview() {
@@ -253,6 +271,9 @@ Berichtsubersicht an.
             : null;
         const markNoDeff = Boolean(defenderDeffCounts && hasInsufficientDeff(defenderDeffCounts));
         const attackerTroopCounts = attackerTroops ? extractTroopCounts(attackerTroops) : null;
+        const sharpAttackCheck = getSharpAttackCheck(attackerTroopCounts);
+
+        debugLog('Scharf-Pruefung:', Object.assign({ reportId: reportId }, sharpAttackCheck));
 
         if (!attackerTroops) {
             debugLog('Angreifer-Truppen unbekannt:', reportId);
@@ -276,6 +297,7 @@ Berichtsubersicht an.
 
         return {
             attacker: createClonedSection('Angreifer', attackerInfo, attackerTroops, {
+                markSharp: sharpAttackCheck.isSharp,
                 ownVillage: ownAttacker
             }),
             defender: createClonedSection('Verteidiger', defenderInfo, defenderTroops, {
@@ -571,26 +593,60 @@ Berichtsubersicht an.
     }
 
     function isFakeAttack(counts) {
-        if (!counts ||
-            !Object.prototype.hasOwnProperty.call(counts, 'spy') ||
-            !Object.prototype.hasOwnProperty.call(counts, 'catapult')) {
+        if (!counts) {
             return false;
         }
 
-        if (counts.spy !== 1 || counts.catapult > MAX_FAKE_CATAPULTS) {
-            return false;
-        }
+        const spyCount = getTroopCount(counts, 'spy');
+        const catapultCount = getTroopCount(counts, 'catapult');
 
-        return Object.keys(counts).every(function (unitKey) {
-            if (unitKey === 'spy') {
-                return counts[unitKey] === 1;
-            }
+        return spyCount >= 1 &&
+            spyCount <= MAX_FAKE_SPIES &&
+            catapultCount <= MAX_FAKE_CATAPULTS &&
+            hasOnlyAllowedAttackerUnits(counts, ['spy', 'catapult']);
+    }
 
-            if (unitKey === 'catapult') {
-                return counts[unitKey] <= MAX_FAKE_CATAPULTS;
-            }
+    function getSharpAttackCheck(counts) {
+        const total = counts ? getTotalAttackerTroopCount(counts) : 0;
+        const hasOffTroops = Boolean(counts && hasRealOffTroops(counts));
+        const hasNoble = Boolean(counts && getTroopCount(counts, 'snob') > 0);
+        const isFake = isFakeAttack(counts);
+        const isSharp = Boolean(counts &&
+            !isFake &&
+            !hasNoble &&
+            total <= MAX_SHARP_ATTACKER_UNITS &&
+            hasOffTroops);
 
-            return counts[unitKey] === 0;
+        return {
+            total: total,
+            hasOffTroops: hasOffTroops,
+            hasNoble: hasNoble,
+            isFake: isFake,
+            isSharp: isSharp
+        };
+    }
+
+    function hasRealOffTroops(counts) {
+        return SHARP_OFF_UNIT_KEYS.some(function (unitKey) {
+            return getTroopCount(counts, unitKey) > 0;
+        });
+    }
+
+    function getTroopCount(counts, unitKey) {
+        return Object.prototype.hasOwnProperty.call(counts, unitKey) ? counts[unitKey] : 0;
+    }
+
+    function getTotalAttackerTroopCount(counts) {
+        return ATTACKER_UNIT_KEYS.reduce(function (total, unitKey) {
+            return total + getTroopCount(counts, unitKey);
+        }, 0);
+    }
+
+    function hasOnlyAllowedAttackerUnits(counts, allowedUnitKeys) {
+        const allowedUnits = new Set(allowedUnitKeys);
+
+        return ATTACKER_UNIT_KEYS.every(function (unitKey) {
+            return allowedUnits.has(unitKey) || getTroopCount(counts, unitKey) === 0;
         });
     }
 
@@ -613,7 +669,8 @@ Berichtsubersicht an.
             compactInfo: createCompactInfoLine(title, infoElement, Boolean(options && options.ownVillage)),
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
-            markNoDeff: Boolean(options && options.markNoDeff)
+            markNoDeff: Boolean(options && options.markNoDeff),
+            markSharp: Boolean(options && options.markSharp)
         };
     }
 
@@ -828,6 +885,11 @@ Berichtsubersicht an.
             block.classList.add(DEFENDER_NO_SPY_CLASS);
         }
 
+        if (section.title === 'Angreifer' && section.markSharp) {
+            block.classList.add(ATTACKER_SHARP_CLASS);
+            section.compactInfo.appendChild(createSharpLabel());
+        }
+
         block.appendChild(section.compactInfo);
 
         const troops = document.createElement('div');
@@ -841,6 +903,13 @@ Berichtsubersicht an.
         block.appendChild(troops);
 
         return block;
+    }
+
+    function createSharpLabel() {
+        const label = document.createElement('span');
+        label.className = 'dshelper-report-sharp-label';
+        label.textContent = 'Scharf';
+        return label;
     }
 
     function insertReportPreviewRow(reportRow, previewRow) {
@@ -934,6 +1003,8 @@ Berichtsubersicht an.
             '.dshelper-report-preview-row > td { padding: 1px 4px 3px 24px; }',
             '.dshelper-report-preview { display: flex; flex-wrap: wrap; gap: 4px; margin: 1px 0 2px; }',
             '.dshelper-report-section { box-sizing: border-box; flex: 1 1 320px; min-width: 280px; border: 1px solid #c1a264; background: #f4e4bc; padding: 3px 4px; color: #3f2f1d; line-height: 15px; }',
+            '.dshelper-report-attacker-sharp { background: #ffd28a; border-left: 4px solid #d17a00; }',
+            '.dshelper-report-sharp-label { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid #b86400; background: #f6a623; color: #2f1b00; font-weight: bold; line-height: 13px; }',
             '.dshelper-report-defender-no-spy { background: #f3c7bd; border-color: #b76a5d; }',
             '.dshelper-defender-no-deff { background: #7f1d1d; border-color: #4c0f0f; color: #fff2f2; }',
             '.dshelper-defender-no-deff a { color: #ffffff; }',
