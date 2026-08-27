@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Prägevorbereitung
-Version: 0.7.2
+Version: 0.8.12.14
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -11,26 +11,26 @@ Liest Dörfer, Ressourcen, Lager und Händler
 aus der Produktionsübersicht aus und sortiert
 die Dörfer nach Entfernung zum Münzdorf. Anschließend werden Transporte zu den Dörfer geschickt, die nahe am Münzdorf liegen und einen Bedarf haben. Die Transporte werden von den Dörfern mit einem Überschuss an Ressourcen ausgeführt.
 
-Status: Entwicklung / Simulation
+Status: Produktiv Beta
 =======================================
 */
 
 (function () {
     'use strict';
 
-    const VERSION = '0.7.2';
+    const VERSION = '0.8.12.14';
     const DISTANCE_GROUPS = [
         {
             id: 1,
             name: 'Sehr nah',
             maxDistance: 10,
-            targetFill: 0.95
+            targetFill: 0.90
         },
         {
             id: 2,
             name: 'Nah',
             maxDistance: 20,
-            targetFill: 0.85
+            targetFill: 0.80
         },
         {
             id: 3,
@@ -75,11 +75,16 @@ Status: Entwicklung / Simulation
     // Mit aktivem Premium-Händlerbonus: 1500
     const MERCHANT_CAPACITY = 1500;
 
+    // Laufzeit eines Haendlers fuer einen einfachen Weg pro Distanzfeld.
+    const MERCHANT_SECONDS_PER_FIELD = 150;
+    const MERCHANT_ROUND_TRIP_SECONDS_PER_FIELD =
+        MERCHANT_SECONDS_PER_FIELD * 2;
+
     // Mindestbestand, den ein sendendes Dorf nach allen Transporten behält.
     const SENDER_RESERVE = {
-        wood: 160000,
-        clay: 180000,
-        iron: 140000
+        wood: 96000,
+        clay: 108000,
+        iron: 84000
     };
 
     const DEFAULT_COIN_VILLAGE_COORD = '538|573';
@@ -90,9 +95,17 @@ Status: Entwicklung / Simulation
 
     const TRANSPORT_OPEN_DELAY = 250;
 
+    const merchantSpeedData = createMerchantSpeedData();
+
     const transportOpenState = {
         openedIndexes: new Set(),
         isOpening: false
+    };
+
+    const transportSendState = new Map();
+
+    const popupDragState = {
+        stopDragging: null
     };
 
     function parseGameNumber(value) {
@@ -160,6 +173,846 @@ Status: Entwicklung / Simulation
 
     function formatNumber(value) {
         return Number(value || 0).toLocaleString('de-DE');
+    }
+
+    function createMerchantSpeedData() {
+        return {
+            source: 'fixed-constant',
+            secondsPerField: MERCHANT_SECONDS_PER_FIELD,
+            roundTripSecondsPerField:
+                MERCHANT_ROUND_TRIP_SECONDS_PER_FIELD,
+            isValid: true,
+            error: null,
+            status: 'ready'
+        };
+    }
+
+    function formatSecondsPerField(totalSeconds) {
+        const roundedSeconds = Math.round(totalSeconds);
+        const minutes = Math.floor(
+            roundedSeconds / 60
+        );
+
+        const seconds = roundedSeconds % 60;
+
+        return (
+            minutes +
+            ':' +
+            String(seconds).padStart(2, '0') +
+            ' Min.'
+        );
+    }
+
+    function buildMerchantSpeedInfo() {
+        return (
+            escapeHtml(
+                formatSecondsPerField(
+                    merchantSpeedData.secondsPerField
+                )
+            ) +
+            ' pro Feld · Hin und zurück ' +
+            escapeHtml(
+                formatSecondsPerField(
+                    merchantSpeedData.roundTripSecondsPerField
+                )
+            )
+        );
+    }
+
+    function normalizeFreeMerchantCount(value) {
+        if (value === null || value === undefined) {
+            return {
+                isValid: false,
+                value: null
+            };
+        }
+
+        const normalized = Number(
+            String(value).trim()
+        );
+
+        if (!Number.isFinite(normalized)) {
+            return {
+                isValid: false,
+                value: null
+            };
+        }
+
+        return {
+            isValid: true,
+            value: normalized
+        };
+    }
+
+    function formatDuration(totalSeconds) {
+        const roundedSeconds = Math.max(
+            0,
+            Math.round(totalSeconds)
+        );
+
+        const hours = Math.floor(
+            roundedSeconds / 3600
+        );
+
+        const minutes = Math.floor(
+            (roundedSeconds % 3600) / 60
+        );
+
+        const seconds = roundedSeconds % 60;
+
+        if (hours > 0) {
+            return (
+                hours +
+                ':' +
+                String(minutes).padStart(2, '0') +
+                ':' +
+                String(seconds).padStart(2, '0')
+            );
+        }
+
+        return (
+            minutes +
+            ':' +
+            String(seconds).padStart(2, '0')
+        );
+    }
+
+    function parseTransportCoordinate(coord) {
+        const match = String(coord || '')
+            .trim()
+            .match(/^(\d{1,3})\|(\d{1,3})$/);
+
+        if (!match) {
+            return null;
+        }
+
+        return {
+            x: Number(match[1]),
+            y: Number(match[2])
+        };
+    }
+
+    function buildMerchantTiming(transport) {
+        const sourceCoord = parseTransportCoordinate(
+            transport.from
+        );
+
+        const targetCoord = parseTransportCoordinate(
+            transport.to
+        );
+
+        if (!sourceCoord || !targetCoord) {
+            console.warn(
+                '[DS Helper] Laufzeit konnte nicht berechnet werden',
+                {
+                    from: transport.from,
+                    to: transport.to
+                }
+            );
+
+            return null;
+        }
+
+        const distance = calculateDistance(
+            sourceCoord.x,
+            sourceCoord.y,
+            targetCoord.x,
+            targetCoord.y
+        );
+
+        if (!Number.isFinite(distance) || distance < 0) {
+            console.warn(
+                '[DS Helper] Laufzeit konnte nicht berechnet werden',
+                {
+                    from: transport.from,
+                    to: transport.to
+                }
+            );
+
+            return null;
+        }
+
+        const outboundSeconds =
+            distance * MERCHANT_SECONDS_PER_FIELD;
+
+        const returnSeconds = outboundSeconds;
+
+        const roundTripSeconds =
+            outboundSeconds + returnSeconds;
+
+        return {
+            distance: distance,
+            outboundSeconds: outboundSeconds,
+            returnSeconds: returnSeconds,
+            roundTripSeconds: roundTripSeconds
+        };
+    }
+
+    function buildTransportTimingCell(transport) {
+        if (!transport.merchantTiming) {
+            return 'nicht berechenbar';
+        }
+
+        return (
+            'Hin: ' +
+            escapeHtml(
+                formatDuration(
+                    transport.merchantTiming.outboundSeconds
+                )
+            ) +
+            '<br>Umlauf: ' +
+            escapeHtml(
+                formatDuration(
+                    transport.merchantTiming.roundTripSeconds
+                )
+            )
+        );
+    }
+
+    function isValidTransportTiming(transport) {
+        return Boolean(
+            transport &&
+            transport.merchantTiming &&
+            Number.isFinite(
+                transport.merchantTiming.outboundSeconds
+            ) &&
+            Number.isFinite(
+                transport.merchantTiming.roundTripSeconds
+            )
+        );
+    }
+
+    function calculateTransportTimingSummary(transports) {
+        const openTransports = getActiveTransports(transports);
+
+        const groupStats = {
+            6: {
+                count: 0,
+                maxRoundTripSeconds: null
+            },
+            7: {
+                count: 0,
+                maxRoundTripSeconds: null
+            },
+            8: {
+                count: 0,
+                maxRoundTripSeconds: null
+            }
+        };
+
+        const validTimings = [];
+
+        openTransports.forEach(function (transport) {
+            const fromGroup = Number(transport.fromGroup);
+            const timingIsValid = isValidTransportTiming(
+                transport
+            );
+
+            if (groupStats[fromGroup]) {
+                groupStats[fromGroup].count++;
+
+                if (timingIsValid) {
+                    const groupMax =
+                        groupStats[fromGroup].maxRoundTripSeconds;
+
+                    groupStats[fromGroup].maxRoundTripSeconds =
+                        groupMax === null
+                            ? transport.merchantTiming.roundTripSeconds
+                            : Math.max(
+                                groupMax,
+                                transport.merchantTiming.roundTripSeconds
+                            );
+                }
+            }
+
+            if (!timingIsValid) {
+                return;
+            }
+
+            validTimings.push(transport.merchantTiming);
+        });
+
+        if (!validTimings.length) {
+            return {
+                openTransportCount: openTransports.length,
+                validTimingCount: 0,
+                outbound: null,
+                roundTrip: null,
+                groupStats: groupStats
+            };
+        }
+
+        const outboundSeconds = validTimings.map(
+            function (timing) {
+                return timing.outboundSeconds;
+            }
+        );
+
+        const roundTripSeconds = validTimings.map(
+            function (timing) {
+                return timing.roundTripSeconds;
+            }
+        );
+
+        const totalOutboundSeconds = outboundSeconds.reduce(
+            function (sum, seconds) {
+                return sum + seconds;
+            },
+            0
+        );
+
+        const totalRoundTripSeconds = roundTripSeconds.reduce(
+            function (sum, seconds) {
+                return sum + seconds;
+            },
+            0
+        );
+
+        return {
+            openTransportCount: openTransports.length,
+            validTimingCount: validTimings.length,
+            outbound: {
+                minSeconds: Math.min.apply(null, outboundSeconds),
+                maxSeconds: Math.max.apply(null, outboundSeconds),
+                averageSeconds:
+                    totalOutboundSeconds / validTimings.length
+            },
+            roundTrip: {
+                minSeconds: Math.min.apply(null, roundTripSeconds),
+                maxSeconds: Math.max.apply(null, roundTripSeconds),
+                averageSeconds:
+                    totalRoundTripSeconds / validTimings.length
+            },
+            groupStats: groupStats
+        };
+    }
+
+    function renderGroupTimingSummary(groupId, groupStat) {
+        const longestRoundTrip =
+            groupStat.maxRoundTripSeconds === null
+                ? '-'
+                : formatDuration(groupStat.maxRoundTripSeconds);
+
+        return (
+            '<span>Gruppe ' +
+            groupId +
+            ': ' +
+            formatNumber(groupStat.count) +
+            ' Transporte · längster Umlauf ' +
+            escapeHtml(longestRoundTrip) +
+            '</span>'
+        );
+    }
+
+    function renderTransportTimingSummary(summary) {
+        const noTimingOutput = summary.validTimingCount
+            ? ''
+            : `
+                <div class="ds-helper-timing-line">
+                    Keine Laufzeitdaten für offene Transporte vorhanden.
+                </div>
+            `;
+
+        const timingOutput = summary.validTimingCount
+            ? `
+                <div class="ds-helper-timing-line">
+                    <strong>Hinweg:</strong>
+                    Kürzester ${escapeHtml(formatDuration(summary.outbound.minSeconds))}
+                    · Durchschnitt ${escapeHtml(formatDuration(summary.outbound.averageSeconds))}
+                    · Längster ${escapeHtml(formatDuration(summary.outbound.maxSeconds))}
+                </div>
+                <div class="ds-helper-timing-line">
+                    <strong>Umlauf:</strong>
+                    Kürzester ${escapeHtml(formatDuration(summary.roundTrip.minSeconds))}
+                    · Durchschnitt ${escapeHtml(formatDuration(summary.roundTrip.averageSeconds))}
+                    · Längster ${escapeHtml(formatDuration(summary.roundTrip.maxSeconds))}
+                </div>
+            `
+            : '';
+
+        return `
+            <div class="ds-helper-timing-title">
+                Laufzeitübersicht
+            </div>
+            <div class="ds-helper-timing-line">
+                <strong>Offene Transporte:</strong>
+                ${formatNumber(summary.openTransportCount)}
+            </div>
+            ${timingOutput}
+            ${noTimingOutput}
+            <div class="ds-helper-timing-groups">
+                ${renderGroupTimingSummary(6, summary.groupStats[6])}
+                ${renderGroupTimingSummary(7, summary.groupStats[7])}
+                ${renderGroupTimingSummary(8, summary.groupStats[8])}
+            </div>
+        `;
+    }
+
+    function updateTransportTimingSummary(transports) {
+        $('#' + POPUP_ID + '-transport-timing-summary')
+            .html(
+                renderTransportTimingSummary(
+                    calculateTransportTimingSummary(transports)
+                )
+            );
+    }
+
+    function formatPercent(value) {
+        if (!Number.isFinite(value)) {
+            return '-';
+        }
+
+        return value.toLocaleString(
+            'de-DE',
+            {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            }
+        ) + ' %';
+    }
+
+    function formatTargetFillPercent(targetFill) {
+        if (!Number.isFinite(targetFill)) {
+            return '-';
+        }
+
+        return formatNumber(
+            Math.round(targetFill * 100)
+        ) + ' %';
+    }
+
+    function buildSenderRouteTimingMap(transports) {
+        const routeByVillageId = {};
+        const routeByCoord = {};
+
+        transports.forEach(function (transport) {
+            if (!isValidTransportTiming(transport)) {
+                return;
+            }
+
+            const routeTiming = {
+                roundTripSeconds:
+                    transport.merchantTiming.roundTripSeconds
+            };
+
+            const villageId = String(
+                transport.fromVillageId || ''
+            );
+
+            if (
+                villageId &&
+                (
+                    !routeByVillageId[villageId] ||
+                    routeTiming.roundTripSeconds >
+                    routeByVillageId[villageId].roundTripSeconds
+                )
+            ) {
+                routeByVillageId[villageId] = routeTiming;
+            }
+
+            const coord = String(transport.from || '');
+
+            if (
+                coord &&
+                (
+                    !routeByCoord[coord] ||
+                    routeTiming.roundTripSeconds >
+                    routeByCoord[coord].roundTripSeconds
+                )
+            ) {
+                routeByCoord[coord] = routeTiming;
+            }
+        });
+
+        return {
+            byVillageId: routeByVillageId,
+            byCoord: routeByCoord
+        };
+    }
+
+    function findSenderRouteTiming(village, routeTimingMap) {
+        const villageId = String(village.id || '');
+
+        if (
+            villageId &&
+            routeTimingMap.byVillageId[villageId]
+        ) {
+            return routeTimingMap.byVillageId[villageId];
+        }
+
+        return routeTimingMap.byCoord[village.coord] || null;
+    }
+
+    function createEmptyingGroupStats(group) {
+        return {
+            id: group.id,
+            name: group.name,
+            villages: 0,
+            aboveTargetVillages: 0,
+            totalToRemove: 0,
+            estimatedRounds: 0,
+            noFreeMerchants: 0,
+            noSenderRoute: 0,
+            targetFill: group.targetFill,
+            villagesData: []
+        };
+    }
+
+    function addEmptyingStats(target, villageAnalysis) {
+        target.villages++;
+
+        if (villageAnalysis.noFreeMerchants) {
+            target.noFreeMerchants++;
+        }
+
+        if (villageAnalysis.totalToRemove > 0) {
+            target.aboveTargetVillages++;
+            target.totalToRemove +=
+                villageAnalysis.totalToRemove;
+
+            if (villageAnalysis.estimatedRounds !== null) {
+                target.estimatedRounds +=
+                    villageAnalysis.estimatedRounds;
+            }
+
+            if (!villageAnalysis.routeTiming) {
+                target.noSenderRoute++;
+            }
+        }
+    }
+
+    function analyzeVillageEmptying(village, routeTimingMap) {
+        const storageValid =
+            Number.isFinite(village.storage) &&
+            village.storage > 0;
+
+        const targetFill = Number.isFinite(
+            village.simulation.targetFill
+        )
+            ? village.simulation.targetFill
+            : null;
+
+        const targetAmount =
+            storageValid && targetFill !== null
+                ? Math.floor(village.storage * targetFill)
+                : null;
+
+        const woodToRemove = targetAmount !== null
+            ? Math.max(0, village.wood - targetAmount)
+            : 0;
+
+        const clayToRemove = targetAmount !== null
+            ? Math.max(0, village.clay - targetAmount)
+            : 0;
+
+        const ironToRemove = targetAmount !== null
+            ? Math.max(0, village.iron - targetAmount)
+            : 0;
+
+        const totalToRemove =
+            woodToRemove + clayToRemove + ironToRemove;
+
+        const fillPercent = storageValid
+            ? Math.max(
+                village.wood,
+                village.clay,
+                village.iron
+            ) / village.storage * 100
+            : null;
+
+        const freeMerchants = normalizeFreeMerchantCount(
+            village.merchantsFree
+        );
+
+        const merchantsValid = Number.isFinite(
+            village.merchantsFree
+        );
+
+        const capacityPerRound = merchantsValid
+            ? village.merchantsFree * MERCHANT_CAPACITY
+            : null;
+
+        const estimatedRounds = totalToRemove === 0
+            ? 0
+            : capacityPerRound > 0
+                ? Math.ceil(totalToRemove / capacityPerRound)
+                : null;
+
+        const routeTiming = findSenderRouteTiming(
+            village,
+            routeTimingMap
+        );
+
+        const estimatedTotalRoundTripSeconds =
+            estimatedRounds !== null &&
+            estimatedRounds > 0 &&
+            routeTiming
+                ? estimatedRounds * routeTiming.roundTripSeconds
+                : null;
+
+        const warnings = [];
+
+        if (!storageValid) {
+            warnings.push('Lagergroesse fehlt');
+        }
+
+        if (targetFill === null) {
+            warnings.push('Gruppen-Zielwert fehlt');
+        }
+
+        if (!merchantsValid) {
+            warnings.push('Freie Haendler nicht verfuegbar');
+        }
+
+        if (totalToRemove > 0 && !routeTiming) {
+            warnings.push('Keine aktuelle Senderroute');
+        }
+
+        return {
+            village: village,
+            groupId: village.simulation.distanceGroupId,
+            groupName: village.simulation.distanceGroupName,
+            targetFill: targetFill,
+            storageValid: storageValid,
+            targetAmount: targetAmount,
+            fillPercent: fillPercent,
+            woodToRemove: woodToRemove,
+            clayToRemove: clayToRemove,
+            ironToRemove: ironToRemove,
+            totalToRemove: totalToRemove,
+            merchantsValid: merchantsValid,
+            capacityPerRound: capacityPerRound,
+            estimatedRounds: estimatedRounds,
+            noFreeMerchants:
+                freeMerchants.isValid &&
+                freeMerchants.value === 0,
+            routeTiming: routeTiming,
+            estimatedTotalRoundTripSeconds:
+                estimatedTotalRoundTripSeconds,
+            warnings: warnings
+        };
+    }
+
+    function calculateEmptyingAnalysis(villages, transports) {
+        const routeTimingMap = buildSenderRouteTimingMap(
+            transports
+        );
+
+        const groups = {};
+
+        DISTANCE_GROUPS.forEach(function (group) {
+            groups[group.id] = createEmptyingGroupStats(group);
+        });
+
+        const total = {
+            villages: 0,
+            aboveTargetVillages: 0,
+            totalToRemove: 0,
+            estimatedRounds: 0,
+            noFreeMerchants: 0,
+            noSenderRoute: 0
+        };
+
+        villages.forEach(function (village) {
+            if (!village || !village.simulation) {
+                return;
+            }
+
+            const groupId = village.simulation.distanceGroupId;
+            const group = groups[groupId];
+
+            if (!group) {
+                return;
+            }
+
+            const villageAnalysis = analyzeVillageEmptying(
+                village,
+                routeTimingMap
+            );
+
+            group.villagesData.push(villageAnalysis);
+            addEmptyingStats(group, villageAnalysis);
+            addEmptyingStats(total, villageAnalysis);
+        });
+
+        Object.values(groups).forEach(function (group) {
+            group.villagesData.sort(function (a, b) {
+                return b.totalToRemove - a.totalToRemove;
+            });
+        });
+
+        const groupedNoFreeMerchants = Object.values(groups)
+            .reduce(function (sum, group) {
+                return sum + group.noFreeMerchants;
+            }, 0);
+
+        if (groupedNoFreeMerchants !== total.noFreeMerchants) {
+            console.warn(
+                '[DS Helper] Inkonsistenter Zaehler ohne freie Haendler',
+                {
+                    gruppenSumme: groupedNoFreeMerchants,
+                    gesamt: total.noFreeMerchants
+                }
+            );
+        }
+
+        return {
+            groups: groups,
+            total: total
+        };
+    }
+
+    function formatOptionalNumber(value) {
+        return value === null || value === undefined
+            ? '-'
+            : formatNumber(value);
+    }
+
+    function formatOptionalDuration(value) {
+        return Number.isFinite(value)
+            ? formatDuration(value)
+            : '-';
+    }
+
+    function renderEmptyingVillageRow(villageAnalysis) {
+        const village = villageAnalysis.village;
+        const statusText = villageAnalysis.totalToRemove === 0
+            ? 'Bereits auf oder unter Gruppen-Zielwert'
+            : villageAnalysis.warnings.join(' · ');
+
+        const routeDuration = villageAnalysis.routeTiming
+            ? formatDuration(
+                villageAnalysis.routeTiming.roundTripSeconds
+            )
+            : '-';
+
+        return `
+            <tr>
+                <td class="ds-helper-cell-coord">
+                    ${escapeHtml(village.coord)}<br>
+                    Gruppe ${villageAnalysis.groupId} – ${escapeHtml(villageAnalysis.groupName)}<br>
+                    Gruppenziel ${formatTargetFillPercent(villageAnalysis.targetFill)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatOptionalNumber(village.storage)}<br>
+                    ${formatPercent(villageAnalysis.fillPercent)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    H ${formatNumber(village.wood)}<br>
+                    L ${formatNumber(village.clay)}<br>
+                    E ${formatNumber(village.iron)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatOptionalNumber(villageAnalysis.targetAmount)}
+                </td>
+                <td class="ds-helper-cell-number">
+                    H ${formatNumber(villageAnalysis.woodToRemove)}<br>
+                    L ${formatNumber(villageAnalysis.clayToRemove)}<br>
+                    E ${formatNumber(villageAnalysis.ironToRemove)}<br>
+                    <strong>${formatNumber(villageAnalysis.totalToRemove)}</strong>
+                </td>
+                <td class="ds-helper-cell-number">
+                    ${formatNumber(village.merchantsFree)} frei<br>
+                    ${formatOptionalNumber(villageAnalysis.capacityPerRound)} je Umlauf<br>
+                    ${villageAnalysis.estimatedRounds === null
+                ? '-'
+                : formatNumber(villageAnalysis.estimatedRounds)} theoretisch
+                </td>
+                <td class="ds-helper-cell-number">
+                    Umlauf ${escapeHtml(routeDuration)}<br>
+                    Dauer ${escapeHtml(formatOptionalDuration(villageAnalysis.estimatedTotalRoundTripSeconds))}
+                </td>
+                <td>
+                    ${escapeHtml(statusText || '-')}
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderEmptyingGroup(group) {
+        const detailRows = group.villagesData
+            .map(renderEmptyingVillageRow)
+            .join('');
+
+        return `
+            <details class="ds-helper-emptying-group">
+                <summary>
+                    Gruppe ${group.id} – ${escapeHtml(group.name)} · Ziel ${formatTargetFillPercent(group.targetFill)}<br>
+                    ${formatNumber(group.villages)} Dörfer · ${formatNumber(group.aboveTargetVillages)} über Ziel ·
+                    ${formatNumber(group.totalToRemove)} Rohstoffe ·
+                    ${formatNumber(group.estimatedRounds)} theoretische Umläufe ·
+                    ${formatNumber(group.noFreeMerchants)} ohne freie Händler ·
+                    ${formatNumber(group.noSenderRoute)} ohne aktuelle Senderroute
+                </summary>
+                <table class="vis ds-helper-table ds-helper-emptying-table">
+                    <thead>
+                        <tr>
+                            <th>Dorf / Gruppe</th>
+                            <th>Lager / Füllung</th>
+                            <th>Aktuell</th>
+                            <th>Ziel je Rohstoff</th>
+                            <th>Herauszuschaffen</th>
+                            <th>Händler / Umläufe</th>
+                            <th>Route / Dauer</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${detailRows || `
+                            <tr>
+                                <td colspan="8" class="ds-helper-empty-row">
+                                    Keine Dörfer in dieser Gruppe
+                                </td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </details>
+        `;
+    }
+
+    function renderEmptyingAnalysis(analysis) {
+        const groupsOutput = DISTANCE_GROUPS
+            .map(function (group) {
+                return renderEmptyingGroup(
+                    analysis.groups[group.id]
+                );
+            })
+            .join('');
+
+        return `
+            <div class="ds-helper-emptying-note">
+                Momentaufnahme beim Start der Berechnung · Zielwert je Dorf gemäß Distanzgruppe · theoretische Schätzung
+            </div>
+            <div class="ds-helper-emptying-total">
+                Gesamt: ${formatNumber(analysis.total.villages)} Dörfer ·
+                ${formatNumber(analysis.total.aboveTargetVillages)} über Gruppen-Ziel ·
+                ${formatNumber(analysis.total.totalToRemove)} Rohstoffe ·
+                ${formatNumber(analysis.total.estimatedRounds)} theoretische Umläufe ·
+                ${formatNumber(analysis.total.noFreeMerchants)} ohne freie Händler ·
+                ${formatNumber(analysis.total.noSenderRoute)} ohne aktuelle Senderroute
+            </div>
+            ${groupsOutput}
+        `;
+    }
+
+    function renderEmptyingAnalysisSafe(villages, transports) {
+        try {
+            return renderEmptyingAnalysis(
+                calculateEmptyingAnalysis(villages, transports)
+            );
+        } catch (error) {
+            console.error(
+                '[DS Helper] Leerungsanalyse konnte nicht gerendert werden',
+                error
+            );
+
+            return `
+                <div class="ds-helper-emptying-note">
+                    Leerungsanalyse konnte nicht vollständig erstellt werden.
+                </div>
+            `;
+        }
     }
 
     function calculateDistance(x1, y1, x2, y2) {
@@ -375,9 +1228,286 @@ Status: Entwicklung / Simulation
         };
     }
 
-    function readVillages() {
+
+    function createIncomingResourcesResult(status, message) {
+        return {
+            status: status,
+            message: message || null,
+            resourcesByVillageId: {},
+            transportCount: 0,
+            villageCount: 0,
+            totalWood: 0,
+            totalClay: 0,
+            totalIron: 0
+        };
+    }
+
+    function buildIncomingResourcesUrl() {
+        const url = new URL(window.location.href);
+
+        url.pathname = '/game.php';
+        url.searchParams.set('screen', 'overview_villages');
+        url.searchParams.set('mode', 'trader');
+        url.searchParams.set('type', 'inc');
+        url.searchParams.set('page', '-1');
+
+        return url.href;
+    }
+
+    function isValidIncomingVillageId(value) {
+        return /^\d+$/.test(String(value || '')) &&
+            Number(value) > 0;
+    }
+
+    function findIncomingTargetVillageId(row) {
+        const cells = row.children('td');
+
+        if (cells.length < 9) {
+            return null;
+        }
+
+        const targetLink = cells
+            .eq(4)
+            .find('a[href*="screen=info_village"][href*="id="]')
+            .first();
+
+        if (!targetLink.length) {
+            return null;
+        }
+
+        try {
+            const targetUrl = new URL(
+                targetLink.attr('href'),
+                window.location.origin
+            );
+            const targetVillageId = targetUrl.searchParams.get('id');
+
+            return isValidIncomingVillageId(targetVillageId)
+                ? String(targetVillageId)
+                : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function parseIncomingResourceValue(resourceCell, selector) {
+        const resourceElement = resourceCell
+            .find(selector)
+            .first();
+
+        return resourceElement.length
+            ? parseGameNumber(resourceElement.text())
+            : 0;
+    }
+
+    function parseIncomingResourcesFromRow(row) {
+        const cells = row.children('td');
+        const resourceCell = cells.eq(8);
+        const resourceBlocks = resourceCell.find('.nowrap');
+        const resources = {
+            wood: 0,
+            clay: 0,
+            iron: 0
+        };
+
+        if (resourceBlocks.length) {
+            resourceBlocks.each(function () {
+                const resourceBlock = $(this);
+                const value = parseGameNumber(
+                    resourceBlock.text()
+                );
+
+                if (resourceBlock.find('.icon.wood').length) {
+                    resources.wood += value;
+                    return;
+                }
+
+                if (resourceBlock.find('.icon.stone').length) {
+                    resources.clay += value;
+                    return;
+                }
+
+                if (resourceBlock.find('.icon.iron').length) {
+                    resources.iron += value;
+                }
+            });
+
+            return resources;
+        }
+
+        return {
+            wood: parseIncomingResourceValue(
+                resourceCell,
+                '.res.wood'
+            ),
+            clay: parseIncomingResourceValue(
+                resourceCell,
+                '.res.stone'
+            ),
+            iron: parseIncomingResourceValue(
+                resourceCell,
+                '.res.iron'
+            )
+        };
+    }
+
+    function isIncomingOverviewWithoutTrades(documentObject) {
+        const pageText = documentObject
+            .text()
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return /keine .*transporte|keine .*haendler|keine .*händler|keine .*bewegungen/i.test(
+            pageText
+        );
+    }
+
+    function addIncomingResources(result, villageId, resources) {
+        if (!result.resourcesByVillageId[villageId]) {
+            result.resourcesByVillageId[villageId] = {
+                wood: 0,
+                clay: 0,
+                iron: 0,
+                transportCount: 0
+            };
+        }
+
+        const target = result.resourcesByVillageId[villageId];
+
+        target.wood += resources.wood;
+        target.clay += resources.clay;
+        target.iron += resources.iron;
+        target.transportCount++;
+
+        result.transportCount++;
+        result.totalWood += resources.wood;
+        result.totalClay += resources.clay;
+        result.totalIron += resources.iron;
+    }
+
+    function parseIncomingResources(html) {
+        const documentObject = $('<div>').append(
+            $.parseHTML(html, document, true)
+        );
+        const table = documentObject.find('#trades_table').first();
+        const result = createIncomingResourcesResult('ready');
+
+        if (!table.length) {
+            if (isIncomingOverviewWithoutTrades(documentObject)) {
+                return result;
+            }
+
+            console.warn(
+                '[DS Helper] Eingehende Transporte konnten nicht eindeutig gelesen werden'
+            );
+
+            return createIncomingResourcesResult(
+                'warning',
+                'Eingehende Transporte konnten nicht eindeutig gelesen werden.'
+            );
+        }
+
+        table.find('tr').each(function () {
+            const row = $(this);
+
+            if (row.children('td').length < 9) {
+                return;
+            }
+
+            const villageId = findIncomingTargetVillageId(row);
+
+            if (!villageId) {
+                console.warn(
+                    '[DS Helper] Eingehender Transport konnte keinem Zieldorf zugeordnet werden',
+                    {
+                        row: row.get(0)
+                    }
+                );
+                return;
+            }
+
+            const resources = parseIncomingResourcesFromRow(row);
+
+            if (
+                resources.wood === 0 &&
+                resources.clay === 0 &&
+                resources.iron === 0
+            ) {
+                return;
+            }
+
+            addIncomingResources(result, villageId, resources);
+        });
+
+        result.villageCount = Object.keys(
+            result.resourcesByVillageId
+        ).length;
+
+        return result;
+    }
+
+    async function loadIncomingResources() {
+        try {
+            const html = await $.get(buildIncomingResourcesUrl());
+            const result = parseIncomingResources(html);
+
+            console.log(
+                '[DS Helper | Eingehende Transporte]',
+                {
+                    transportCount: result.transportCount,
+                    villageCount: result.villageCount,
+                    totalWood: result.totalWood,
+                    totalClay: result.totalClay,
+                    totalIron: result.totalIron,
+                    resourcesByVillageId: result.resourcesByVillageId
+                }
+            );
+
+            return result;
+        } catch (error) {
+            console.error(
+                '[DS Helper] Eingehende Transporte konnten nicht geladen werden',
+                error
+            );
+
+            return createIncomingResourcesResult(
+                'error',
+                'Eingehende Transporte konnten nicht geladen werden.'
+            );
+        }
+    }
+
+    function buildIncomingResourcesInfo(incomingResult) {
+        if (!incomingResult || incomingResult.status === 'error') {
+            return 'Eingehende Transporte konnten nicht geladen werden.';
+        }
+
+        if (incomingResult.status === 'warning') {
+            return escapeHtml(incomingResult.message);
+        }
+
+        if (incomingResult.transportCount === 0) {
+            return 'Keine eingehenden Transporte erkannt';
+        }
+
+        return (
+            formatNumber(incomingResult.transportCount) +
+            ' Transporte fuer ' +
+            formatNumber(incomingResult.villageCount) +
+            ' Doerfer<br>' +
+            'Holz ' +
+            formatNumber(incomingResult.totalWood) +
+            ' · Lehm ' +
+            formatNumber(incomingResult.totalClay) +
+            ' · Eisen ' +
+            formatNumber(incomingResult.totalIron)
+        );
+    }
+
+    function readVillages(incomingResourcesByVillageId) {
         const villages = [];
         const foundCoordinates = new Set();
+        const incomingResources = incomingResourcesByVillageId || {};
 
         $('.quickedit-vn').closest('tr').each(function () {
             const row = $(this);
@@ -417,6 +1547,12 @@ Status: Entwicklung / Simulation
                 coord === COIN_VILLAGE.coord;
 
             const rowData = extractRowData(row);
+            const incoming = incomingResources[villageId] || {
+                wood: 0,
+                clay: 0,
+                iron: 0,
+                transportCount: 0
+            };
 
             villages.push({
                 id: villageId,
@@ -441,6 +1577,11 @@ Status: Entwicklung / Simulation
                 wood: rowData.wood,
                 clay: rowData.clay,
                 iron: rowData.iron,
+
+                incomingWood: incoming.wood,
+                incomingClay: incoming.clay,
+                incomingIron: incoming.iron,
+                incomingTransportCount: incoming.transportCount,
 
                 storage: rowData.storage,
 
@@ -471,7 +1612,6 @@ Status: Entwicklung / Simulation
         };
     }
 
-
     function prepareSimulation(villages) {
         return villages.map(function (village) {
             const distanceGroup = getDistanceGroup(
@@ -483,19 +1623,31 @@ Status: Entwicklung / Simulation
             );
 
             const needWood = Math.max(
-                0,
-                targetAmount - village.wood
-            );
+    0,
+    targetAmount -
+        village.wood -
+        (Number.isFinite(village.incomingWood)
+            ? village.incomingWood
+            : 0)
+);
 
-            const needClay = Math.max(
-                0,
-                targetAmount - village.clay
-            );
+const needClay = Math.max(
+    0,
+    targetAmount -
+        village.clay -
+        (Number.isFinite(village.incomingClay)
+            ? village.incomingClay
+            : 0)
+);
 
-            const needIron = Math.max(
-                0,
-                targetAmount - village.iron
-            );
+const needIron = Math.max(
+    0,
+    targetAmount -
+        village.iron -
+        (Number.isFinite(village.incomingIron)
+            ? village.incomingIron
+            : 0)
+);
 
             const surplusWood = Math.max(
                 0,
@@ -959,7 +2111,6 @@ Status: Entwicklung / Simulation
         return transports;
     }
 
-
     /*
 =======================================
 Alle Gruppenflüsse auf Dorfebene
@@ -1242,7 +2393,7 @@ im Spiel ausgeführt.
                         MERCHANT_CAPACITY
                     );
 
-                    transports.push({
+                    const transport = {
                         fromGroup:
                             groupFlow.fromGroup,
 
@@ -1264,7 +2415,12 @@ im Spiel ausgeführt.
 
                         merchantsUsed:
                             merchantsUsed
-                    });
+                    };
+
+                    transport.merchantTiming =
+                        buildMerchantTiming(transport);
+
+                    transports.push(transport);
 
                     sender.woodAvailable -= wood;
                     sender.clayAvailable -= clay;
@@ -1380,12 +2536,27 @@ im Spiel ausgeführt.
             });
     }
 
+    function isTransportCompleted(transport) {
+        return Boolean(
+            transport && transport.isSent
+        );
+    }
+
+    function getActiveTransports(transports) {
+        return transports.filter(function (transport) {
+            return !isTransportCompleted(transport);
+        });
+    }
+
     function copyTransportData(transports) {
+        const activeTransports =
+            getActiveTransports(transports);
+
         const exportData = {
             version: VERSION,
             coinVillage: COIN_VILLAGE.coord,
 
-            transports: transports.map(function (transport) {
+            transports: activeTransports.map(function (transport) {
                 return {
                     from: transport.from,
                     to: transport.to,
@@ -1401,7 +2572,35 @@ im Spiel ausgeführt.
                         transport.fromGroup,
 
                     toGroup:
-                        transport.toGroup
+                        transport.toGroup,
+
+                    merchantTiming:
+                        transport.merchantTiming
+                            ? {
+                                distance:
+                                    transport.merchantTiming.distance,
+                                outboundSeconds:
+                                    Math.round(
+                                        transport.merchantTiming.outboundSeconds
+                                    ),
+                                returnSeconds:
+                                    Math.round(
+                                        transport.merchantTiming.returnSeconds
+                                    ),
+                                roundTripSeconds:
+                                    Math.round(
+                                        transport.merchantTiming.roundTripSeconds
+                                    ),
+                                outboundDuration:
+                                    formatDuration(
+                                        transport.merchantTiming.outboundSeconds
+                                    ),
+                                roundTripDuration:
+                                    formatDuration(
+                                        transport.merchantTiming.roundTripSeconds
+                                    )
+                            }
+                            : null
                 };
             })
         };
@@ -1618,18 +2817,38 @@ im Spiel ausgeführt.
         });
     }
 
+    function getActiveTransportCount(transports) {
+        return getActiveTransports(transports).length;
+    }
+
+    function getOpenedActiveTransportCount(transports) {
+        let opened = 0;
+
+        transportOpenState.openedIndexes.forEach(function (transportIndex) {
+            if (
+                transports[transportIndex] &&
+                !isTransportCompleted(transports[transportIndex])
+            ) {
+                opened++;
+            }
+        });
+
+        return opened;
+    }
+
     function getNextUnopenedTransportIndexes(
-        totalTransports,
+        transports,
         amount
     ) {
         const indexes = [];
 
         for (
             let index = 0;
-            index < totalTransports;
+            index < transports.length;
             index++
         ) {
             if (
+                isTransportCompleted(transports[index]) ||
                 transportOpenState.openedIndexes.has(index)
             ) {
                 continue;
@@ -1646,10 +2865,13 @@ im Spiel ausgeführt.
     }
 
     function updateTransportOpenProgress(
-        totalTransports
+        transports
     ) {
+        const totalTransports =
+            getActiveTransportCount(transports);
+
         const opened =
-            transportOpenState.openedIndexes.size;
+            getOpenedActiveTransportCount(transports);
 
         const allOpened =
             opened >= totalTransports;
@@ -1658,7 +2880,7 @@ im Spiel ausgeführt.
             opened +
             ' / ' +
             totalTransports +
-            ' geöffnet'
+            ' ge\u00f6ffnet'
         );
 
         $('#' + POPUP_ID + ' .ds-helper-open-batch')
@@ -1671,7 +2893,7 @@ im Spiel ausgeführt.
 
     function markTransportOpened(
         transportIndex,
-        totalTransports
+        transports
     ) {
         transportOpenState.openedIndexes.add(
             transportIndex
@@ -1694,7 +2916,7 @@ im Spiel ausgeführt.
             .text('Geöffnet');
 
         updateTransportOpenProgress(
-            totalTransports
+            transports
         );
     }
 
@@ -1708,13 +2930,13 @@ im Spiel ausgeführt.
 
         const transportIndexes =
             getNextUnopenedTransportIndexes(
-                transports.length,
+                transports,
                 amount
             );
 
         if (!transportIndexes.length) {
             updateTransportOpenProgress(
-                transports.length
+                transports
             );
 
             return;
@@ -1723,13 +2945,13 @@ im Spiel ausgeführt.
         transportOpenState.isOpening = true;
 
         updateTransportOpenProgress(
-            transports.length
+            transports
         );
 
         $('#' + POPUP_ID + '-open-progress').text(
-            transportOpenState.openedIndexes.size +
+            getOpenedActiveTransportCount(transports) +
             ' / ' +
-            transports.length +
+            getActiveTransportCount(transports) +
             ' geöffnet – Tabs werden geöffnet …'
         );
 
@@ -1755,7 +2977,7 @@ im Spiel ausgeführt.
 
             markTransportOpened(
                 transportIndex,
-                transports.length
+                transports
             );
 
             if (
@@ -1771,7 +2993,968 @@ im Spiel ausgeführt.
         transportOpenState.isOpening = false;
 
         updateTransportOpenProgress(
-            transports.length
+            transports
+        );
+    }
+
+    function checkTransportForDirectSend(
+        transport,
+        villages
+    ) {
+        const coordinatePattern =
+            /^\d{1,3}\|\d{1,3}$/;
+
+        const sourceCoordinateValid =
+            coordinatePattern.test(
+                String(transport.from || '')
+            );
+
+        const targetCoordinateValid =
+            coordinatePattern.test(
+                String(transport.to || '')
+            );
+
+        const sourceVillage = sourceCoordinateValid
+            ? villages.find(function (village) {
+                return village.coord === transport.from;
+            })
+            : null;
+
+        const targetVillage = targetCoordinateValid
+            ? villages.find(function (village) {
+                return village.coord === transport.to;
+            })
+            : null;
+
+        const sourceVillageId =
+            Number(transport.fromVillageId);
+
+        const targetVillageId =
+            targetVillage
+                ? Number(targetVillage.id)
+                : 0;
+
+        const sourceVillageIdValid =
+            Number.isSafeInteger(sourceVillageId) &&
+            sourceVillageId > 0;
+
+        const targetVillageIdValid =
+            Number.isSafeInteger(targetVillageId) &&
+            targetVillageId > 0;
+
+        const resourceNames = [
+            'wood',
+            'clay',
+            'iron'
+        ];
+
+        const resourceChecks = {};
+
+        resourceNames.forEach(function (resourceName) {
+            const resourceValue =
+                transport[resourceName];
+
+            resourceChecks[resourceName] =
+                Object.prototype.hasOwnProperty.call(
+                    transport,
+                    resourceName
+                ) &&
+                Number.isFinite(resourceValue) &&
+                Number.isInteger(resourceValue) &&
+                resourceValue >= 0;
+        });
+
+        const resourcesValid =
+            resourceChecks.wood &&
+            resourceChecks.clay &&
+            resourceChecks.iron;
+
+        const resourceTotal = resourcesValid
+            ? transport.wood +
+                transport.clay +
+                transport.iron
+            : 0;
+
+        const calculatedMerchants =
+            resourcesValid &&
+            resourceTotal > 0 &&
+            Number.isFinite(MERCHANT_CAPACITY) &&
+            MERCHANT_CAPACITY > 0
+                ? Math.ceil(
+                    resourceTotal /
+                    MERCHANT_CAPACITY
+                )
+                : 0;
+
+        const merchantCalculationValid =
+            Number.isFinite(calculatedMerchants) &&
+            Number.isInteger(calculatedMerchants) &&
+            calculatedMerchants > 0;
+
+        const checks = {
+            source:
+                sourceCoordinateValid &&
+                Boolean(sourceVillage),
+
+            target:
+                targetCoordinateValid &&
+                Boolean(targetVillage),
+
+            villageIds:
+                sourceVillageIdValid &&
+                targetVillageIdValid,
+
+            resources:
+                resourcesValid &&
+                resourceTotal > 0,
+
+            merchants:
+                merchantCalculationValid,
+
+            tribalWarsPost:
+                Boolean(window.TribalWars) &&
+                typeof window.TribalWars.post ===
+                    'function',
+
+            csrfToken:
+                typeof window.csrf_token ===
+                    'string' &&
+                window.csrf_token.trim() !== ''
+        };
+
+        const errors = [];
+
+        if (!checks.source) {
+            errors.push(
+                'Ausgangsdorf fehlt oder wurde nicht erkannt.'
+            );
+        }
+
+        if (!checks.target) {
+            errors.push(
+                'Zieldorf fehlt oder wurde nicht erkannt.'
+            );
+        }
+
+        if (!sourceVillageIdValid) {
+            errors.push(
+                'Ausgangsdorf-ID fehlt oder ist ung\u00fcltig.'
+            );
+        }
+
+        if (!targetVillageIdValid) {
+            errors.push(
+                'Zieldorf-ID fehlt oder ist ung\u00fcltig.'
+            );
+        }
+
+        const resourceLabels = {
+            wood: 'Holzmenge',
+            clay: 'Lehmmenge',
+            iron: 'Eisenmenge'
+        };
+
+        resourceNames.forEach(function (resourceName) {
+            if (!resourceChecks[resourceName]) {
+                errors.push(
+                    resourceLabels[resourceName] +
+                    ' fehlt oder ist ung\u00fcltig.'
+                );
+            }
+        });
+
+        if (resourcesValid && resourceTotal <= 0) {
+            errors.push(
+                'Die Ressourcen-Gesamtmenge muss gr\u00f6\u00dfer als 0 sein.'
+            );
+        }
+
+        if (!checks.merchants) {
+            errors.push(
+                'H\u00e4ndlerbedarf kann nicht berechnet werden.'
+            );
+        }
+
+        if (!checks.tribalWarsPost) {
+            errors.push(
+                'TribalWars.post ist nicht verf\u00fcgbar.'
+            );
+        }
+
+        const warnings = [];
+
+        if (!checks.csrfToken) {
+            warnings.push(
+                'CSRF-Token fehlt, ist f\u00fcr map_send aber nicht erforderlich.'
+            );
+        }
+
+        const success =
+            checks.source &&
+            checks.target &&
+            checks.villageIds &&
+            checks.resources &&
+            checks.merchants &&
+            checks.tribalWarsPost;
+
+        const sendData = success
+            ? {
+                sourceVillageId:
+                    sourceVillageId,
+
+                targetVillageId:
+                    targetVillageId,
+
+                wood:
+                    transport.wood,
+
+                stone:
+                    transport.clay,
+
+                iron:
+                    transport.iron,
+
+                merchantsRequired:
+                    calculatedMerchants
+            }
+            : null;
+
+        return {
+            success: success,
+
+            checks: checks,
+            errors: errors,
+            warnings: warnings,
+            sendData: sendData
+        };
+    }
+
+    function prepareTransportSendState(
+        transportIndex,
+        sendData
+    ) {
+        const currentState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        if (
+            currentState &&
+            (
+                currentState.status === 'sending' ||
+                currentState.status === 'sent'
+            )
+        ) {
+            return currentState;
+        }
+
+        if (!sendData) {
+            transportSendState.delete(
+                transportIndex
+            );
+
+            return null;
+        }
+
+        const sendPayload = Object.freeze({
+            sourceVillageId:
+                sendData.sourceVillageId,
+
+            targetVillageId:
+                sendData.targetVillageId,
+
+            wood:
+                sendData.wood,
+
+            stone:
+                sendData.stone,
+
+            iron:
+                sendData.iron,
+
+            merchantsRequired:
+                sendData.merchantsRequired
+        });
+
+        const sendState = {
+            status: 'ready',
+            sendPayload: sendPayload,
+            feedback: null
+        };
+
+        transportSendState.set(
+            transportIndex,
+            sendState
+        );
+
+        return sendState;
+    }
+
+    function validateSingleTransportPayload(
+        sendPayload
+    ) {
+        const errors = [];
+
+        if (!sendPayload) {
+            errors.push(
+                'Versanddatensatz fehlt.'
+            );
+
+            return {
+                valid: false,
+                errors: errors
+            };
+        }
+
+        if (
+            !Number.isSafeInteger(
+                sendPayload.sourceVillageId
+            ) ||
+            sendPayload.sourceVillageId <= 0
+        ) {
+            errors.push(
+                'Ausgangsdorf-ID ist ung\u00fcltig.'
+            );
+        }
+
+        if (
+            !Number.isSafeInteger(
+                sendPayload.targetVillageId
+            ) ||
+            sendPayload.targetVillageId <= 0
+        ) {
+            errors.push(
+                'Zieldorf-ID ist ung\u00fcltig.'
+            );
+        }
+
+        const resourcesValid =
+            Number.isInteger(sendPayload.wood) &&
+            Number.isFinite(sendPayload.wood) &&
+            sendPayload.wood >= 0 &&
+            Number.isInteger(sendPayload.stone) &&
+            Number.isFinite(sendPayload.stone) &&
+            sendPayload.stone >= 0 &&
+            Number.isInteger(sendPayload.iron) &&
+            Number.isFinite(sendPayload.iron) &&
+            sendPayload.iron >= 0;
+
+        if (!resourcesValid) {
+            errors.push(
+                'Rohstoffmengen sind ung\u00fcltig.'
+            );
+        } else if (
+            sendPayload.wood +
+            sendPayload.stone +
+            sendPayload.iron <= 0
+        ) {
+            errors.push(
+                'Mindestens eine Rohstoffmenge muss gr\u00f6\u00dfer als 0 sein.'
+            );
+        }
+
+        if (
+            !Number.isSafeInteger(
+                sendPayload.merchantsRequired
+            ) ||
+            sendPayload.merchantsRequired <= 0
+        ) {
+            errors.push(
+                'H\u00e4ndlerbedarf ist ung\u00fcltig.'
+            );
+        }
+
+        if (
+            !window.TribalWars ||
+            typeof window.TribalWars.post !==
+                'function'
+        ) {
+            errors.push(
+                'TribalWars.post ist nicht verf\u00fcgbar.'
+            );
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    function getTransportResponseMessage(response) {
+        if (typeof response === 'string') {
+            return response.trim();
+        }
+
+        if (!response || typeof response !== 'object') {
+            return '';
+        }
+
+        const responseJson =
+            response.responseJSON;
+
+        const messageCandidates = [
+            response.error,
+            response.message,
+            response.success,
+            responseJson && responseJson.error,
+            responseJson && responseJson.message
+        ];
+
+        for (
+            let index = 0;
+            index < messageCandidates.length;
+            index++
+        ) {
+            if (
+                typeof messageCandidates[index] ===
+                    'string' &&
+                messageCandidates[index].trim() !== ''
+            ) {
+                return messageCandidates[index].trim();
+            }
+        }
+
+        return '';
+    }
+
+    function transportResponseHasError(response) {
+        if (!response || typeof response !== 'object') {
+            return false;
+        }
+
+        return Boolean(
+            response.error ||
+            response.success === false ||
+            (
+                response.responseJSON &&
+                response.responseJSON.error
+            )
+        );
+    }
+
+    function getTransportSendButtonText(status) {
+        if (status === 'sending') {
+            return 'Wird gesendet \u2026';
+        }
+
+        if (status === 'sent') {
+            return 'Gesendet';
+        }
+
+        return 'Transport senden';
+    }
+
+    function updateTransportSendUi(transportIndex) {
+        const sendState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        if (!sendState) {
+            return;
+        }
+
+        const popup = $('#' + POPUP_ID);
+
+        const transportRow = popup.find(
+            'tr[data-transport-index="' +
+            transportIndex +
+            '"]'
+        );
+
+        const checkRow = popup.find(
+            '.ds-helper-transport-check-row' +
+            '[data-check-index="' +
+            transportIndex +
+            '"]'
+        );
+
+        const sendButton = transportRow
+            .find(
+                '.ds-helper-check-transport'
+            )
+            .add(
+                checkRow.find(
+                    '.ds-helper-send-transport'
+                )
+            );
+
+        const sendButtonText =
+            getTransportSendButtonText(
+                sendState.status
+            );
+
+        sendButton
+            .prop(
+                'disabled',
+                sendState.status !== 'ready'
+            )
+            .text(
+                sendButtonText
+            );
+
+        transportRow.find(
+            '.ds-helper-check-transport'
+        ).attr(
+            'title',
+            sendButtonText
+        );
+
+        transportRow.toggleClass(
+            'ds-helper-transport-sent',
+            sendState.status === 'sent'
+        );
+
+        const feedbackElement = checkRow
+            .find(
+                '.ds-helper-send-feedback'
+            )
+            .add(
+                transportRow.find(
+                    '.ds-helper-transport-feedback'
+                )
+            );
+
+        if (sendState.feedback) {
+            const feedbackSymbol =
+                sendState.feedback.type === 'success'
+                    ? '\u2714'
+                    : sendState.feedback.type === 'error'
+                        ? '\u2716'
+                        : '';
+
+            const feedbackDetail =
+                sendState.feedback.detail
+                    ? `
+                        <div class="ds-helper-send-feedback-detail">
+                            ${escapeHtml(
+                                sendState.feedback.detail
+                            )}
+                        </div>
+                    `
+                    : '';
+
+            feedbackElement.html(`
+                <div class="ds-helper-send-feedback-message ${
+                    'is-' + sendState.feedback.type
+                }">
+                    ${feedbackSymbol}
+                    ${escapeHtml(
+                        sendState.feedback.message
+                    )}
+                </div>
+                ${feedbackDetail}
+            `);
+        } else {
+            feedbackElement.empty();
+        }
+
+        const notice = checkRow.find(
+            '.ds-helper-check-notice'
+        );
+
+        if (sendState.status === 'sent') {
+            notice.text(
+                'Transport wurde erfolgreich gesendet.'
+            );
+        } else if (sendState.status === 'sending') {
+            notice.text(
+                'Versand wurde gestartet. Es folgt keine automatische Aktion.'
+            );
+        } else {
+            notice.text(
+                'Es wurde kein Transport versendet.'
+            );
+        }
+    }
+
+    function getVisibleTransportRowCount() {
+        return $('#' + POPUP_ID).find(
+            'tr[data-transport-index]'
+        ).length;
+    }
+
+    function updateTransportListCounter(
+        transports
+    ) {
+        const visibleTransportCount =
+            getVisibleTransportRowCount();
+
+        const transportPanel =
+            $('#' + POPUP_ID + '-transport-panel');
+
+        const isOpen =
+            transportPanel.is(':visible');
+
+        $('#' + POPUP_ID + '-transport-toggle').text(
+            (isOpen ? '\u25bc' : '\u25b6') +
+            ' Transportliste (' +
+            formatNumber(visibleTransportCount) +
+            ' Transporte)'
+        );
+
+        const transportTableBody =
+            transportPanel.find(
+                '.ds-helper-transport-table tbody'
+            );
+
+        transportTableBody.find(
+            '.ds-helper-empty-transport-row'
+        ).remove();
+
+        if (visibleTransportCount === 0) {
+            transportTableBody.append(`
+                <tr class="ds-helper-empty-transport-row">
+                    <td colspan="11" class="ds-helper-empty-row">
+                        Keine offenen Transporte mehr vorhanden.
+                    </td>
+                </tr>
+            `);
+        }
+
+        updateTransportOpenProgress(
+            transports
+        );
+
+        updateTransportTimingSummary(
+            transports
+        );
+    }
+
+    function removeSentTransportRow(
+        transportIndex,
+        transport,
+        transportRow,
+        transports
+    ) {
+        transport.isSent = true;
+
+        transportSendState.delete(
+            transportIndex
+        );
+
+        transportOpenState.openedIndexes.delete(
+            transportIndex
+        );
+
+        const popup = $('#' + POPUP_ID);
+
+        const row = transportRow && transportRow.length
+            ? transportRow
+            : popup.find(
+                'tr[data-transport-index="' +
+                transportIndex +
+                '"]'
+            );
+
+        popup.find(
+            '.ds-helper-transport-check-row' +
+            '[data-check-index="' +
+            transportIndex +
+            '"]'
+        ).remove();
+
+        row.remove();
+
+        updateTransportListCounter(
+            transports
+        );
+    }
+
+    function sendSingleTransport(
+        transportIndex,
+        transport,
+        transportRow,
+        transports
+    ) {
+        const sendState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        if (
+            !sendState ||
+            sendState.status !== 'ready'
+        ) {
+            return;
+        }
+
+        const sendPayload =
+            sendState.sendPayload;
+
+        sendState.status = 'sending';
+        sendState.feedback = {
+            type: 'info',
+            message: 'Transport wird gesendet \u2026',
+            detail: ''
+        };
+
+        updateTransportSendUi(
+            transportIndex
+        );
+
+        const validation =
+            validateSingleTransportPayload(
+                sendPayload
+            );
+
+        if (!validation.valid) {
+            sendState.status = 'ready';
+            sendState.feedback = {
+                type: 'error',
+                message:
+                    'Transport konnte nicht gesendet werden.',
+                detail:
+                    validation.errors.join(' ')
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+
+            return;
+        }
+
+        const handleSendError = function (response) {
+            if (sendState.status !== 'sending') {
+                return;
+            }
+
+            sendState.status = 'ready';
+            sendState.feedback = {
+                type: 'error',
+                message:
+                    'Transport konnte nicht gesendet werden.',
+                detail:
+                    getTransportResponseMessage(
+                        response
+                    )
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+        };
+
+        const handleSendSuccess = function (response) {
+            if (sendState.status !== 'sending') {
+                return;
+            }
+
+            if (transportResponseHasError(response)) {
+                handleSendError(response);
+                return;
+            }
+
+            sendState.status = 'sent';
+            sendState.feedback = {
+                type: 'success',
+                message:
+                    'Transport erfolgreich gesendet.',
+                detail:
+                    getTransportResponseMessage(
+                        response
+                    )
+            };
+
+            updateTransportSendUi(
+                transportIndex
+            );
+
+            removeSentTransportRow(
+                transportIndex,
+                transport,
+                transportRow,
+                transports
+            );
+        };
+
+        try {
+            TribalWars.post(
+                'market',
+                {
+                    ajaxaction: 'map_send',
+                    village:
+                        sendPayload.sourceVillageId
+                },
+                {
+                    target_id:
+                        sendPayload.targetVillageId,
+                    wood:
+                        sendPayload.wood,
+                    stone:
+                        sendPayload.stone,
+                    iron:
+                        sendPayload.iron
+                },
+                handleSendSuccess,
+                handleSendError
+            );
+        } catch (error) {
+            handleSendError(error);
+        }
+    }
+
+    function renderTransportCheckResult(
+        transportIndex,
+        result
+    ) {
+        const checkLabels = [
+            ['source', 'Quelle'],
+            ['target', 'Ziel'],
+            ['villageIds', 'Dorf-IDs'],
+            ['resources', 'Rohstoffe'],
+            ['merchants', 'H\u00e4ndler'],
+            ['tribalWarsPost', 'TribalWars.post'],
+            ['csrfToken', 'CSRF-Token']
+        ];
+
+        const checkOutput = checkLabels
+            .map(function (checkLabel) {
+                const checkPassed =
+                    result.checks[checkLabel[0]];
+
+                const checkStatus =
+                    checkPassed
+                        ? 'OK'
+                        : checkLabel[0] === 'csrfToken'
+                            ? 'Nicht erforderlich'
+                            : 'Fehler';
+
+                return `
+                    <li>
+                        ${escapeHtml(checkLabel[1])}:
+                        <strong>
+                            ${checkStatus}
+                        </strong>
+                    </li>
+                `;
+            })
+            .join('');
+
+        const errorOutput = result.errors.length
+            ? `
+                <ul class="ds-helper-check-errors">
+                    ${result.errors
+                        .map(function (errorMessage) {
+                            return `
+                                <li>
+                                    ${escapeHtml(errorMessage)}
+                                </li>
+                            `;
+                        })
+                        .join('')}
+                </ul>
+            `
+            : '';
+
+        const warningOutput = result.warnings.length
+            ? `
+                <ul class="ds-helper-check-warnings">
+                    ${result.warnings
+                        .map(function (warningMessage) {
+                            return `
+                                <li>
+                                    ${escapeHtml(warningMessage)}
+                                </li>
+                            `;
+                        })
+                        .join('')}
+                </ul>
+            `
+            : '';
+
+        const sendDataOutput = result.sendData
+            ? `
+                <div class="ds-helper-send-data-title">
+                    Versanddatensatz
+                </div>
+
+                <pre class="ds-helper-send-data">${
+                    escapeHtml(
+                        JSON.stringify(
+                            result.sendData,
+                            null,
+                            2
+                        )
+                    )
+                }</pre>
+            `
+            : '';
+
+        const sendState =
+            transportSendState.get(
+                transportIndex
+            );
+
+        const sendActionOutput = sendState
+            ? `
+                <div class="ds-helper-send-actions">
+                    <button
+                        type="button"
+                        class="ds-helper-btn ds-helper-btn-primary ds-helper-send-transport"
+                        data-transport-index="${transportIndex}"
+                        ${sendState.status === 'ready' ? '' : 'disabled'}
+                    >
+                        ${getTransportSendButtonText(
+                            sendState.status
+                        )}
+                    </button>
+
+                    <div class="ds-helper-send-feedback"></div>
+                </div>
+            `
+            : '';
+
+        const statusRow =
+            $('#' + POPUP_ID).find(
+                '.ds-helper-transport-check-row' +
+                '[data-check-index="' +
+                transportIndex +
+                '"]'
+            );
+
+        statusRow
+            .find(
+                '.ds-helper-transport-check-content'
+            )
+            .html(`
+                <div class="ds-helper-check-result ${
+                    result.success
+                        ? 'is-success'
+                        : 'is-error'
+                }">
+                    <div class="ds-helper-check-title">
+                        ${result.success ? '\u2714' : '\u2716'}
+                        Versandpr\u00fcfung ${
+                            result.success
+                                ? 'erfolgreich'
+                                : 'fehlgeschlagen'
+                        }
+                    </div>
+
+                    <ul class="ds-helper-check-list">
+                        ${checkOutput}
+                    </ul>
+
+                    ${errorOutput}
+
+                    ${warningOutput}
+
+                    ${sendDataOutput}
+
+                    ${sendActionOutput}
+
+                    <strong class="ds-helper-check-notice">
+                        Es wurde kein Transport versendet.
+                    </strong>
+                </div>
+            `);
+
+        statusRow.show();
+
+        updateTransportSendUi(
+            transportIndex
         );
     }
 
@@ -1807,7 +3990,10 @@ im Spiel ausgeführt.
         const transportRows = transports
             .map(function (transport, index) {
                 return `
-                <tr data-transport-index="${index}">
+                <tr
+                    class="${index % 2 ? 'ds-helper-transport-row-even' : ''}"
+                    data-transport-index="${index}"
+                >
                     <td class="ds-helper-cell-number">
                         ${index + 1}
                     </td>
@@ -1844,6 +4030,10 @@ im Spiel ausgeführt.
                         ${formatNumber(transport.merchantsUsed)}
                     </td>
 
+                    <td class="ds-helper-cell-center">
+                        ${buildTransportTimingCell(transport)}
+                    </td>
+
                     <td class="ds-helper-cell-action">
                         <button
                             type="button"
@@ -1852,7 +4042,28 @@ im Spiel ausgeführt.
                         >
                             Öffnen
                         </button>
+
+                        <button
+                            type="button"
+                            class="ds-helper-btn ds-helper-btn-small ds-helper-check-transport"
+                            data-transport-index="${index}"
+                        >
+                            Transport senden
+                        </button>
+
+                        <div class="ds-helper-transport-feedback"></div>
                     </td>
+                </tr>
+
+                <tr
+                    class="ds-helper-transport-check-row"
+                    data-check-index="${index}"
+                    style="display:none;"
+                >
+                    <td
+                        colspan="11"
+                        class="ds-helper-transport-check-content"
+                    ></td>
                 </tr>
             `;
             })
@@ -1871,6 +4082,7 @@ im Spiel ausgeführt.
                     <th>Lehm</th>
                     <th>Eisen</th>
                     <th>Händler</th>
+                    <th>Laufzeit</th>
                     <th>Aktion</th>
                 </tr>
             </thead>
@@ -1878,7 +4090,7 @@ im Spiel ausgeführt.
             <tbody>
                 ${transportRows || `
                     <tr>
-                        <td colspan="10" class="ds-helper-empty-row">
+                        <td colspan="11" class="ds-helper-empty-row">
                             Keine Dorftransporte erforderlich
                         </td>
                     </tr>
@@ -1906,6 +4118,8 @@ im Spiel ausgeführt.
                     <th class="ds-helper-cell-number">
                         ${formatNumber(totalMerchants)}
                     </th>
+
+                    <th></th>
 
                     <th></th>
                 </tr>
@@ -2131,6 +4345,10 @@ im Spiel ausgeführt.
     }
 
     function removeExistingPopup() {
+        if (popupDragState.stopDragging) {
+            popupDragState.stopDragging();
+        }
+
         $('#' + POPUP_ID).remove();
     }
 
@@ -2153,7 +4371,7 @@ im Spiel ausgeführt.
             if (groupId !== lastGroupId) {
                 rows.push(`
                 <tr class="ds-helper-group-separator">
-                    <td colspan="13">
+                    <td colspan="16">
                         Gruppe ${groupId} – ${escapeHtml(
                     village.simulation.distanceGroupName
                 )}
@@ -2199,6 +4417,18 @@ im Spiel ausgeführt.
                     </td>
 
                     <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${formatNumber(village.incomingWood)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${formatNumber(village.incomingClay)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
+                        ${formatNumber(village.incomingIron)}
+                    </td>
+
+                    <td class="ds-helper-cell-number" style="background:${rowColor} !important;">
                         ${formatNumber(village.storage)}
                     </td>
 
@@ -2238,7 +4468,96 @@ im Spiel ausgeführt.
         return rows.join('');
     }
 
-    function showPopup(allVillages, sortedVillages) {
+    function isPopupDragStartBlocked(target) {
+        return $(target).closest(
+            'button, input, select, textarea, a, table, ' +
+            '.ds-helper-scroll-box, .ds-helper-emptying-panel, ' +
+            '.ds-helper-emptying-group'
+        ).length > 0;
+    }
+
+    function clampPopupPosition(left, top, popup) {
+        const margin = 10;
+        const width = popup.outerWidth();
+        const height = popup.outerHeight();
+        const viewportWidth = $(window).width();
+        const viewportHeight = $(window).height();
+
+        return {
+            left: Math.min(
+                Math.max(margin, left),
+                Math.max(margin, viewportWidth - width - margin)
+            ),
+            top: Math.min(
+                Math.max(margin, top),
+                Math.max(margin, viewportHeight - height - margin)
+            )
+        };
+    }
+
+    function enablePopupDragging() {
+        const popup = $('#' + POPUP_ID);
+        const header = popup.find('.ds-helper-header');
+
+        if (!popup.length || !header.length) {
+            return;
+        }
+
+        header.on('mousedown', function (event) {
+            if (event.button !== 0 || isPopupDragStartBlocked(event.target)) {
+                return;
+            }
+
+            const startOffset = popup.offset();
+            const startX = event.clientX;
+            const startY = event.clientY;
+            let isDragging = true;
+
+            popup.css({
+                left: startOffset.left,
+                top: startOffset.top,
+                transform: 'none'
+            });
+
+            header.addClass('ds-helper-header-dragging');
+            event.preventDefault();
+
+            function stopDragging() {
+                if (!isDragging) {
+                    return;
+                }
+
+                isDragging = false;
+                header.removeClass('ds-helper-header-dragging');
+                $(document)
+                    .off('mousemove.dsHelperPraegeDrag')
+                    .off('mouseup.dsHelperPraegeDrag');
+                popupDragState.stopDragging = null;
+            }
+
+            popupDragState.stopDragging = stopDragging;
+
+            $(document)
+                .on('mousemove.dsHelperPraegeDrag', function (moveEvent) {
+                    if (!isDragging) {
+                        return;
+                    }
+
+                    const nextPosition = clampPopupPosition(
+                        startOffset.left + moveEvent.clientX - startX,
+                        startOffset.top + moveEvent.clientY - startY,
+                        popup
+                    );
+
+                    popup.css({
+                        left: nextPosition.left,
+                        top: nextPosition.top
+                    });
+                })
+                .on('mouseup.dsHelperPraegeDrag', stopDragging);
+        });
+    }
+    function showPopup(allVillages, sortedVillages, incomingResult) {
         removeExistingPopup();
 
         const coinVillageFound = allVillages.some(
@@ -2286,7 +4605,6 @@ im Spiel ausgeführt.
                 groupFlowResult.flows,
                 villagePools
             );
-
 
         const senderStatistics =
             buildSenderStatistics(
@@ -2401,7 +4719,8 @@ im Spiel ausgeführt.
         ">
             <style>
                 #${POPUP_ID} .ds-helper-content { padding:12px; }
-                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px 10px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); cursor:move; user-select:none; }
+                #${POPUP_ID} .ds-helper-header-dragging { cursor:grabbing; }
                 #${POPUP_ID} .ds-helper-title-main { display:block; font-size:18px; line-height:1.15; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-sub { display:block; margin-top:2px; font-size:13px; line-height:1.2; font-weight:700; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-title-version { display:block; margin-top:3px; font-size:11px; line-height:1.2; font-weight:400; color:var(--ds-helper-text); }
@@ -2423,6 +4742,9 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-cell-center,
                 #${POPUP_ID} .ds-helper-cell-action,
                 #${POPUP_ID} .ds-helper-cell-coord { text-align:center; white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-cell-action .ds-helper-btn + .ds-helper-btn { margin-left:4px; }
+                #${POPUP_ID} .ds-helper-transport-feedback { margin-top:4px; min-height:14px; max-width:230px; white-space:normal; text-align:left; font-size:11px; line-height:1.35; }
+                #${POPUP_ID} .ds-helper-transport-feedback .ds-helper-send-feedback-message { padding-top:0; }
                 #${POPUP_ID} .ds-helper-village-name-cell { text-align:left; white-space:nowrap; padding-left:10px; }
                 #${POPUP_ID} .ds-helper-rank-cell { border-right:1px solid var(--ds-helper-border); padding-right:10px; }
                 #${POPUP_ID} .ds-helper-village-table tbody tr:not(.ds-helper-group-separator):hover td { outline:1px solid rgba(36,36,36,0.18); outline-offset:-1px; font-weight:600; }
@@ -2446,10 +4768,42 @@ im Spiel ausgeführt.
                 #${POPUP_ID} .ds-helper-transport-toggle { width:100%; text-align:left; margin:14px 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-transport-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
                 #${POPUP_ID} .ds-helper-progress { margin-left:auto; white-space:nowrap; color:var(--ds-helper-text); font-weight:700; }
-                #${POPUP_ID} .ds-helper-transport-table tbody tr:nth-child(even),
+                #${POPUP_ID} .ds-helper-timing-summary { margin:0 0 8px; padding:9px 11px; border:1px solid var(--ds-helper-border); border-left:4px solid var(--ds-helper-accent); border-radius:4px; background:var(--ds-helper-muted); color:var(--ds-helper-text); font-size:12px; line-height:1.45; }
+                #${POPUP_ID} .ds-helper-timing-title { margin-bottom:3px; font-weight:700; }
+                #${POPUP_ID} .ds-helper-timing-line { margin-top:2px; }
+                #${POPUP_ID} .ds-helper-timing-groups { display:flex; flex-wrap:wrap; gap:4px 18px; margin-top:3px; }
+                #${POPUP_ID} .ds-helper-timing-groups span { white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-emptying-toggle { width:100%; text-align:left; margin:0 0 8px; background:var(--ds-helper-bg); color:var(--ds-helper-text); border-bottom:2px solid var(--ds-helper-accent); border-radius:0; padding:7px 0 6px; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-emptying-toggle:hover:not(:disabled) { background:var(--ds-helper-bg); color:var(--ds-helper-accent); filter:none; box-shadow:none; }
+                #${POPUP_ID} .ds-helper-emptying-panel { display:none; margin:0 0 10px; padding:9px 11px; border:1px solid var(--ds-helper-border); border-left:4px solid var(--ds-helper-accent); border-radius:4px; background:var(--ds-helper-muted); color:var(--ds-helper-text); font-size:12px; line-height:1.45; }
+                #${POPUP_ID} .ds-helper-emptying-note { margin-bottom:5px; font-weight:700; }
+                #${POPUP_ID} .ds-helper-emptying-total { margin-bottom:8px; }
+                #${POPUP_ID} .ds-helper-emptying-group { margin-top:6px; }
+                #${POPUP_ID} .ds-helper-emptying-group summary { cursor:pointer; font-weight:700; }
+                #${POPUP_ID} .ds-helper-emptying-table { margin-top:6px; font-size:11px; }
+                #${POPUP_ID} .ds-helper-emptying-table td { vertical-align:top; }
+                #${POPUP_ID} .ds-helper-transport-table tbody tr.ds-helper-transport-row-even,
                 #${POPUP_ID} .ds-helper-stat-table tbody tr:nth-child(even) { background:var(--ds-helper-muted); }
                 #${POPUP_ID} .ds-helper-transport-table tbody tr:hover,
                 #${POPUP_ID} .ds-helper-stat-table tbody tr:hover { background:var(--ds-helper-soft); }
+                #${POPUP_ID} .ds-helper-transport-check-row:hover { background:var(--ds-helper-bg); }
+                #${POPUP_ID} .ds-helper-transport-check-row td { padding:0 10px 10px; background:var(--ds-helper-bg) !important; border-bottom:1px solid var(--ds-helper-border); }
+                #${POPUP_ID} .ds-helper-check-result { padding:9px 11px; border:1px solid var(--ds-helper-border); border-left:4px solid var(--ds-helper-accent); border-radius:4px; background:var(--ds-helper-muted); text-align:left; }
+                #${POPUP_ID} .ds-helper-check-title { margin-bottom:6px; color:var(--ds-helper-text); font-size:12px; font-weight:700; }
+                #${POPUP_ID} .ds-helper-check-result.is-error .ds-helper-check-title { color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-check-list { display:flex; flex-wrap:wrap; gap:4px 18px; margin:0 0 7px; padding:0; list-style:none; }
+                #${POPUP_ID} .ds-helper-check-list li { white-space:nowrap; }
+                #${POPUP_ID} .ds-helper-check-errors { margin:0 0 7px; padding-left:18px; color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-check-warnings { margin:0 0 7px; padding-left:18px; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-send-data-title { margin:9px 0 5px; color:var(--ds-helper-text); font-weight:700; }
+                #${POPUP_ID} .ds-helper-send-data { max-width:100%; margin:0 0 8px; padding:8px 10px; overflow:auto; box-sizing:border-box; border:1px solid var(--ds-helper-border); border-radius:4px; background:var(--ds-helper-bg); color:var(--ds-helper-text); font-family:Consolas,Monaco,monospace; font-size:11px; line-height:1.45; }
+                #${POPUP_ID} .ds-helper-send-actions { display:flex; align-items:flex-start; gap:10px; margin:8px 0; flex-wrap:wrap; }
+                #${POPUP_ID} .ds-helper-send-feedback { flex:1 1 320px; min-height:30px; }
+                #${POPUP_ID} .ds-helper-send-feedback-message { padding-top:6px; color:var(--ds-helper-text); font-weight:700; }
+                #${POPUP_ID} .ds-helper-send-feedback-message.is-error { color:var(--ds-helper-accent); }
+                #${POPUP_ID} .ds-helper-send-feedback-detail { margin-top:3px; color:var(--ds-helper-text); }
+                #${POPUP_ID} .ds-helper-transport-sent { outline:2px solid var(--ds-helper-accent); outline-offset:-2px; }
+                #${POPUP_ID} .ds-helper-check-notice { display:block; color:var(--ds-helper-text); }
                 #${POPUP_ID} .ds-helper-total-row th { background:var(--ds-helper-text) !important; color:var(--ds-helper-bg) !important; font-weight:700; border-top:3px solid var(--ds-helper-accent); }
                 #${POPUP_ID} .ds-helper-empty-row { text-align:center; padding:9px; color:var(--ds-helper-text); background:var(--ds-helper-bg); }
             </style>
@@ -2486,6 +4840,14 @@ im Spiel ausgeführt.
                             <span class="ds-helper-info-label">Ungenutzte Dörfer</span>
                             <span class="ds-helper-info-value">${parseErrors}</span>
                         </div>
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Händlerlaufzeit</span>
+                            <span id="${POPUP_ID}-merchant-speed-info" class="ds-helper-info-value">${buildMerchantSpeedInfo()}</span>
+                        </div>
+                        <div class="ds-helper-info-row">
+                            <span class="ds-helper-info-label">Laufende Eingaenge</span>
+                            <span class="ds-helper-info-value">${buildIncomingResourcesInfo(incomingResult)}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -2502,6 +4864,9 @@ im Spiel ausgeführt.
                                 <th style="width:95px;">Holz</th>
                                 <th style="width:95px;">Lehm</th>
                                 <th style="width:95px;">Eisen</th>
+                                <th style="width:105px;">Unterwegs Holz</th>
+                                <th style="width:105px;">Unterwegs Lehm</th>
+                                <th style="width:105px;">Unterwegs Eisen</th>
                                 <th style="width:95px;">Lager</th>
                                 <th style="width:95px;">Soll</th>
                                 <th style="width:95px;">Bedarf Holz</th>
@@ -2514,15 +4879,24 @@ im Spiel ausgeführt.
                     </table>
                 </div>
 
-                <button type="button" id="${POPUP_ID}-transport-toggle" class="ds-helper-btn ds-helper-transport-toggle">▼ Transportliste (${formatNumber(allVillageFlows.length)} Transporte)</button>
+                <button type="button" id="${POPUP_ID}-transport-toggle" class="ds-helper-btn ds-helper-transport-toggle">▼ Transportliste (${formatNumber(getActiveTransportCount(allVillageFlows))} Transporte)</button>
 
                 <div class="ds-helper-button-row">
                     <button type="button" id="${POPUP_ID}-copy-transports" class="ds-helper-btn ds-helper-btn-primary">Transportliste kopieren</button>
                     <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="30">Nächste 30 Tabs öffnen</button>
                     <button type="button" class="ds-helper-btn ds-helper-btn-primary ds-helper-open-batch" data-batch-size="50">Nächste 50 Tabs öffnen</button>
-                    <strong id="${POPUP_ID}-open-progress" class="ds-helper-progress">0 / ${allVillageFlows.length} geöffnet</strong>
+                    <strong id="${POPUP_ID}-open-progress" class="ds-helper-progress">0 / ${getActiveTransportCount(allVillageFlows)} geöffnet</strong>
                 </div>
 
+                <div id="${POPUP_ID}-transport-timing-summary" class="ds-helper-timing-summary">
+                    ${renderTransportTimingSummary(calculateTransportTimingSummary(allVillageFlows))}
+                </div>
+
+                <button type="button" id="${POPUP_ID}-emptying-toggle" class="ds-helper-btn ds-helper-emptying-toggle">▶ Leerungsanalyse nach Gruppen-Zielwerten</button>
+
+                <div id="${POPUP_ID}-emptying-panel" class="ds-helper-emptying-panel">
+                    ${renderEmptyingAnalysisSafe(allVillages, allVillageFlows)}
+                </div>
                 <div id="${POPUP_ID}-transport-panel" class="ds-helper-scroll-box ds-helper-transport-scroll">
                     ${transportOutput}
                 </div>
@@ -2561,6 +4935,7 @@ ${groupFlowOutput}
     `;
 
         $('body').append(popupHtml);
+        enablePopupDragging();
 
         $('#' + POPUP_ID + ' tbody tr').each(
             function () {
@@ -2596,6 +4971,109 @@ ${groupFlowOutput}
                 );
             }
         );
+        $('#' + POPUP_ID + ' .ds-helper-check-transport').on(
+            'click',
+            function () {
+                const transportIndex = Number(
+                    $(this).attr(
+                        'data-transport-index'
+                    )
+                );
+
+                const transport =
+                    allVillageFlows[
+                    transportIndex
+                    ];
+
+                if (!transport) {
+                    UI.ErrorMessage(
+                        'Der Transport wurde nicht gefunden.',
+                        5000
+                    );
+
+                    return;
+                }
+
+                const checkResult =
+                    checkTransportForDirectSend(
+                        transport,
+                        sortedVillages
+                    );
+
+                const sendState =
+                    prepareTransportSendState(
+                        transportIndex,
+                        checkResult.sendData
+                    );
+
+                if (!sendState) {
+                    const errorMessage =
+                        checkResult.errors.join(' ') ||
+                        'Transport konnte nicht vorbereitet werden.';
+
+                    $(this)
+                        .closest('tr')
+                        .find(
+                            '.ds-helper-transport-feedback'
+                        )
+                        .html(`
+                            <div class="ds-helper-send-feedback-message is-error">
+                                \u2716 ${escapeHtml(errorMessage)}
+                            </div>
+                        `);
+
+                    UI.ErrorMessage(
+                        errorMessage,
+                        5000
+                    );
+
+                    return;
+                }
+
+                sendSingleTransport(
+                    transportIndex,
+                    transport,
+                    $(this).closest('tr'),
+                    allVillageFlows
+                );
+            }
+        );
+        $('#' + POPUP_ID).on(
+            'click',
+            '.ds-helper-send-transport',
+            function () {
+                const transportIndex = Number(
+                    $(this).attr(
+                        'data-transport-index'
+                    )
+                );
+
+                const transport =
+                    allVillageFlows[
+                    transportIndex
+                    ];
+
+                if (!transport) {
+                    UI.ErrorMessage(
+                        'Der Transport wurde nicht gefunden.',
+                        5000
+                    );
+
+                    return;
+                }
+
+                sendSingleTransport(
+                    transportIndex,
+                    transport,
+                    $('#' + POPUP_ID).find(
+                        'tr[data-transport-index="' +
+                        transportIndex +
+                        '"]'
+                    ),
+                    allVillageFlows
+                );
+            }
+        );
         $('#' + POPUP_ID + ' .ds-helper-open-transport').on(
             'click',
             function () {
@@ -2627,7 +5105,7 @@ ${groupFlowOutput}
                 if (opened) {
                     markTransportOpened(
                         transportIndex,
-                        allVillageFlows.length
+                        allVillageFlows
                     );
                 }
             }
@@ -2648,6 +5126,21 @@ ${groupFlowOutput}
             }
         );
 
+        $('#' + POPUP_ID + '-emptying-toggle').on(
+            'click',
+            function () {
+                const emptyingPanel =
+                    $('#' + POPUP_ID + '-emptying-panel');
+                const isOpen = emptyingPanel.is(':visible');
+
+                emptyingPanel.toggle(!isOpen);
+
+                $(this).text(
+                    (isOpen ? '▶' : '▼') +
+                    ' Leerungsanalyse nach Gruppen-Zielwerten'
+                );
+            }
+        );
         $('#' + POPUP_ID + '-transport-toggle').on(
             'click',
             function () {
@@ -2660,13 +5153,13 @@ ${groupFlowOutput}
                 $(this).text(
                     (isOpen ? '▶' : '▼') +
                     ' Transportliste (' +
-                    formatNumber(allVillageFlows.length) +
+                    formatNumber(getVisibleTransportRowCount()) +
                     ' Transporte)'
                 );
             }
         );
         updateTransportOpenProgress(
-            allVillageFlows.length
+            allVillageFlows
         );
 
         $('#' + POPUP_ID + '-save-coin-village').on(
@@ -2695,9 +5188,11 @@ ${groupFlowOutput}
         );
     }
 
-
-    function init() {
-        const allVillages = readVillages();
+    async function init() {
+        const incomingResult = await loadIncomingResources();
+        const allVillages = readVillages(
+            incomingResult.resourcesByVillageId
+        );
 
         if (!allVillages.length) {
             UI.ErrorMessage(
@@ -2723,13 +5218,15 @@ ${groupFlowOutput}
 
         showPopup(
             preparedVillages,
-            sortedVillages
+            sortedVillages,
+            incomingResult
         );
 
         console.log(
             '[DS Helper | Prägevorbereitung]',
             {
                 version: VERSION,
+                incomingTransports: incomingResult.transportCount,
                 parseErrors: allVillages.filter(v => v.parseError)
             }
         );
