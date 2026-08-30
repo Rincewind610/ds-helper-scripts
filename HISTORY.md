@@ -13,6 +13,14 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-30 - ds-report-overview.user.js v0.1.18
+
+- Version von ds-report-overview.user.js auf 0.1.18 angehoben.
+- Linkziel fuer den Verteidiger-Dorfnamen nun auch bei rosa markierten eigenen Verteidiger-Berichten mit 0 Spaehern auf den Versammlungsplatz im Modus Massenunterstuetzung umgestellt.
+- Bestehende Linkaenderung fuer rote/dunkelrote Deff-Warnungen bleibt erhalten; Angreifer-Links, Scharf-Markierung, Fake-Erkennung, automatisches Anhaken, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-30 - ds-report-overview.user.js v0.1.17
 
 - Version von ds-report-overview.user.js auf 0.1.17 angehoben.

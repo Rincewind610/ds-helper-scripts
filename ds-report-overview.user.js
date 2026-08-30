@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.17
+// @version      0.1.18
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=report\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.17
+Version: 0.1.18
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,7 +28,7 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.17';
+    const VERSION = '0.1.18';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
@@ -720,7 +720,7 @@ Berichtsubersicht an.
             title: title,
             compactInfo: createCompactInfoLine(title, infoElement, {
                 ownVillage: Boolean(options && options.ownVillage),
-                callSupportLink: Boolean(options && options.markNoDeff && title === 'Verteidiger')
+                callSupportLink: Boolean(options && (options.markNoDeff || options.markNoSpy) && title === 'Verteidiger')
             }),
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
