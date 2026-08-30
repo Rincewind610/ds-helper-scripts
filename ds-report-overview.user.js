@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.21
+// @version      0.1.24
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.21
+Version: 0.1.24
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,12 +28,13 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.21';
+    const VERSION = '0.1.24';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
     const REQUEST_DELAY_MS = 100;
     const AUTO_DEFF_PARAM = 'dshelper_auto_deff';
+    const AUTO_FLEX_PARAM = 'dshelper_auto_flex';
     const AUTO_DEFF_MAX_ATTEMPTS = 20;
     const AUTO_DEFF_RETRY_DELAY_MS = 250;
     const MAX_FAKE_SPIES = 10;
@@ -66,6 +67,11 @@ Berichtsubersicht an.
     function initReportOverview() {
         if (shouldAutoClickDeffSend()) {
             startAutoDeffSendClick();
+            return;
+        }
+
+        if (shouldAutoRequestFlexDeff()) {
+            startAutoFlexDeffRequest();
             return;
         }
 
@@ -729,7 +735,8 @@ Berichtsubersicht an.
             compactInfo: createCompactInfoLine(title, infoElement, {
                 ownVillage: Boolean(options && options.ownVillage),
                 callSupportLink: Boolean(options && (options.markNoDeff || options.markNoSpy) && title === 'Verteidiger'),
-                autoDeffClick: Boolean(options && options.markNoDeff && title === 'Verteidiger')
+                autoDeffClick: Boolean(options && options.markNoDeff && title === 'Verteidiger'),
+                autoFlexRequest: Boolean(options && !options.markNoDeff && options.markNoSpy && title === 'Verteidiger')
             }),
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
@@ -746,6 +753,7 @@ Berichtsubersicht an.
         const ownVillage = Boolean(options && options.ownVillage);
         const callSupportLink = Boolean(options && options.callSupportLink);
         const autoDeffClick = Boolean(options && options.autoDeffClick);
+        const autoFlexRequest = Boolean(options && options.autoFlexRequest);
 
         const label = document.createElement('strong');
         label.textContent = title + ': ';
@@ -764,7 +772,7 @@ Berichtsubersicht an.
         values.forEach(function (value, index) {
             if (index > 0) {
                 line.appendChild(document.createTextNode(' - '));
-                prepareVillageLinks(value, ownVillage, callSupportLink, autoDeffClick);
+                prepareVillageLinks(value, ownVillage, callSupportLink, autoDeffClick, autoFlexRequest);
             }
             appendCompactValue(line, value);
         });
@@ -807,7 +815,7 @@ Berichtsubersicht an.
         }
     }
 
-    function prepareVillageLinks(root, ownVillage, callSupportLink, autoDeffClick) {
+    function prepareVillageLinks(root, ownVillage, callSupportLink, autoDeffClick, autoFlexRequest) {
         Array.from(root.querySelectorAll('a[href]')).forEach(function (link) {
             const url = getVillageInfoUrl(link);
             if (!url) {
@@ -816,7 +824,7 @@ Berichtsubersicht an.
 
             if (ownVillage) {
                 const ownVillageUrl = callSupportLink
-                    ? createOwnVillageCallSupportUrl(url, autoDeffClick)
+                    ? createOwnVillageCallSupportUrl(url, autoDeffClick, autoFlexRequest)
                     : createOwnVillageOverviewUrl(url);
                 if (ownVillageUrl) {
                     link.href = ownVillageUrl;
@@ -857,7 +865,7 @@ Berichtsubersicht an.
         return overviewUrl.toString();
     }
 
-    function createOwnVillageCallSupportUrl(infoVillageUrl, autoDeffClick) {
+    function createOwnVillageCallSupportUrl(infoVillageUrl, autoDeffClick, autoFlexRequest) {
         const villageId = infoVillageUrl.searchParams.get('id');
         if (!villageId) {
             return null;
@@ -870,6 +878,9 @@ Berichtsubersicht an.
         callSupportUrl.searchParams.set('target', villageId);
         if (autoDeffClick) {
             callSupportUrl.searchParams.set(AUTO_DEFF_PARAM, '1');
+        }
+        if (autoFlexRequest) {
+            callSupportUrl.searchParams.set(AUTO_FLEX_PARAM, '1');
         }
         return callSupportUrl.toString();
     }
@@ -1087,9 +1098,92 @@ Berichtsubersicht an.
         tryClickDeffSend();
     }
 
+    function shouldAutoRequestFlexDeff() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_FLEX_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoFlexDeffRequest() {
+        let attempts = 0;
+
+        function tryClickFlex() {
+            attempts += 1;
+
+            const flexControl = findVisibleFlexGroupLink();
+            if (flexControl) {
+                removeAutoFlexMarkerFromCurrentUrl();
+                prepareControlUrlWithoutAutoFlexMarker(flexControl);
+                debugLog('Flex automatisch geklickt:', attempts);
+                flexControl.click();
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickFlex, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('Flex nicht gefunden.');
+        }
+
+        tryClickFlex();
+    }
+
+    function removeAutoFlexMarkerFromCurrentUrl() {
+        const cleanUrl = createUrlWithoutAutoFlexMarker(window.location.href);
+        if (cleanUrl) {
+            window.history.replaceState(null, document.title, cleanUrl);
+        }
+    }
+
+    function prepareControlUrlWithoutAutoFlexMarker(element) {
+        const link = element.closest('a[href]');
+        if (link) {
+            const linkUrl = createUrlWithoutAutoFlexMarker(link.href);
+            if (linkUrl) {
+                link.href = linkUrl;
+            }
+            return;
+        }
+
+        const form = element.closest('form[action]');
+        if (form) {
+            const formUrl = createUrlWithoutAutoFlexMarker(form.action);
+            if (formUrl) {
+                form.action = formUrl;
+            }
+        }
+    }
+
+    function createUrlWithoutAutoFlexMarker(value) {
+        const url = new URL(value, window.location.origin);
+        if (!/^https?:$/.test(url.protocol)) {
+            return null;
+        }
+
+        url.searchParams.delete(AUTO_FLEX_PARAM);
+        return url.toString();
+    }
+
+    function findVisibleFlexGroupLink() {
+        return Array.from(document.querySelectorAll('a[href]')).find(function (link) {
+            return isVisibleElement(link) && normalizeFlexLinkText(link.textContent) === 'Flex';
+        }) || null;
+    }
+
+    function normalizeFlexLinkText(value) {
+        return cleanText(value).replace(/^\[\s*/, '').replace(/\s*\]$/, '');
+    }
+
     function findDeffSendControl() {
+        return findVisibleControlByText('Deff senden');
+    }
+
+    function findVisibleControlByText(text) {
         return Array.from(document.querySelectorAll('a, button, input[type=button], input[type=submit]')).find(function (element) {
-            return isVisibleElement(element) && getVisibleControlText(element) === 'Deff senden';
+            return isVisibleElement(element) && getVisibleControlText(element) === text;
         }) || null;
     }
 

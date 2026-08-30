@@ -13,6 +13,33 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-30 - ds-report-overview.user.js v0.1.24
+
+- Version von ds-report-overview.user.js auf 0.1.24 angehoben.
+- Flex-Auto-Klick fuer rosa Verteidiger-Warnungen sucht nun gezielt nach sichtbaren `a`-Links und erkennt sowohl `Flex` als auch `[Flex]` durch Trimmen und Entfernen aeusserer eckiger Klammern.
+- Der rosa Ablauf klickt weiterhin nur `Flex` und weder `Deff senden` noch `Deff anfordern`; rote/dunkelrote Deff-Warnungen bleiben unveraendert.
+- Fake-Erkennung, Scharf-Markierung, rosa/rote Markierung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
+### 2026-08-30 - ds-report-overview.user.js v0.1.23
+
+- Version von ds-report-overview.user.js auf 0.1.23 angehoben.
+- Rosa Verteidiger-Warnungen mit 0 Spaehern klicken auf der Massenunterstuetzungsseite nur noch automatisch `Flex` an.
+- Der rosa Zielseitenablauf klickt weder `Deff senden` noch `Deff anfordern` und entfernt den Flex-Marker vor dem Klick, damit nach einem moeglichen Reload nichts Weiteres automatisch laeuft.
+- Rote/dunkelrote Deff-Warnungen behalten Massenunterstuetzung, `dshelper_auto_deff=1` und Auto-Oeffnen von `Deff senden`; Fake-Erkennung, Scharf-Markierung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
+### 2026-08-30 - ds-report-overview.user.js v0.1.22
+
+- Version von ds-report-overview.user.js auf 0.1.22 angehoben.
+- Rosa Verteidiger-Warnungen mit 0 Spaehern erhalten nun den Marker `dshelper_auto_flex=1` auf dem Massenunterstuetzungs-Link, aber weiterhin keinen `dshelper_auto_deff=1`-Marker.
+- Auf `screen=place&mode=call` waehlt das Skript bei `dshelper_auto_flex=1` automatisch `Flex` und klickt danach `Deff anfordern`; ein `dshelper_auto_flex_ready=1`-Marker haelt den Ablauf nach einem moeglichen Reload fest.
+- Rote/dunkelrote Deff-Warnungen behalten Massenunterstuetzung, `dshelper_auto_deff=1` und Auto-Oeffnen von `Deff senden`; Fake-Erkennung, Scharf-Markierung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-30 - ds-report-overview.user.js v0.1.21
 
 - Version von ds-report-overview.user.js auf 0.1.21 angehoben.
