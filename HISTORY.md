@@ -13,6 +13,16 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-30 - ds-report-overview.user.js v0.1.19
+
+- Version von ds-report-overview.user.js auf 0.1.19 angehoben.
+- Warn-Links zur Massenunterstuetzung erhalten den internen Marker `dshelper_auto_deff=1`.
+- Userscript darf nun auch auf `screen=place` laufen und klickt auf `screen=place&mode=call` ausschliesslich mit diesem Marker einmalig auf ein sichtbares Element mit dem Text `Deff senden`.
+- Auto-Klick versucht den Button/Link kurz mehrfach zu finden; ohne Marker oder auf anderen Seiten passiert kein automatischer Klick.
+- Bestehende Berichte-Auswertung, Scharf-Markierung, Fake-Erkennung, Verteidiger-Warnungen, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-30 - ds-report-overview.user.js v0.1.18
 
 - Version von ds-report-overview.user.js auf 0.1.18 angehoben.

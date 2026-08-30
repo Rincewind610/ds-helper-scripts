@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.18
+// @version      0.1.19
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
-// @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=report\b)[^#]*$/
+// @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.18
+Version: 0.1.19
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,11 +28,14 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.18';
+    const VERSION = '0.1.19';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
     const REQUEST_DELAY_MS = 100;
+    const AUTO_DEFF_PARAM = 'dshelper_auto_deff';
+    const AUTO_DEFF_MAX_ATTEMPTS = 20;
+    const AUTO_DEFF_RETRY_DELAY_MS = 250;
     const MAX_FAKE_SPIES = 10;
     const MAX_FAKE_CATAPULTS = 14;
     const MAX_SHARP_ATTACKER_UNITS = 1000;
@@ -61,6 +64,11 @@ Berichtsubersicht an.
     const SCRIPT_PREFIX = '[DS Helper Berichtsubersicht]';
 
     function initReportOverview() {
+        if (shouldAutoClickDeffSend()) {
+            startAutoDeffSendClick();
+            return;
+        }
+
         if (!isReportScreen()) {
             debugLog('Keine Berichtsubersicht, Script beendet.');
             return;
@@ -858,6 +866,7 @@ Berichtsubersicht an.
         callSupportUrl.searchParams.set('screen', 'place');
         callSupportUrl.searchParams.set('mode', 'call');
         callSupportUrl.searchParams.set('target', villageId);
+        callSupportUrl.searchParams.set(AUTO_DEFF_PARAM, '1');
         return callSupportUrl.toString();
     }
 
@@ -1041,6 +1050,55 @@ Berichtsubersicht an.
             .replace(/\u00f6/g, 'oe')
             .replace(/\u00fc/g, 'ue')
             .replace(/\u00df/g, 'ss');
+    }
+
+    function shouldAutoClickDeffSend() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_DEFF_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoDeffSendClick() {
+        let attempts = 0;
+
+        function tryClickDeffSend() {
+            attempts += 1;
+
+            const deffSendControl = findDeffSendControl();
+            if (deffSendControl) {
+                debugLog('Deff senden automatisch geklickt:', attempts);
+                deffSendControl.click();
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickDeffSend, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('Deff senden nicht gefunden.');
+        }
+
+        tryClickDeffSend();
+    }
+
+    function findDeffSendControl() {
+        return Array.from(document.querySelectorAll('a, button, input[type=button], input[type=submit]')).find(function (element) {
+            return isVisibleElement(element) && getVisibleControlText(element) === 'Deff senden';
+        }) || null;
+    }
+
+    function getVisibleControlText(element) {
+        if (element.matches('input')) {
+            return cleanText(element.value);
+        }
+
+        return cleanText(element.textContent);
+    }
+
+    function isVisibleElement(element) {
+        return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
     }
 
     function debugPreviewStructure(reportId, doc, dialogHtml) {
