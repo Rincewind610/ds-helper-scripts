@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.16
+// @version      0.1.17
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=report\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.16
+Version: 0.1.17
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,7 +28,7 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.16';
+    const VERSION = '0.1.17';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
@@ -718,7 +718,10 @@ Berichtsubersicht an.
     function createClonedSection(title, infoElement, troopTable, options) {
         return {
             title: title,
-            compactInfo: createCompactInfoLine(title, infoElement, Boolean(options && options.ownVillage)),
+            compactInfo: createCompactInfoLine(title, infoElement, {
+                ownVillage: Boolean(options && options.ownVillage),
+                callSupportLink: Boolean(options && options.markNoDeff && title === 'Verteidiger')
+            }),
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
             markNoDeff: Boolean(options && options.markNoDeff),
@@ -728,9 +731,11 @@ Berichtsubersicht an.
         };
     }
 
-    function createCompactInfoLine(title, infoElement, ownVillage) {
+    function createCompactInfoLine(title, infoElement, options) {
         const line = document.createElement('div');
         line.className = 'dshelper-report-line';
+        const ownVillage = Boolean(options && options.ownVillage);
+        const callSupportLink = Boolean(options && options.callSupportLink);
 
         const label = document.createElement('strong');
         label.textContent = title + ': ';
@@ -749,7 +754,7 @@ Berichtsubersicht an.
         values.forEach(function (value, index) {
             if (index > 0) {
                 line.appendChild(document.createTextNode(' - '));
-                prepareVillageLinks(value, ownVillage);
+                prepareVillageLinks(value, ownVillage, callSupportLink);
             }
             appendCompactValue(line, value);
         });
@@ -792,7 +797,7 @@ Berichtsubersicht an.
         }
     }
 
-    function prepareVillageLinks(root, ownVillage) {
+    function prepareVillageLinks(root, ownVillage, callSupportLink) {
         Array.from(root.querySelectorAll('a[href]')).forEach(function (link) {
             const url = getVillageInfoUrl(link);
             if (!url) {
@@ -800,7 +805,9 @@ Berichtsubersicht an.
             }
 
             if (ownVillage) {
-                const ownVillageUrl = createOwnVillageOverviewUrl(url);
+                const ownVillageUrl = callSupportLink
+                    ? createOwnVillageCallSupportUrl(url)
+                    : createOwnVillageOverviewUrl(url);
                 if (ownVillageUrl) {
                     link.href = ownVillageUrl;
                 }
@@ -838,6 +845,20 @@ Berichtsubersicht an.
         overviewUrl.searchParams.set('village', villageId);
         overviewUrl.searchParams.set('screen', 'overview');
         return overviewUrl.toString();
+    }
+
+    function createOwnVillageCallSupportUrl(infoVillageUrl) {
+        const villageId = infoVillageUrl.searchParams.get('id');
+        if (!villageId) {
+            return null;
+        }
+
+        const callSupportUrl = new URL(infoVillageUrl.origin + infoVillageUrl.pathname);
+        callSupportUrl.searchParams.set('village', villageId);
+        callSupportUrl.searchParams.set('screen', 'place');
+        callSupportUrl.searchParams.set('mode', 'call');
+        callSupportUrl.searchParams.set('target', villageId);
+        return callSupportUrl.toString();
     }
 
     function sanitizeTroopTable(table) {

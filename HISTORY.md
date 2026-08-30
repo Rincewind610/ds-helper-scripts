@@ -13,6 +13,15 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-30 - ds-report-overview.user.js v0.1.17
+
+- Version von ds-report-overview.user.js auf 0.1.17 angehoben.
+- Linkziel fuer den Verteidiger-Dorfnamen bei dunkelrot markierten eigenen Verteidiger-Berichten mit zu wenig Deff auf den Versammlungsplatz im Modus Massenunterstuetzung umgestellt (`screen=place&mode=call&target=<DORFID>`).
+- Dorf-ID wird fuer `village` und `target` aus dem gelesenen Verteidiger-Dorflink verwendet; Links oeffnen weiterhin in einem neuen Tab.
+- Angreifer-Links, nicht markierte Berichte, Scharf-Markierung, Fake-Erkennung, automatisches Anhaken, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-28 - ds-report-overview.user.js v0.1.16
 
 - Version von ds-report-overview.user.js auf 0.1.16 angehoben.
