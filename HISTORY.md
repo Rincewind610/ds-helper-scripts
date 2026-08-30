@@ -13,6 +13,24 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-30 - ds-report-overview.user.js v0.1.21
+
+- Version von ds-report-overview.user.js auf 0.1.21 angehoben.
+- Rosa Verteidiger-Warnungen mit 0 Spaehern fuehren wieder zur Massenunterstuetzung, jedoch ohne `dshelper_auto_deff=1`.
+- Der automatische `Deff senden`-Klick bleibt dadurch rosa Warnungen verwehrt und ist weiterhin nur fuer rote/dunkelrote Deff-Warnungen mit Marker aktiv.
+- Rote/dunkelrote Deff-Warnungen behalten Massenunterstuetzung, internen Marker und Auto-Oeffnen; Fake-Erkennung, Scharf-Markierung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
+### 2026-08-30 - ds-report-overview.user.js v0.1.20
+
+- Version von ds-report-overview.user.js auf 0.1.20 angehoben.
+- Linkziel zur Massenunterstuetzung mit `dshelper_auto_deff=1` wieder auf rote/dunkelrote Verteidiger-Berichte mit zu wenig Deff begrenzt.
+- Rosa Verteidiger-Warnungen mit 0 Spaehern verwenden wieder das normale eigene Dorf-Linkverhalten und loesen dadurch keinen automatischen `Deff senden`-Klick aus.
+- Auto-Klick-Logik fuer rote/dunkelrote Deff-Warnungen bleibt erhalten; Fake-Erkennung, Scharf-Markierung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-30 - ds-report-overview.user.js v0.1.19
 
 - Version von ds-report-overview.user.js auf 0.1.19 angehoben.

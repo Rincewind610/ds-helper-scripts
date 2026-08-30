@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.19
+// @version      0.1.21
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.19
+Version: 0.1.21
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,7 +28,7 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.19';
+    const VERSION = '0.1.21';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
@@ -728,7 +728,8 @@ Berichtsubersicht an.
             title: title,
             compactInfo: createCompactInfoLine(title, infoElement, {
                 ownVillage: Boolean(options && options.ownVillage),
-                callSupportLink: Boolean(options && (options.markNoDeff || options.markNoSpy) && title === 'Verteidiger')
+                callSupportLink: Boolean(options && (options.markNoDeff || options.markNoSpy) && title === 'Verteidiger'),
+                autoDeffClick: Boolean(options && options.markNoDeff && title === 'Verteidiger')
             }),
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
@@ -744,6 +745,7 @@ Berichtsubersicht an.
         line.className = 'dshelper-report-line';
         const ownVillage = Boolean(options && options.ownVillage);
         const callSupportLink = Boolean(options && options.callSupportLink);
+        const autoDeffClick = Boolean(options && options.autoDeffClick);
 
         const label = document.createElement('strong');
         label.textContent = title + ': ';
@@ -762,7 +764,7 @@ Berichtsubersicht an.
         values.forEach(function (value, index) {
             if (index > 0) {
                 line.appendChild(document.createTextNode(' - '));
-                prepareVillageLinks(value, ownVillage, callSupportLink);
+                prepareVillageLinks(value, ownVillage, callSupportLink, autoDeffClick);
             }
             appendCompactValue(line, value);
         });
@@ -805,7 +807,7 @@ Berichtsubersicht an.
         }
     }
 
-    function prepareVillageLinks(root, ownVillage, callSupportLink) {
+    function prepareVillageLinks(root, ownVillage, callSupportLink, autoDeffClick) {
         Array.from(root.querySelectorAll('a[href]')).forEach(function (link) {
             const url = getVillageInfoUrl(link);
             if (!url) {
@@ -814,7 +816,7 @@ Berichtsubersicht an.
 
             if (ownVillage) {
                 const ownVillageUrl = callSupportLink
-                    ? createOwnVillageCallSupportUrl(url)
+                    ? createOwnVillageCallSupportUrl(url, autoDeffClick)
                     : createOwnVillageOverviewUrl(url);
                 if (ownVillageUrl) {
                     link.href = ownVillageUrl;
@@ -855,7 +857,7 @@ Berichtsubersicht an.
         return overviewUrl.toString();
     }
 
-    function createOwnVillageCallSupportUrl(infoVillageUrl) {
+    function createOwnVillageCallSupportUrl(infoVillageUrl, autoDeffClick) {
         const villageId = infoVillageUrl.searchParams.get('id');
         if (!villageId) {
             return null;
@@ -866,7 +868,9 @@ Berichtsubersicht an.
         callSupportUrl.searchParams.set('screen', 'place');
         callSupportUrl.searchParams.set('mode', 'call');
         callSupportUrl.searchParams.set('target', villageId);
-        callSupportUrl.searchParams.set(AUTO_DEFF_PARAM, '1');
+        if (autoDeffClick) {
+            callSupportUrl.searchParams.set(AUTO_DEFF_PARAM, '1');
+        }
         return callSupportUrl.toString();
     }
 
