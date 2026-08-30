@@ -13,6 +13,24 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-30 - ds-report-overview.user.js v0.1.26
+
+- Version von ds-report-overview.user.js auf 0.1.26 angehoben.
+- Rote/dunkelrote Verteidiger-Warnungen durchlaufen nach dem SD-Gruppenklick nun zusaetzlich den Tab `Massen-Unterstuetzung` ueber `dshelper_auto_mass_support=1`.
+- Erst nach diesem Zwischenschritt wird auf `dshelper_auto_deff=1` gewechselt und `Deff senden` automatisch geklickt; Reloads nach SD- oder Tab-Klick bleiben dadurch im Ablauf.
+- Rosa Warnungen behalten den getrennten Flex-Ablauf ohne `Massen-Unterstuetzung`-Tab, `Deff senden` oder `Deff anfordern`; Fake-Erkennung, Scharf-Markierung, Warn-Erkennung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
+### 2026-08-30 - ds-report-overview.user.js v0.1.25
+
+- Version von ds-report-overview.user.js auf 0.1.25 angehoben.
+- Rote/dunkelrote Verteidiger-Warnungen setzen auf dem Massenunterstuetzungs-Link nun `dshelper_auto_sd=1` und klicken auf der Zielseite zuerst den Gruppenlink `SD` bzw. `[SD]`.
+- Nach dem SD-Klick wird auf den bestehenden `dshelper_auto_deff=1`-Folgeschritt gewechselt, sodass anschliessend `Deff senden` automatisch geoeffnet wird.
+- Rosa Warnungen behalten den getrennten Flex-Ablauf ohne `Deff senden`; Fake-Erkennung, Scharf-Markierung, Warn-Erkennung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-30 - ds-report-overview.user.js v0.1.24
 
 - Version von ds-report-overview.user.js auf 0.1.24 angehoben.

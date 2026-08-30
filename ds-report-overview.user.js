@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.24
+// @version      0.1.26
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.24
+Version: 0.1.26
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,12 +28,14 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.24';
+    const VERSION = '0.1.26';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
     const REQUEST_DELAY_MS = 100;
     const AUTO_DEFF_PARAM = 'dshelper_auto_deff';
+    const AUTO_SD_PARAM = 'dshelper_auto_sd';
+    const AUTO_MASS_SUPPORT_PARAM = 'dshelper_auto_mass_support';
     const AUTO_FLEX_PARAM = 'dshelper_auto_flex';
     const AUTO_DEFF_MAX_ATTEMPTS = 20;
     const AUTO_DEFF_RETRY_DELAY_MS = 250;
@@ -67,6 +69,16 @@ Berichtsubersicht an.
     function initReportOverview() {
         if (shouldAutoClickDeffSend()) {
             startAutoDeffSendClick();
+            return;
+        }
+
+        if (shouldAutoClickMassSupport()) {
+            startAutoMassSupportDeffSend();
+            return;
+        }
+
+        if (shouldAutoSelectSdGroup()) {
+            startAutoSdDeffSend();
             return;
         }
 
@@ -877,7 +889,7 @@ Berichtsubersicht an.
         callSupportUrl.searchParams.set('mode', 'call');
         callSupportUrl.searchParams.set('target', villageId);
         if (autoDeffClick) {
-            callSupportUrl.searchParams.set(AUTO_DEFF_PARAM, '1');
+            callSupportUrl.searchParams.set(AUTO_SD_PARAM, '1');
         }
         if (autoFlexRequest) {
             callSupportUrl.searchParams.set(AUTO_FLEX_PARAM, '1');
@@ -1098,6 +1110,148 @@ Berichtsubersicht an.
         tryClickDeffSend();
     }
 
+    function shouldAutoClickMassSupport() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_MASS_SUPPORT_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoMassSupportDeffSend() {
+        let attempts = 0;
+
+        function tryClickMassSupport() {
+            attempts += 1;
+
+            const massSupportControl = findVisibleControlByText('Massen-Unterst\u00fctzung');
+            if (massSupportControl) {
+                markAutoMassSupportDoneInCurrentUrl();
+                prepareControlUrlAfterAutoMassSupport(massSupportControl);
+                debugLog('Massen-Unterstuetzung automatisch geklickt:', attempts);
+                massSupportControl.click();
+                window.setTimeout(startAutoDeffSendClick, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickMassSupport, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('Massen-Unterstuetzung nicht gefunden.');
+        }
+
+        tryClickMassSupport();
+    }
+
+    function markAutoMassSupportDoneInCurrentUrl() {
+        const nextUrl = createUrlAfterAutoMassSupport(window.location.href);
+        if (nextUrl) {
+            window.history.replaceState(null, document.title, nextUrl);
+        }
+    }
+
+    function prepareControlUrlAfterAutoMassSupport(element) {
+        const link = element.closest('a[href]');
+        if (link) {
+            const linkUrl = createUrlAfterAutoMassSupport(link.href);
+            if (linkUrl) {
+                link.href = linkUrl;
+            }
+            return;
+        }
+
+        const form = element.closest('form[action]');
+        if (form) {
+            const formUrl = createUrlAfterAutoMassSupport(form.action);
+            if (formUrl) {
+                form.action = formUrl;
+            }
+        }
+    }
+
+    function createUrlAfterAutoMassSupport(value) {
+        const url = new URL(value, window.location.origin);
+        if (!/^https?:$/.test(url.protocol)) {
+            return null;
+        }
+
+        url.searchParams.delete(AUTO_MASS_SUPPORT_PARAM);
+        url.searchParams.set(AUTO_DEFF_PARAM, '1');
+        return url.toString();
+    }
+
+    function shouldAutoSelectSdGroup() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_SD_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoSdDeffSend() {
+        let attempts = 0;
+
+        function tryClickSd() {
+            attempts += 1;
+
+            const sdControl = findVisibleGroupLinkByName('SD');
+            if (sdControl) {
+                markAutoSdDoneInCurrentUrl();
+                prepareControlUrlAfterAutoSd(sdControl);
+                debugLog('SD automatisch geklickt:', attempts);
+                sdControl.click();
+                window.setTimeout(startAutoMassSupportDeffSend, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickSd, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('SD nicht gefunden.');
+        }
+
+        tryClickSd();
+    }
+
+    function markAutoSdDoneInCurrentUrl() {
+        const nextUrl = createUrlAfterAutoSd(window.location.href);
+        if (nextUrl) {
+            window.history.replaceState(null, document.title, nextUrl);
+        }
+    }
+
+    function prepareControlUrlAfterAutoSd(element) {
+        const link = element.closest('a[href]');
+        if (link) {
+            const linkUrl = createUrlAfterAutoSd(link.href);
+            if (linkUrl) {
+                link.href = linkUrl;
+            }
+            return;
+        }
+
+        const form = element.closest('form[action]');
+        if (form) {
+            const formUrl = createUrlAfterAutoSd(form.action);
+            if (formUrl) {
+                form.action = formUrl;
+            }
+        }
+    }
+
+    function createUrlAfterAutoSd(value) {
+        const url = new URL(value, window.location.origin);
+        if (!/^https?:$/.test(url.protocol)) {
+            return null;
+        }
+
+        url.searchParams.delete(AUTO_SD_PARAM);
+        url.searchParams.set(AUTO_MASS_SUPPORT_PARAM, '1');
+        return url.toString();
+    }
+
     function shouldAutoRequestFlexDeff() {
         const params = new URLSearchParams(window.location.search);
         return params.get(AUTO_FLEX_PARAM) === '1' &&
@@ -1111,7 +1265,7 @@ Berichtsubersicht an.
         function tryClickFlex() {
             attempts += 1;
 
-            const flexControl = findVisibleFlexGroupLink();
+            const flexControl = findVisibleGroupLinkByName('Flex');
             if (flexControl) {
                 removeAutoFlexMarkerFromCurrentUrl();
                 prepareControlUrlWithoutAutoFlexMarker(flexControl);
@@ -1167,13 +1321,13 @@ Berichtsubersicht an.
         return url.toString();
     }
 
-    function findVisibleFlexGroupLink() {
+    function findVisibleGroupLinkByName(groupName) {
         return Array.from(document.querySelectorAll('a[href]')).find(function (link) {
-            return isVisibleElement(link) && normalizeFlexLinkText(link.textContent) === 'Flex';
+            return isVisibleElement(link) && normalizeGroupLinkText(link.textContent) === groupName;
         }) || null;
     }
 
-    function normalizeFlexLinkText(value) {
+    function normalizeGroupLinkText(value) {
         return cleanText(value).replace(/^\[\s*/, '').replace(/\s*\]$/, '');
     }
 
