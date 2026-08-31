@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.26
+// @version      0.1.27
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.26
+Version: 0.1.27
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,7 +28,7 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.26';
+    const VERSION = '0.1.27';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
@@ -1204,6 +1204,13 @@ Berichtsubersicht an.
                 return;
             }
 
+            if (hasVisibleGroupTextByName('SD')) {
+                markAutoSdDoneInCurrentUrl();
+                debugLog('SD bereits aktiv, weiter mit Massen-Unterstuetzung:', attempts);
+                startAutoMassSupportDeffSend();
+                return;
+            }
+
             if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
                 window.setTimeout(tryClickSd, AUTO_DEFF_RETRY_DELAY_MS);
                 return;
@@ -1327,8 +1334,24 @@ Berichtsubersicht an.
         }) || null;
     }
 
+    function hasVisibleGroupTextByName(groupName) {
+        return Array.from(document.querySelectorAll('td, th, div, span, p')).some(function (element) {
+            if (!isVisibleElement(element)) {
+                return false;
+            }
+
+            return cleanText(element.textContent).split(/\s+/).some(function (part) {
+                return normalizeGroupTextPart(part) === groupName;
+            });
+        });
+    }
+
     function normalizeGroupLinkText(value) {
         return cleanText(value).replace(/^\[\s*/, '').replace(/\s*\]$/, '');
+    }
+
+    function normalizeGroupTextPart(value) {
+        return normalizeGroupLinkText(value).replace(/^[,:;]+/, '').replace(/[,:;]+$/, '');
     }
 
     function findDeffSendControl() {

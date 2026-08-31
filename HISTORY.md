@@ -13,6 +13,13 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-08-31 - ds-report-overview.user.js v0.1.27
+
+- Version von ds-report-overview.user.js auf 0.1.27 angehoben.
+- Rote/dunkelrote Verteidiger-Warnungen behandeln eine bereits aktive SD-Gruppe nun als erledigten SD-Schritt und laufen direkt mit `Massen-Unterstuetzung` und danach `Deff senden` weiter.
+- Die SD-Erkennung prueft neben klickbaren `SD`-/`[SD]`-Links auch sichtbaren Gruppen-Text; rosa Flex-Ablauf, Fake-Erkennung, Scharf-Markierung, Warn-Erkennung, Parser-, AJAX- und Rate-Limiting-Logik bleiben unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+
 ### 2026-08-30 - ds-report-overview.user.js v0.1.26
 
 - Version von ds-report-overview.user.js auf 0.1.26 angehoben.
