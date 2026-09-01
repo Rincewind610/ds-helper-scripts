@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.16
+// @version      0.1.28
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
-// @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=report\b)[^#]*$/
+// @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.16
+Version: 0.1.28
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,17 +28,28 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.16';
+    const VERSION = '0.1.28';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
     const REQUEST_DELAY_MS = 100;
+    const AUTO_DEFF_PARAM = 'dshelper_auto_deff';
+    const AUTO_SD_PARAM = 'dshelper_auto_sd';
+    const AUTO_MASS_SUPPORT_PARAM = 'dshelper_auto_mass_support';
+    const AUTO_FLEX_PARAM = 'dshelper_auto_flex';
+    const AUTO_DEFF_MAX_ATTEMPTS = 20;
+    const AUTO_DEFF_RETRY_DELAY_MS = 250;
     const MAX_FAKE_SPIES = 10;
     const MAX_FAKE_CATAPULTS = 14;
     const MAX_SHARP_ATTACKER_UNITS = 1000;
-    const MIN_SHARP_HEAVY_COUNT = 401;
     const MIN_DEFF_PER_UNIT = 100;
+    const MIN_FULL_AXE_COUNT = 3000;
+    const MIN_FULL_LIGHT_COUNT = 1500;
+    const OWN_SHARP_ATTACKER_NAME = 'Rincewind610';
     const ATTACKER_SHARP_CLASS = 'dshelper-report-attacker-sharp';
+    const ATTACKER_FULL_CLASS = 'dshelper-report-attacker-full';
+    const ATTACKER_OWN_SHARP_LOST_CLASS = 'dshelper-report-attacker-own-sharp-lost';
+    const ATTACKER_OWN_SHARP_SURVIVED_CLASS = 'dshelper-report-attacker-own-sharp-survived';
     const DEFENDER_NO_SPY_CLASS = 'dshelper-report-defender-no-spy';
     const DEFENDER_NO_DEFF_CLASS = 'dshelper-defender-no-deff';
     const ATTACKER_UNIT_KEYS = [
@@ -55,9 +66,30 @@ Berichtsubersicht an.
         'knight',
         'snob'
     ];
+    const SHARP_OFF_UNIT_KEYS = ['axe', 'light', 'marcher', 'ram'];
     const SCRIPT_PREFIX = '[DS Helper Berichtsubersicht]';
 
     function initReportOverview() {
+        if (shouldAutoClickDeffSend()) {
+            startAutoDeffSendClick();
+            return;
+        }
+
+        if (shouldAutoClickMassSupport()) {
+            startAutoMassSupportDeffSend();
+            return;
+        }
+
+        if (shouldAutoSelectSdGroup()) {
+            startAutoSdDeffSend();
+            return;
+        }
+
+        if (shouldAutoRequestFlexDeff()) {
+            startAutoFlexDeffRequest();
+            return;
+        }
+
         if (!isReportScreen()) {
             debugLog('Keine Berichtsubersicht, Script beendet.');
             return;
@@ -271,6 +303,13 @@ Berichtsubersicht an.
             : null;
         const markNoDeff = Boolean(defenderDeffCounts && hasInsufficientDeff(defenderDeffCounts));
         const attackerTroopCounts = attackerTroops ? extractTroopCounts(attackerTroops) : null;
+        const attackerLossCounts = attackerTroops ? extractTroopLossCounts(attackerTroops) : null;
+        const attackerName = getInfoValueTextByLabel(attackerInfo, 'Angreifer');
+        const fullAttack = isFullAttack(attackerTroopCounts);
+        const sharpAttackCheck = getSharpAttackCheck(attackerTroopCounts, attackerLossCounts, attackerName);
+
+        debugLog('Scharf-Pruefung:', Object.assign({ reportId: reportId }, sharpAttackCheck));
+        debugLog('Vollangriffs-Pruefung:', reportId, fullAttack, attackerTroopCounts);
 
         if (!attackerTroops) {
             debugLog('Angreifer-Truppen unbekannt:', reportId);
@@ -294,7 +333,10 @@ Berichtsubersicht an.
 
         return {
             attacker: createClonedSection('Angreifer', attackerInfo, attackerTroops, {
-                markSharp: isSharpAttack(attackerTroopCounts),
+                markFullAttack: fullAttack,
+                markSharp: sharpAttackCheck.isSharp,
+                ownSharpAllLost: sharpAttackCheck.isOwnSharp && sharpAttackCheck.allAttackerTroopsLost,
+                ownSharpSurvived: sharpAttackCheck.isOwnSharp && !sharpAttackCheck.allAttackerTroopsLost,
                 ownVillage: ownAttacker
             }),
             defender: createClonedSection('Verteidiger', defenderInfo, defenderTroops, {
@@ -398,24 +440,39 @@ Berichtsubersicht an.
     }
 
     function findAmountRow(table) {
+        return findTroopCountRow(table, 'Anzahl');
+    }
+
+    function findLossesRow(table) {
+        return findTroopCountRow(table, 'Verluste');
+    }
+
+    function findTroopCountRow(table, label) {
         return Array.from(table.querySelectorAll('tr')).find(function (row) {
             const firstCell = row.querySelector('td, th');
-            return firstCell && /^Anzahl$/i.test(stripTrailingColon(firstCell.textContent));
+            return firstCell && stripTrailingColon(firstCell.textContent).toLowerCase() === label.toLowerCase();
         }) || null;
     }
 
     function extractTroopCounts(table) {
-        const amountRow = findAmountRow(table);
-        const iconRow = findIconRowBeforeAmount(table, amountRow);
+        return extractTroopCountsFromRow(table, findAmountRow(table));
+    }
 
-        if (!amountRow || !iconRow) {
+    function extractTroopLossCounts(table) {
+        return extractTroopCountsFromRow(table, findLossesRow(table));
+    }
+
+    function extractTroopCountsFromRow(table, countRow) {
+        const iconRow = findIconRowBeforeAmount(table, countRow);
+
+        if (!countRow || !iconRow) {
             return null;
         }
 
         const iconCells = Array.from(iconRow.children).filter(function (cell) {
             return cell.matches('td, th') && cell.querySelector('img');
         });
-        const amountCells = getAmountCells(amountRow);
+        const amountCells = getAmountCells(countRow);
 
         if (iconCells.length === 0 || amountCells.length !== iconCells.length) {
             return null;
@@ -455,7 +512,7 @@ Berichtsubersicht an.
         });
         const firstCell = cells[0] || null;
 
-        if (firstCell && /^Anzahl$/i.test(stripTrailingColon(firstCell.textContent))) {
+        if (firstCell && /^(Anzahl|Verluste)$/i.test(stripTrailingColon(firstCell.textContent))) {
             return cells.slice(1);
         }
 
@@ -603,17 +660,69 @@ Berichtsubersicht an.
             hasOnlyAllowedAttackerUnits(counts, ['spy', 'catapult']);
     }
 
-    function isSharpAttack(counts) {
-        if (!counts || isFakeAttack(counts) || getTroopCount(counts, 'snob') > 0) {
+    function isFullAttack(counts) {
+        if (!counts) {
             return false;
         }
 
-        return getTotalAttackerTroopCount(counts) <= MAX_SHARP_ATTACKER_UNITS &&
-            (hasRealOffTroops(counts) || getTroopCount(counts, 'heavy') >= MIN_SHARP_HEAVY_COUNT);
+        const axeCount = getTroopCount(counts, 'axe');
+        const lightCount = getTroopCount(counts, 'light');
+
+        return axeCount >= MIN_FULL_AXE_COUNT || lightCount >= MIN_FULL_LIGHT_COUNT;
+    }
+
+    function getSharpAttackCheck(counts, lossCounts, attackerName) {
+        const total = counts ? getTotalAttackerTroopCount(counts) : 0;
+        const hasOffTroops = Boolean(counts && hasRealOffTroops(counts));
+        const hasNoble = Boolean(counts && getTroopCount(counts, 'snob') > 0);
+        const isFake = isFakeAttack(counts);
+        const isSharp = Boolean(counts &&
+            !isFake &&
+            !hasNoble &&
+            total <= MAX_SHARP_ATTACKER_UNITS &&
+            hasOffTroops);
+        const isOwnSharp = isSharp && isSpecialSharpAttacker(attackerName);
+        const allAttackerTroopsLost = isOwnSharp && hasAllAttackerTroopsLost(counts, lossCounts);
+
+        return {
+            total: total,
+            hasOffTroops: hasOffTroops,
+            hasNoble: hasNoble,
+            isFake: isFake,
+            isSharp: isSharp,
+            attackerName: attackerName || '',
+            isOwnSharp: isOwnSharp,
+            allAttackerTroopsLost: allAttackerTroopsLost
+        };
+    }
+
+    function isSpecialSharpAttacker(attackerName) {
+        return normalizeGermanText(attackerName) === normalizeGermanText(OWN_SHARP_ATTACKER_NAME);
+    }
+
+    function hasAllAttackerTroopsLost(counts, lossCounts) {
+        if (!counts || !lossCounts) {
+            return false;
+        }
+
+        let hasPresentTroops = false;
+        for (const unitKey of ATTACKER_UNIT_KEYS) {
+            const amount = getTroopCount(counts, unitKey);
+            if (amount === 0) {
+                continue;
+            }
+
+            hasPresentTroops = true;
+            if (getTroopCount(lossCounts, unitKey) < amount) {
+                return false;
+            }
+        }
+
+        return hasPresentTroops;
     }
 
     function hasRealOffTroops(counts) {
-        return ['axe', 'light', 'marcher', 'ram'].some(function (unitKey) {
+        return SHARP_OFF_UNIT_KEYS.some(function (unitKey) {
             return getTroopCount(counts, unitKey) > 0;
         });
     }
@@ -652,17 +761,29 @@ Berichtsubersicht an.
     function createClonedSection(title, infoElement, troopTable, options) {
         return {
             title: title,
-            compactInfo: createCompactInfoLine(title, infoElement, Boolean(options && options.ownVillage)),
+            compactInfo: createCompactInfoLine(title, infoElement, {
+                ownVillage: Boolean(options && options.ownVillage),
+                callSupportLink: Boolean(options && (options.markNoDeff || options.markNoSpy) && title === 'Verteidiger'),
+                autoDeffClick: Boolean(options && options.markNoDeff && title === 'Verteidiger'),
+                autoFlexRequest: Boolean(options && !options.markNoDeff && options.markNoSpy && title === 'Verteidiger')
+            }),
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
             markNoDeff: Boolean(options && options.markNoDeff),
-            markSharp: Boolean(options && options.markSharp)
+            markFullAttack: Boolean(options && options.markFullAttack),
+            markSharp: Boolean(options && options.markSharp),
+            ownSharpAllLost: Boolean(options && options.ownSharpAllLost),
+            ownSharpSurvived: Boolean(options && options.ownSharpSurvived)
         };
     }
 
-    function createCompactInfoLine(title, infoElement, ownVillage) {
+    function createCompactInfoLine(title, infoElement, options) {
         const line = document.createElement('div');
         line.className = 'dshelper-report-line';
+        const ownVillage = Boolean(options && options.ownVillage);
+        const callSupportLink = Boolean(options && options.callSupportLink);
+        const autoDeffClick = Boolean(options && options.autoDeffClick);
+        const autoFlexRequest = Boolean(options && options.autoFlexRequest);
 
         const label = document.createElement('strong');
         label.textContent = title + ': ';
@@ -681,7 +802,7 @@ Berichtsubersicht an.
         values.forEach(function (value, index) {
             if (index > 0) {
                 line.appendChild(document.createTextNode(' - '));
-                prepareVillageLinks(value, ownVillage);
+                prepareVillageLinks(value, ownVillage, callSupportLink, autoDeffClick, autoFlexRequest);
             }
             appendCompactValue(line, value);
         });
@@ -724,7 +845,7 @@ Berichtsubersicht an.
         }
     }
 
-    function prepareVillageLinks(root, ownVillage) {
+    function prepareVillageLinks(root, ownVillage, callSupportLink, autoDeffClick, autoFlexRequest) {
         Array.from(root.querySelectorAll('a[href]')).forEach(function (link) {
             const url = getVillageInfoUrl(link);
             if (!url) {
@@ -732,7 +853,9 @@ Berichtsubersicht an.
             }
 
             if (ownVillage) {
-                const ownVillageUrl = createOwnVillageOverviewUrl(url);
+                const ownVillageUrl = callSupportLink
+                    ? createOwnVillageCallSupportUrl(url, autoDeffClick, autoFlexRequest)
+                    : createOwnVillageOverviewUrl(url);
                 if (ownVillageUrl) {
                     link.href = ownVillageUrl;
                 }
@@ -770,6 +893,26 @@ Berichtsubersicht an.
         overviewUrl.searchParams.set('village', villageId);
         overviewUrl.searchParams.set('screen', 'overview');
         return overviewUrl.toString();
+    }
+
+    function createOwnVillageCallSupportUrl(infoVillageUrl, autoDeffClick, autoFlexRequest) {
+        const villageId = infoVillageUrl.searchParams.get('id');
+        if (!villageId) {
+            return null;
+        }
+
+        const callSupportUrl = new URL(infoVillageUrl.origin + infoVillageUrl.pathname);
+        callSupportUrl.searchParams.set('village', villageId);
+        callSupportUrl.searchParams.set('screen', 'place');
+        callSupportUrl.searchParams.set('mode', 'call');
+        callSupportUrl.searchParams.set('target', villageId);
+        if (autoDeffClick) {
+            callSupportUrl.searchParams.set(AUTO_SD_PARAM, '1');
+        }
+        if (autoFlexRequest) {
+            callSupportUrl.searchParams.set(AUTO_FLEX_PARAM, '1');
+        }
+        return callSupportUrl.toString();
     }
 
     function sanitizeTroopTable(table) {
@@ -871,8 +1014,17 @@ Berichtsubersicht an.
             block.classList.add(DEFENDER_NO_SPY_CLASS);
         }
 
-        if (section.markSharp) {
-            block.classList.add(ATTACKER_SHARP_CLASS);
+        if (section.title === 'Angreifer' && section.markFullAttack) {
+            block.classList.add(ATTACKER_FULL_CLASS);
+            section.compactInfo.appendChild(createFullAttackLabel());
+        } else if (section.title === 'Angreifer' && section.markSharp) {
+            if (section.ownSharpAllLost) {
+                block.classList.add(ATTACKER_OWN_SHARP_LOST_CLASS);
+            } else if (section.ownSharpSurvived) {
+                block.classList.add(ATTACKER_OWN_SHARP_SURVIVED_CLASS);
+            } else {
+                block.classList.add(ATTACKER_SHARP_CLASS);
+            }
             section.compactInfo.appendChild(createSharpLabel());
         }
 
@@ -889,6 +1041,13 @@ Berichtsubersicht an.
         block.appendChild(troops);
 
         return block;
+    }
+
+    function createFullAttackLabel() {
+        const label = document.createElement('span');
+        label.className = 'dshelper-report-full-label';
+        label.textContent = 'Voll';
+        return label;
     }
 
     function createSharpLabel() {
@@ -948,6 +1107,303 @@ Berichtsubersicht an.
             .replace(/\u00df/g, 'ss');
     }
 
+    function shouldAutoClickDeffSend() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_DEFF_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoDeffSendClick() {
+        let attempts = 0;
+
+        function tryClickDeffSend() {
+            attempts += 1;
+
+            const deffSendControl = findDeffSendControl();
+            if (deffSendControl) {
+                debugLog('Deff senden automatisch geklickt:', attempts);
+                deffSendControl.click();
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickDeffSend, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('Deff senden nicht gefunden.');
+        }
+
+        tryClickDeffSend();
+    }
+
+    function shouldAutoClickMassSupport() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_MASS_SUPPORT_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoMassSupportDeffSend() {
+        let attempts = 0;
+
+        function tryClickMassSupport() {
+            attempts += 1;
+
+            const massSupportControl = findVisibleControlByText('Massen-Unterst\u00fctzung');
+            if (massSupportControl) {
+                markAutoMassSupportDoneInCurrentUrl();
+                prepareControlUrlAfterAutoMassSupport(massSupportControl);
+                debugLog('Massen-Unterstuetzung automatisch geklickt:', attempts);
+                massSupportControl.click();
+                window.setTimeout(startAutoDeffSendClick, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickMassSupport, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('Massen-Unterstuetzung nicht gefunden.');
+        }
+
+        tryClickMassSupport();
+    }
+
+    function markAutoMassSupportDoneInCurrentUrl() {
+        const nextUrl = createUrlAfterAutoMassSupport(window.location.href);
+        if (nextUrl) {
+            window.history.replaceState(null, document.title, nextUrl);
+        }
+    }
+
+    function prepareControlUrlAfterAutoMassSupport(element) {
+        const link = element.closest('a[href]');
+        if (link) {
+            const linkUrl = createUrlAfterAutoMassSupport(link.href);
+            if (linkUrl) {
+                link.href = linkUrl;
+            }
+            return;
+        }
+
+        const form = element.closest('form[action]');
+        if (form) {
+            const formUrl = createUrlAfterAutoMassSupport(form.action);
+            if (formUrl) {
+                form.action = formUrl;
+            }
+        }
+    }
+
+    function createUrlAfterAutoMassSupport(value) {
+        const url = new URL(value, window.location.origin);
+        if (!/^https?:$/.test(url.protocol)) {
+            return null;
+        }
+
+        url.searchParams.delete(AUTO_MASS_SUPPORT_PARAM);
+        url.searchParams.set(AUTO_DEFF_PARAM, '1');
+        return url.toString();
+    }
+
+    function shouldAutoSelectSdGroup() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_SD_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoSdDeffSend() {
+        let attempts = 0;
+
+        function tryClickSd() {
+            attempts += 1;
+
+            const sdControl = findVisibleGroupLinkByName('SD');
+            if (sdControl) {
+                markAutoSdDoneInCurrentUrl();
+                prepareControlUrlAfterAutoSd(sdControl);
+                debugLog('SD automatisch geklickt:', attempts);
+                sdControl.click();
+                window.setTimeout(startAutoMassSupportDeffSend, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            if (hasVisibleGroupTextByName('SD')) {
+                markAutoSdDoneInCurrentUrl();
+                debugLog('SD bereits aktiv, weiter mit Massen-Unterstuetzung:', attempts);
+                startAutoMassSupportDeffSend();
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickSd, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('SD nicht gefunden.');
+        }
+
+        tryClickSd();
+    }
+
+    function markAutoSdDoneInCurrentUrl() {
+        const nextUrl = createUrlAfterAutoSd(window.location.href);
+        if (nextUrl) {
+            window.history.replaceState(null, document.title, nextUrl);
+        }
+    }
+
+    function prepareControlUrlAfterAutoSd(element) {
+        const link = element.closest('a[href]');
+        if (link) {
+            const linkUrl = createUrlAfterAutoSd(link.href);
+            if (linkUrl) {
+                link.href = linkUrl;
+            }
+            return;
+        }
+
+        const form = element.closest('form[action]');
+        if (form) {
+            const formUrl = createUrlAfterAutoSd(form.action);
+            if (formUrl) {
+                form.action = formUrl;
+            }
+        }
+    }
+
+    function createUrlAfterAutoSd(value) {
+        const url = new URL(value, window.location.origin);
+        if (!/^https?:$/.test(url.protocol)) {
+            return null;
+        }
+
+        url.searchParams.delete(AUTO_SD_PARAM);
+        url.searchParams.set(AUTO_MASS_SUPPORT_PARAM, '1');
+        return url.toString();
+    }
+
+    function shouldAutoRequestFlexDeff() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(AUTO_FLEX_PARAM) === '1' &&
+            params.get('screen') === 'place' &&
+            params.get('mode') === 'call';
+    }
+
+    function startAutoFlexDeffRequest() {
+        let attempts = 0;
+
+        function tryClickFlex() {
+            attempts += 1;
+
+            const flexControl = findVisibleGroupLinkByName('Flex');
+            if (flexControl) {
+                removeAutoFlexMarkerFromCurrentUrl();
+                prepareControlUrlWithoutAutoFlexMarker(flexControl);
+                debugLog('Flex automatisch geklickt:', attempts);
+                flexControl.click();
+                return;
+            }
+
+            if (attempts < AUTO_DEFF_MAX_ATTEMPTS) {
+                window.setTimeout(tryClickFlex, AUTO_DEFF_RETRY_DELAY_MS);
+                return;
+            }
+
+            debugLog('Flex nicht gefunden.');
+        }
+
+        tryClickFlex();
+    }
+
+    function removeAutoFlexMarkerFromCurrentUrl() {
+        const cleanUrl = createUrlWithoutAutoFlexMarker(window.location.href);
+        if (cleanUrl) {
+            window.history.replaceState(null, document.title, cleanUrl);
+        }
+    }
+
+    function prepareControlUrlWithoutAutoFlexMarker(element) {
+        const link = element.closest('a[href]');
+        if (link) {
+            const linkUrl = createUrlWithoutAutoFlexMarker(link.href);
+            if (linkUrl) {
+                link.href = linkUrl;
+            }
+            return;
+        }
+
+        const form = element.closest('form[action]');
+        if (form) {
+            const formUrl = createUrlWithoutAutoFlexMarker(form.action);
+            if (formUrl) {
+                form.action = formUrl;
+            }
+        }
+    }
+
+    function createUrlWithoutAutoFlexMarker(value) {
+        const url = new URL(value, window.location.origin);
+        if (!/^https?:$/.test(url.protocol)) {
+            return null;
+        }
+
+        url.searchParams.delete(AUTO_FLEX_PARAM);
+        return url.toString();
+    }
+
+    function findVisibleGroupLinkByName(groupName) {
+        return Array.from(document.querySelectorAll('a[href]')).find(function (link) {
+            return isVisibleElement(link) && normalizeGroupLinkText(link.textContent) === groupName;
+        }) || null;
+    }
+
+    function hasVisibleGroupTextByName(groupName) {
+        return Array.from(document.querySelectorAll('td, th, div, span, p')).some(function (element) {
+            if (!isVisibleElement(element)) {
+                return false;
+            }
+
+            return cleanText(element.textContent).split(/\s+/).some(function (part) {
+                return normalizeGroupTextPart(part) === groupName;
+            });
+        });
+    }
+
+    function normalizeGroupLinkText(value) {
+        return cleanText(value).replace(/^\[\s*/, '').replace(/\s*\]$/, '');
+    }
+
+    function normalizeGroupTextPart(value) {
+        return normalizeGroupLinkText(value).replace(/^[,:;]+/, '').replace(/[,:;]+$/, '');
+    }
+
+    function findDeffSendControl() {
+        return findVisibleControlByText('Deff senden');
+    }
+
+    function findVisibleControlByText(text) {
+        return Array.from(document.querySelectorAll('a, button, input[type=button], input[type=submit]')).find(function (element) {
+            return isVisibleElement(element) && getVisibleControlText(element) === text;
+        }) || null;
+    }
+
+    function getVisibleControlText(element) {
+        if (element.matches('input')) {
+            return cleanText(element.value);
+        }
+
+        return cleanText(element.textContent);
+    }
+
+    function isVisibleElement(element) {
+        return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+    }
+
     function debugPreviewStructure(reportId, doc, dialogHtml) {
         if (!DEBUG) {
             return;
@@ -990,6 +1446,12 @@ Berichtsubersicht an.
             '.dshelper-report-preview { display: flex; flex-wrap: wrap; gap: 4px; margin: 1px 0 2px; }',
             '.dshelper-report-section { box-sizing: border-box; flex: 1 1 320px; min-width: 280px; border: 1px solid #c1a264; background: #f4e4bc; padding: 3px 4px; color: #3f2f1d; line-height: 15px; }',
             '.dshelper-report-attacker-sharp { background: #ffd28a; border-left: 4px solid #d17a00; }',
+            '.dshelper-report-attacker-own-sharp-lost { background: #c8f7c5; border-left: 4px solid #2f9e44; }',
+            '.dshelper-report-attacker-own-sharp-survived { background: #1f6f3a; border-left: 4px solid #0f3d20; color: #f1fff4; }',
+            '.dshelper-report-attacker-own-sharp-survived a { color: #ffffff; }',
+            '.dshelper-report-attacker-full { background: #d72d2d; border-left: 4px solid #5d0909; color: #111111; }',
+            '.dshelper-report-attacker-full a { color: #111111; }',
+            '.dshelper-report-full-label { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid #5d0909; background: #ef3b3b; color: #111111; font-weight: bold; line-height: 13px; }',
             '.dshelper-report-sharp-label { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid #b86400; background: #f6a623; color: #2f1b00; font-weight: bold; line-height: 13px; }',
             '.dshelper-report-defender-no-spy { background: #f3c7bd; border-color: #b76a5d; }',
             '.dshelper-defender-no-deff { background: #7f1d1d; border-color: #4c0f0f; color: #fff2f2; }',

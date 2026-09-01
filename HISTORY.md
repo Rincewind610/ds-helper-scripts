@@ -13,6 +13,15 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-09-01 - ds-report-overview.user.js v0.1.28
+
+- Version von `ds-report-overview.user.js` auf `0.1.28` angehoben.
+- Voller Angriff in der Angreifer-Anzeige ergänzt: `axe >= 3000` oder `light >= 1500` markiert den Angriff als voll und zeigt ein rotes `Voll`-Label an.
+- Volle Angriffe erhalten prioritaetlich die alarm-rote Markierung vor der vorhandenen orangefarbenen Scharf-Erkennung, damit große Offs nicht nur als mittelstark auffallen.
+- Parser-, AJAX-, Rate-Limiting-, Fake-, Scharf-, Deff- und Linklogik unveraendert gelassen; nur die Angreifer-Anzeige und die Styling-Klasse wurden erweitert.
+- Pruefung: `git diff --check` und `node --check ds-report-overview.user.js` ausgefuehrt; die Syntax- und Whitespace-Pruefung erfolgt im aktuellen Terminal-Environment, die Beispiele wurden durch die Logik validiert.
+- Offen: Manueller Spieltest als Schnellleistenskript.
+
 ### 2026-08-28 - ds-report-overview.user.js v0.1.16
 
 - Version von `ds-report-overview.user.js` auf `0.1.16` angehoben.
