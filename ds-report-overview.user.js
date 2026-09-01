@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.27
+// @version      0.1.28
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.27
+Version: 0.1.28
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,7 +28,7 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.27';
+    const VERSION = '0.1.28';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
@@ -43,8 +43,11 @@ Berichtsubersicht an.
     const MAX_FAKE_CATAPULTS = 14;
     const MAX_SHARP_ATTACKER_UNITS = 1000;
     const MIN_DEFF_PER_UNIT = 100;
+    const MIN_FULL_AXE_COUNT = 3000;
+    const MIN_FULL_LIGHT_COUNT = 1500;
     const OWN_SHARP_ATTACKER_NAME = 'Rincewind610';
     const ATTACKER_SHARP_CLASS = 'dshelper-report-attacker-sharp';
+    const ATTACKER_FULL_CLASS = 'dshelper-report-attacker-full';
     const ATTACKER_OWN_SHARP_LOST_CLASS = 'dshelper-report-attacker-own-sharp-lost';
     const ATTACKER_OWN_SHARP_SURVIVED_CLASS = 'dshelper-report-attacker-own-sharp-survived';
     const DEFENDER_NO_SPY_CLASS = 'dshelper-report-defender-no-spy';
@@ -302,9 +305,11 @@ Berichtsubersicht an.
         const attackerTroopCounts = attackerTroops ? extractTroopCounts(attackerTroops) : null;
         const attackerLossCounts = attackerTroops ? extractTroopLossCounts(attackerTroops) : null;
         const attackerName = getInfoValueTextByLabel(attackerInfo, 'Angreifer');
+        const fullAttack = isFullAttack(attackerTroopCounts);
         const sharpAttackCheck = getSharpAttackCheck(attackerTroopCounts, attackerLossCounts, attackerName);
 
         debugLog('Scharf-Pruefung:', Object.assign({ reportId: reportId }, sharpAttackCheck));
+        debugLog('Vollangriffs-Pruefung:', reportId, fullAttack, attackerTroopCounts);
 
         if (!attackerTroops) {
             debugLog('Angreifer-Truppen unbekannt:', reportId);
@@ -328,6 +333,7 @@ Berichtsubersicht an.
 
         return {
             attacker: createClonedSection('Angreifer', attackerInfo, attackerTroops, {
+                markFullAttack: fullAttack,
                 markSharp: sharpAttackCheck.isSharp,
                 ownSharpAllLost: sharpAttackCheck.isOwnSharp && sharpAttackCheck.allAttackerTroopsLost,
                 ownSharpSurvived: sharpAttackCheck.isOwnSharp && !sharpAttackCheck.allAttackerTroopsLost,
@@ -654,6 +660,17 @@ Berichtsubersicht an.
             hasOnlyAllowedAttackerUnits(counts, ['spy', 'catapult']);
     }
 
+    function isFullAttack(counts) {
+        if (!counts) {
+            return false;
+        }
+
+        const axeCount = getTroopCount(counts, 'axe');
+        const lightCount = getTroopCount(counts, 'light');
+
+        return axeCount >= MIN_FULL_AXE_COUNT || lightCount >= MIN_FULL_LIGHT_COUNT;
+    }
+
     function getSharpAttackCheck(counts, lossCounts, attackerName) {
         const total = counts ? getTotalAttackerTroopCount(counts) : 0;
         const hasOffTroops = Boolean(counts && hasRealOffTroops(counts));
@@ -753,6 +770,7 @@ Berichtsubersicht an.
             troopTable: troopTable ? sanitizeTroopTable(troopTable) : null,
             markNoSpy: Boolean(options && options.markNoSpy),
             markNoDeff: Boolean(options && options.markNoDeff),
+            markFullAttack: Boolean(options && options.markFullAttack),
             markSharp: Boolean(options && options.markSharp),
             ownSharpAllLost: Boolean(options && options.ownSharpAllLost),
             ownSharpSurvived: Boolean(options && options.ownSharpSurvived)
@@ -996,7 +1014,10 @@ Berichtsubersicht an.
             block.classList.add(DEFENDER_NO_SPY_CLASS);
         }
 
-        if (section.title === 'Angreifer' && section.markSharp) {
+        if (section.title === 'Angreifer' && section.markFullAttack) {
+            block.classList.add(ATTACKER_FULL_CLASS);
+            section.compactInfo.appendChild(createFullAttackLabel());
+        } else if (section.title === 'Angreifer' && section.markSharp) {
             if (section.ownSharpAllLost) {
                 block.classList.add(ATTACKER_OWN_SHARP_LOST_CLASS);
             } else if (section.ownSharpSurvived) {
@@ -1020,6 +1041,13 @@ Berichtsubersicht an.
         block.appendChild(troops);
 
         return block;
+    }
+
+    function createFullAttackLabel() {
+        const label = document.createElement('span');
+        label.className = 'dshelper-report-full-label';
+        label.textContent = 'Voll';
+        return label;
     }
 
     function createSharpLabel() {
@@ -1421,6 +1449,9 @@ Berichtsubersicht an.
             '.dshelper-report-attacker-own-sharp-lost { background: #c8f7c5; border-left: 4px solid #2f9e44; }',
             '.dshelper-report-attacker-own-sharp-survived { background: #1f6f3a; border-left: 4px solid #0f3d20; color: #f1fff4; }',
             '.dshelper-report-attacker-own-sharp-survived a { color: #ffffff; }',
+            '.dshelper-report-attacker-full { background: #d72d2d; border-left: 4px solid #5d0909; color: #111111; }',
+            '.dshelper-report-attacker-full a { color: #111111; }',
+            '.dshelper-report-full-label { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid #5d0909; background: #ef3b3b; color: #111111; font-weight: bold; line-height: 13px; }',
             '.dshelper-report-sharp-label { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid #b86400; background: #f6a623; color: #2f1b00; font-weight: bold; line-height: 13px; }',
             '.dshelper-report-defender-no-spy { background: #f3c7bd; border-color: #b76a5d; }',
             '.dshelper-defender-no-deff { background: #7f1d1d; border-color: #4c0f0f; color: #fff2f2; }',
