@@ -13,6 +13,13 @@ kuenftige Arbeiten den bisherigen Stand schnell nachvollziehen koennen.
 
 ## Eintraege
 
+### 2026-09-01 - ds-report-overview.user.js v0.1.29
+
+- Version von ds-report-overview.user.js auf 0.1.29 angehoben.
+- Scharf-Erkennung verlangt nun mindestens 100 eindeutig gelesene leichte Kavallerie, bevor die bisherigen Scharf-Kriterien greifen.
+- Voll-Markierung fuer mindestens 3000 Aexte oder mindestens 1500 leichte Kavallerie bleibt unveraendert.
+- Pruefung: node --check steht auf diesem System nicht im PATH; git diff --check meldet beim Userscript wie zuvor CRLF-Zeilenenden als trailing whitespace.
+
 ### 2026-08-31 - ds-report-overview.user.js v0.1.27
 
 - Version von ds-report-overview.user.js auf 0.1.27 angehoben.

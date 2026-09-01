@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DS Helper - Berichtsubersicht
 // @namespace    https://github.com/Rincewind610/ds-helper-scripts
-// @version      0.1.28
+// @version      0.1.29
 // @description  Zeigt wichtige Informationen aus der Berichtsvorschau direkt in der Berichtsubersicht an.
 // @author       Rincewind610
 // @include      /^https?:\/\/[^/]+\.die-staemme\.de\/game\.php\?(?=[^#]*\bscreen=(?:report|place)\b)[^#]*$/
@@ -13,7 +13,7 @@
 =======================================
 DS Helper
 Name: Berichtsubersicht
-Version: 0.1.28
+Version: 0.1.29
 Kategorie: Berichte
 Autor: Rincewind610
 
@@ -28,7 +28,7 @@ Berichtsubersicht an.
 (function () {
     'use strict';
 
-    const VERSION = '0.1.28';
+    const VERSION = '0.1.29';
     const DEBUG = true;
     const MAX_REPORTS = 100;
     const MAX_CONCURRENT_REQUESTS = 1;
@@ -42,6 +42,7 @@ Berichtsubersicht an.
     const MAX_FAKE_SPIES = 10;
     const MAX_FAKE_CATAPULTS = 14;
     const MAX_SHARP_ATTACKER_UNITS = 1000;
+    const MIN_SHARP_LIGHT_COUNT = 100;
     const MIN_DEFF_PER_UNIT = 100;
     const MIN_FULL_AXE_COUNT = 3000;
     const MIN_FULL_LIGHT_COUNT = 1500;
@@ -673,10 +674,12 @@ Berichtsubersicht an.
 
     function getSharpAttackCheck(counts, lossCounts, attackerName) {
         const total = counts ? getTotalAttackerTroopCount(counts) : 0;
+        const lightCount = counts ? getTroopCount(counts, 'light') : 0;
         const hasOffTroops = Boolean(counts && hasRealOffTroops(counts));
         const hasNoble = Boolean(counts && getTroopCount(counts, 'snob') > 0);
         const isFake = isFakeAttack(counts);
         const isSharp = Boolean(counts &&
+            lightCount >= MIN_SHARP_LIGHT_COUNT &&
             !isFake &&
             !hasNoble &&
             total <= MAX_SHARP_ATTACKER_UNITS &&
@@ -686,6 +689,7 @@ Berichtsubersicht an.
 
         return {
             total: total,
+            lightCount: lightCount,
             hasOffTroops: hasOffTroops,
             hasNoble: hasNoble,
             isFake: isFake,
