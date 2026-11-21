@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Ressourcen Balancing Voll zu Leer
-Version: 1.1.4
+Version: 1.1.5
 Kategorie: Produktion
 Autor: Rincewind610
 
@@ -21,7 +21,7 @@ Lagerfüllstand absteigend sortiert.
 
     const SCRIPT_NAME = 'DS Helper';
     const SCRIPT_TITLE = 'Ressourcen Balancing Voll zu Leer';
-    const VERSION = '1.1.4';
+    const VERSION = '1.1.5';
 
     const WINDOW_ID = 'dshelper-resource-balancing';
     const STYLE_ID = 'dshelper-resource-balancing-style';
@@ -238,9 +238,18 @@ function calculateTransportForPair(pair) {
         maximumTransfer.stone +
         maximumTransfer.iron;
 
+    const receiverRoomTo90Percent = Math.floor(
+        Math.max(
+            0,
+            receiver.storage * 3 * 0.9 -
+                receiver.totalResources
+        )
+    );
+
     const requestedTotal = Math.min(
         merchantCapacity,
-        totalPossible
+        totalPossible,
+        receiverRoomTo90Percent
     );
 
     if (requestedTotal <= 0) {
