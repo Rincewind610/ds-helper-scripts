@@ -2,13 +2,16 @@
 =======================================
 DS Helper
 Name: Forschung Übersicht mit BHP
-Version: 1.0.0
+Version: 1.0.1
 Kategorie: Forschung
 Autor: Rincewind610
 
 Funktion:
 Zeigt in der Forschungsübersicht die
 freien BHP der einzelnen Dörfer an.
+
+Hebt das Wort "Rekrutierung" in den
+Einträgen der Forschungsübersicht hervor.
 
 Rot: mehr als 50 freie BHP
 Grün: maximal 50 freie BHP
@@ -31,6 +34,39 @@ Die Spalte kann durch Anklicken der
     function key(txt){
         var m = txt.match(/\((\d+\|\d+)\)\s*K\d+/);
         return m ? m[0] : null;
+    }
+
+    function highlightRecruitment($container){
+
+        $container.find('*').addBack().contents().filter(function(){
+            return this.nodeType === 3 &&
+                   this.nodeValue.indexOf('Rekrutierung') !== -1 &&
+                   !$(this.parentNode).closest('.ds-helper-rekrutierung').length;
+        }).each(function(){
+
+            var fragment = document.createDocumentFragment();
+            var parts = this.nodeValue.split('Rekrutierung');
+
+            $.each(parts, function(i, part){
+                if(part){
+                    fragment.appendChild(document.createTextNode(part));
+                }
+
+                if(i < parts.length - 1){
+                    var marker = document.createElement('span');
+                    marker.className = 'ds-helper-rekrutierung';
+                    marker.textContent = 'Rekrutierung';
+                    marker.style.backgroundColor = '#fff2a8';
+                    marker.style.color = '#000';
+                    marker.style.fontWeight = 'bold';
+                    marker.style.borderRadius = '2px';
+                    fragment.appendChild(marker);
+                }
+            });
+
+            this.parentNode.replaceChild(fragment, this);
+        });
+
     }
 
     $.get(prodUrl, function(html){
@@ -81,6 +117,8 @@ Die Spalte kann durch Anklicken der
         $('table.vis tr').each(function(){
 
             var $row = $(this);
+
+            highlightRecruitment($row);
 
             if($row.data('bhpTechDone')){
                 return;
