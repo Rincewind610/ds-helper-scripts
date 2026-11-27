@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Forschung Übersicht mit BHP
-Version: 1.0.2
+Version: 1.0.3
 Kategorie: Forschung
 Autor: Rincewind610
 
@@ -85,7 +85,7 @@ Die Spalte kann durch Anklicken der
                     var marker = document.createElement('span');
                     marker.className = 'ds-helper-rekrutierung';
                     marker.textContent = 'Rekrutierung';
-                    marker.style.backgroundColor = '#fff2a8';
+                    marker.style.backgroundColor = '#f86e12';
                     marker.style.color = '#000';
                     marker.style.fontWeight = 'bold';
                     marker.style.borderRadius = '2px';
