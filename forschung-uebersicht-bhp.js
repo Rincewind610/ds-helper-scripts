@@ -2,7 +2,7 @@
 =======================================
 DS Helper
 Name: Forschung Übersicht mit BHP
-Version: 1.0.1
+Version: 1.0.2
 Kategorie: Forschung
 Autor: Rincewind610
 
@@ -12,6 +12,10 @@ freien BHP der einzelnen Dörfer an.
 
 Hebt das Wort "Rekrutierung" in den
 Einträgen der Forschungsübersicht hervor.
+
+Änderung 1.0.2:
+Die Hervorhebung durchsucht die verschachtelten
+Textknoten der Forschungszeilen vollständig.
 
 Rot: mehr als 50 freie BHP
 Grün: maximal 50 freie BHP
@@ -38,14 +42,39 @@ Die Spalte kann durch Anklicken der
 
     function highlightRecruitment($container){
 
-        $container.find('*').addBack().contents().filter(function(){
-            return this.nodeType === 3 &&
-                   this.nodeValue.indexOf('Rekrutierung') !== -1 &&
-                   !$(this.parentNode).closest('.ds-helper-rekrutierung').length;
-        }).each(function(){
+        var root = $container.get(0);
+
+        if(!root){
+            return;
+        }
+
+        var walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node){
+
+                    if(node.nodeValue.indexOf('Rekrutierung') === -1 ||
+                       $(node.parentNode).closest('.ds-helper-rekrutierung').length){
+                        return NodeFilter.FILTER_REJECT;
+                    }
+
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+
+        var textNodes = [];
+        var node;
+
+        while((node = walker.nextNode())){
+            textNodes.push(node);
+        }
+
+        $.each(textNodes, function(_, textNode){
 
             var fragment = document.createDocumentFragment();
-            var parts = this.nodeValue.split('Rekrutierung');
+            var parts = textNode.nodeValue.split('Rekrutierung');
 
             $.each(parts, function(i, part){
                 if(part){
@@ -64,7 +93,7 @@ Die Spalte kann durch Anklicken der
                 }
             });
 
-            this.parentNode.replaceChild(fragment, this);
+            textNode.parentNode.replaceChild(fragment, textNode);
         });
 
     }
