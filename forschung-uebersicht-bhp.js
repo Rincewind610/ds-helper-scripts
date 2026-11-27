@@ -2,13 +2,20 @@
 =======================================
 DS Helper
 Name: Forschung Übersicht mit BHP
-Version: 1.0.0
+Version: 1.0.2
 Kategorie: Forschung
 Autor: Rincewind610
 
 Funktion:
 Zeigt in der Forschungsübersicht die
 freien BHP der einzelnen Dörfer an.
+
+Hebt das Wort "Rekrutierung" in den
+Einträgen der Forschungsübersicht hervor.
+
+Änderung 1.0.2:
+Die Hervorhebung durchsucht die verschachtelten
+Textknoten der Forschungszeilen vollständig.
 
 Rot: mehr als 50 freie BHP
 Grün: maximal 50 freie BHP
@@ -31,6 +38,64 @@ Die Spalte kann durch Anklicken der
     function key(txt){
         var m = txt.match(/\((\d+\|\d+)\)\s*K\d+/);
         return m ? m[0] : null;
+    }
+
+    function highlightRecruitment($container){
+
+        var root = $container.get(0);
+
+        if(!root){
+            return;
+        }
+
+        var walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node){
+
+                    if(node.nodeValue.indexOf('Rekrutierung') === -1 ||
+                       $(node.parentNode).closest('.ds-helper-rekrutierung').length){
+                        return NodeFilter.FILTER_REJECT;
+                    }
+
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+
+        var textNodes = [];
+        var node;
+
+        while((node = walker.nextNode())){
+            textNodes.push(node);
+        }
+
+        $.each(textNodes, function(_, textNode){
+
+            var fragment = document.createDocumentFragment();
+            var parts = textNode.nodeValue.split('Rekrutierung');
+
+            $.each(parts, function(i, part){
+                if(part){
+                    fragment.appendChild(document.createTextNode(part));
+                }
+
+                if(i < parts.length - 1){
+                    var marker = document.createElement('span');
+                    marker.className = 'ds-helper-rekrutierung';
+                    marker.textContent = 'Rekrutierung';
+                    marker.style.backgroundColor = '#fff2a8';
+                    marker.style.color = '#000';
+                    marker.style.fontWeight = 'bold';
+                    marker.style.borderRadius = '2px';
+                    fragment.appendChild(marker);
+                }
+            });
+
+            textNode.parentNode.replaceChild(fragment, textNode);
+        });
+
     }
 
     $.get(prodUrl, function(html){
@@ -81,6 +146,8 @@ Die Spalte kann durch Anklicken der
         $('table.vis tr').each(function(){
 
             var $row = $(this);
+
+            highlightRecruitment($row);
 
             if($row.data('bhpTechDone')){
                 return;
